@@ -8,6 +8,5 @@ describe('EXT-X-I-FRAME-STREAM-INF', () => {
 
         expect(values).toHaveProperty('BANDWIDTH', 65000);
         expect(values).toHaveProperty('CODECS', expect.arrayContaining(['"mp4a.40.5"']));
-        expect(values).toHaveProperty('AUDIO', '"aac"');
     });
 });

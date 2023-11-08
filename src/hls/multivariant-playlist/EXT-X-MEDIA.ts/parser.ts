@@ -33,7 +33,7 @@ export default function (str: string): MediaTagAttributes {
         AUTOSELECT: extractedProperties['AUTOSELECT'] as MediaTagAttributes['AUTOSELECT'],
         FORCED: extractedProperties['FORCED'] as MediaTagAttributes['FORCED'],
         'INSTREAM-ID': extractedProperties['INSTREAM-ID'] as MediaTagAttributes['INSTREAM-ID'],
-        CHARACTERISTICS: extractedProperties['CHARACTERISTICS'].split(',').map(quotedStringify),
+        CHARACTERISTICS: extractedProperties['CHARACTERISTICS']?.split(',').map(quotedStringify),
         CHANNELS: quotedStringify(extractedProperties['CHANNELS']),
     };
 }

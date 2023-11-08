@@ -1,4 +1,4 @@
-import { Ify } from './helper-types';
+import { Ify } from './helper.types';
 
 type Numberfy<T extends Ify<string>> = T extends string ? number : undefined;
 export function numberfy<T extends Ify<string>>(str: T): Numberfy<T> {

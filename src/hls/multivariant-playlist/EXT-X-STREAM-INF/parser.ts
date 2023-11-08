@@ -25,7 +25,7 @@ export default function (str: string): StreamInfAttributes {
         'FRAME-RATE': numberfy(extractedValues['FRAME-RATE']),
         CODECS: extractedValues['CODECS'].split(',').map(quotedStringify),
         'HDCP-LEVEL': extractedValues['HDCP-LEVEL'] as StreamInfAttributes['HDCP-LEVEL'],
-        AUDIO: yesnoify(extractedValues['AUDIO']),
-        VIDEO: yesnoify(extractedValues['VIDEO']),
+        AUDIO: yesnoify(extractedValues['AUDIO'], true),
+        VIDEO: yesnoify(extractedValues['VIDEO'], true),
     };
 }
