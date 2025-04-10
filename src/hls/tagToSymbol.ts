@@ -1,9 +1,9 @@
-import { TAG_TO_SYMBOL } from './hls.enums';
+import { HLS_TAG_TYPES } from './hls.constants';
 
-const tagsAndSymbols: [string, symbol][] = Object.entries(TAG_TO_SYMBOL);
+const tagsAndSymbols: [string, symbol][] = Object.entries(HLS_TAG_TYPES);
 export function tagToSymbol(str: unknown): symbol | null {
     if (typeof str === 'string') {
-        let tag: symbol = TAG_TO_SYMBOL[str as keyof typeof TAG_TO_SYMBOL];
+        let tag: symbol = HLS_TAG_TYPES[str as keyof typeof HLS_TAG_TYPES];
         if (tag) {
             return tag;
         }
