@@ -1,9 +1,7 @@
-import { extractProperties } from '../../parsers/helpers/extract-properties';
+import { quotedStringify } from '../../../../helpers/quoted-stringify';
+import { attributeList } from '../../../parse-helpers/attribute-list';
+import { extractProperties } from '../../../parse-helpers/extract-properties';
 import { MediaTagAttributes } from './types';
-import { attributeList } from '../../parse-helpers/attribute-list';
-import { QuotedString } from '../../hls.types';
-import { quotedStringify } from '../../../helpers/quoted-stringify';
-import { yesnoify } from '../../../helpers/yesnoify';
 
 export default function (str: string): MediaTagAttributes {
     const values: MediaTagAttributes = attributeList<MediaTagAttributes>(str);

@@ -1,8 +1,8 @@
 /**
- * The EXT-X-ENDLIST tag indicates that no more Media Segments will be
-   added to the Media Playlist file.  It MAY occur anywhere in the Media
-   Playlist file.  Its format is:
+ * The EXTM3U tag indicates that the file is an Extended M3U [M3U]
+   Playlist file.  It MUST be the first line of every Media Playlist and
+   every Master Playlist.  Its format is:
 
-   #EXT-X-ENDLIST
+   #EXTM3U
  */
-export type EXTM3U = `#EXT-X-ENDLIST`;
+export type EXTM3U = `#EXTM3U`;

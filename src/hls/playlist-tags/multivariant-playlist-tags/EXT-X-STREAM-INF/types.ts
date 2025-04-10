@@ -134,3 +134,4 @@ export interface StreamInfAttributes {
 }
 
 export type STREAM_INF_KEYS = keyof StreamInfAttributes;
+export type EXT_X_STREAM_INF = `#EXT-X-STREAM-INF:${string}`;

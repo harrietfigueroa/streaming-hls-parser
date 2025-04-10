@@ -1,8 +1,8 @@
 import { Transform, TransformCallback } from 'stream';
-import { URI } from '../hls/hls.constants';
+import HLSTag from '../hls/hls-tag';
 import { isUri } from '../hls/isUri';
-import { tagToSymbol } from '../hls/tagToSymbol';
 import { Lexical } from './transformers.interfaces';
+import { PLAYLIST_TAGS } from '../hls/hls.types';
 
 export class HlsLexicalTransformer extends Transform {
     constructor() {
@@ -20,20 +20,20 @@ export class HlsLexicalTransformer extends Transform {
         callback();
     }
 
-    private parseLexical(line: string): Lexical | null {
+    private parseLexical(line: string): Lexical {
         if (isUri(line)) {
             return {
-                type: URI,
-                value: line,
+                type: HLSTag('URI'),
+                source: line,
             };
         }
-        const tagSymbol: symbol | null = tagToSymbol(line);
-        if (tagSymbol) {
-            return {
-                type: tagSymbol,
-                value: line,
-            };
-        }
-        return null;
+
+        // Casting is safe here because any unknown tag, custom tags for example,
+        // will be added to the global symbol registry
+        const tagSymbol: symbol = HLSTag(line as PLAYLIST_TAGS);
+        return {
+            type: tagSymbol,
+            source: line,
+        };
     }
 }

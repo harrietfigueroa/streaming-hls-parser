@@ -18,7 +18,7 @@ describe('HLS Lexical Transformer', (): void => {
         for await (const line of readable) {
             expect(line).toHaveProperty('type');
             expect(line.type).toBeDefined();
-            expect(line.value).toBeDefined();
+            expect(line.source).toBeDefined();
         }
     });
 });

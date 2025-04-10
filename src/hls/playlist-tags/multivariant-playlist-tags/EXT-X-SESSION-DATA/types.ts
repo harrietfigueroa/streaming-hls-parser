@@ -41,3 +41,4 @@ export interface SessionDataAttributes {
     LANGUAGE?: QuotedString;
 }
 export type SESSION_DATA_ATTRIBUTE_KEYS = keyof SessionDataAttributes;
+export type EXT_X_SESSION_DATA = `#EXT-X-SESSION-DATA:${string}`;

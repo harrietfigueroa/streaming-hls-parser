@@ -39,3 +39,5 @@ export interface IFrameStreamInfAttributes
      */
     URI: string;
 }
+
+export type EXT_X_I_FRAME_STREAM_INF = `#EXT-X-I-FRAME-STREAM-INF:${string}`;

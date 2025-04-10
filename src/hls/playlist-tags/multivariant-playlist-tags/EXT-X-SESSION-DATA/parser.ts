@@ -1,6 +1,6 @@
-import { quotedStringify } from '../../../helpers/quoted-stringify';
-import { attributeList } from '../../parse-helpers/attribute-list';
-import { extractProperties } from '../../parsers/helpers/extract-properties';
+import { quotedStringify } from '../../../../helpers/quoted-stringify';
+import { attributeList } from '../../../parse-helpers/attribute-list';
+import { extractProperties } from '../../../parse-helpers/extract-properties';
 import { SessionDataAttributes } from './types';
 
 export default function (str: string): SessionDataAttributes {

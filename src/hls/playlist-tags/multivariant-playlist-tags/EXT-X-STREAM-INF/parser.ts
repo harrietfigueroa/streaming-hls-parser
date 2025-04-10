@@ -1,8 +1,8 @@
-import { numberfy } from '../../../helpers/numberfy';
-import { quotedStringify } from '../../../helpers/quoted-stringify';
-import { yesnoify } from '../../../helpers/yesnoify';
-import { attributeList } from '../../parse-helpers/attribute-list';
-import { extractProperties } from '../../parsers/helpers/extract-properties';
+import { numberfy } from '../../../../helpers/numberfy';
+import { quotedStringify } from '../../../../helpers/quoted-stringify';
+import { yesnoify } from '../../../../helpers/yesnoify';
+import { attributeList } from '../../../parse-helpers/attribute-list';
+import { extractProperties } from '../../../parse-helpers/extract-properties';
 import { StreamInfAttributes } from './types';
 
 export default function (str: string): StreamInfAttributes {

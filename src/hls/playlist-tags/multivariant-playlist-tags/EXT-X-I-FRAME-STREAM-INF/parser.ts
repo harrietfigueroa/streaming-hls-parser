@@ -1,5 +1,5 @@
-import { attributeList } from '../../parse-helpers/attribute-list';
-import { extractProperties } from '../../parsers/helpers/extract-properties';
+import { attributeList } from '../../../parse-helpers/attribute-list';
+import { extractProperties } from '../../../parse-helpers/extract-properties';
 import streamInfParser from '../EXT-X-STREAM-INF/parser';
 import { IFrameStreamInfAttributes } from './types';
 

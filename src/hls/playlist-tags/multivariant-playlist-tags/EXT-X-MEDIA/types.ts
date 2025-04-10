@@ -159,3 +159,4 @@ export interface MediaTagAttributes {
 }
 
 export type MEDIA_TAG_ATTRIBUTE_KEYS = keyof MediaTagAttributes;
+export type EXT_X_MEDIA = `#EXT-X-MEDIA:${string}`;
