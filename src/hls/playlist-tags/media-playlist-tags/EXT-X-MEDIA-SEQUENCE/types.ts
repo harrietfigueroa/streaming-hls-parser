@@ -13,4 +13,5 @@
    that segments with the same Media Sequence Number in different Media
    Playlists contain matching content (see Section 6.3.2).
  */
-export type EXT_X_MEDIA_SEQUENCE = `#EXT-X-MEDIA-SEQUENCE:${number}`;
+export type EXT_X_MEDIA_SEQUENCE_PARSED = number;
+export type EXT_X_MEDIA_SEQUENCE_STRING = `#EXT-X-MEDIA-SEQUENCE:${number}`;

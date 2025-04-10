@@ -1,3 +1,5 @@
+import { EXT_X_KEY_PARSED } from '../../media-segment-tags/EXT-X-KEY/types';
+
 /**
  * The EXT-X-SESSION-KEY tag allows encryption keys from Media Playlists
    to be specified in a Master Playlist.  This allows the client to
@@ -24,4 +26,6 @@
 
    The EXT-X-SESSION-KEY tag is optional.
  */
-export type EXT_X_SESSION_KEY = `#EXT-X-SESSION-KEY:${string}`;
+export interface EXT_X_SESSION_KEY_PARSED extends EXT_X_KEY_PARSED {}
+
+export type EXT_X_SESSION_KEY_STRING = `#EXT-X-SESSION-KEY:${string}`;

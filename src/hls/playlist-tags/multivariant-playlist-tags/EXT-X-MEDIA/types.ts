@@ -1,4 +1,4 @@
-import { QuotedString } from '../../hls.types';
+import { QuotedString } from '../../../hls.types';
 
 /**
  * The EXT-X-MEDIA tag is used to relate Media Playlists that contain
@@ -13,7 +13,7 @@ import { QuotedString } from '../../hls.types';
 
    #EXT-X-MEDIA:<attribute-list>
  */
-export interface MediaTagAttributes {
+export interface EXT_X_MEDIA_PARSED {
     /**
      * The value is an enumerated-string; valid strings are AUDIO, VIDEO,
       SUBTITLES, and CLOSED-CAPTIONS.  This attribute is REQUIRED.
@@ -158,5 +158,4 @@ export interface MediaTagAttributes {
     CHANNELS: QuotedString;
 }
 
-export type MEDIA_TAG_ATTRIBUTE_KEYS = keyof MediaTagAttributes;
-export type EXT_X_MEDIA = `#EXT-X-MEDIA:${string}`;
+export type EXT_X_MEDIA_STRING = `#EXT-X-MEDIA:${string}`;

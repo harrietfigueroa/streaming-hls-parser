@@ -20,9 +20,18 @@
    (Section 6.2.2) MAY be updated to remove Media Segments in the order
    that they appeared.
  */
-export type EXT_X_PLAYLIST_TYPE = `#EXT-X-PLAYLIST-TYPE:${PlaylistTypeEnum}`;
+export type EXT_X_PLAYLIST_TYPE_PARSED = PlaylistTypeValues;
+export type EXT_X_PLAYLIST_TYPE_STRING = `#EXT-X-PLAYLIST-TYPE:${PlaylistTypeValues}`;
 
-export enum PlaylistTypeEnum {
-    EVENT = 'EVENT',
-    VOD = 'VOD',
-}
+export const PlaylistTypes = {
+    /**
+     * If the EXT-X-PLAYLIST-TYPE value is EVENT, Media Segments can only be added to the end of the Media Playlist.
+     */
+    EVENT: 'EVENT',
+    /**
+     * If the EXT-X-PLAYLIST-TYPE value is Video On Demand (VOD), the Media Playlist cannot change.
+     */
+    VOD: 'VOD',
+} as const;
+
+export type PlaylistTypeValues = (typeof PlaylistTypes)[keyof typeof PlaylistTypes];

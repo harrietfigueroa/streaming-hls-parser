@@ -1,7 +1,7 @@
 import { Transform, TransformCallback } from 'stream';
 import HLSTag from '../hls/hls-tag';
 import { isUri } from '../hls/isUri';
-import { Lexical } from './transformers.interfaces';
+import { LexicalToken } from './transformers.interfaces';
 import { PLAYLIST_TAGS } from '../hls/hls.types';
 
 export class HlsLexicalTransformer extends Transform {
@@ -12,7 +12,7 @@ export class HlsLexicalTransformer extends Transform {
     }
 
     _transform(chunk: any, encoding: BufferEncoding, callback: TransformCallback): void {
-        let lexicalParsed: Lexical | null = this.parseLexical(chunk);
+        let lexicalParsed: LexicalToken | null = this.parseLexical(chunk);
 
         if (lexicalParsed) {
             this.push(lexicalParsed);
@@ -20,7 +20,7 @@ export class HlsLexicalTransformer extends Transform {
         callback();
     }
 
-    private parseLexical(line: string): Lexical {
+    private parseLexical(line: string): LexicalToken {
         if (isUri(line)) {
             return {
                 type: HLSTag('URI'),

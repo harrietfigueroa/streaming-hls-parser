@@ -1,3 +1,7 @@
+export type EXT_X_BYTE_RANGE_STRING_VALUE = `${number}${'' | `@${number}`}`;
+export type EXT_X_BYTE_RANGE_SINGLE_PARAM = number;
+export type EXT_X_BYTE_RANGE_DOUBLE_PARAM = [number, number];
+
 /**
  *  The EXT-X-BYTERANGE tag indicates that a Media Segment is a sub-range
    of the resource identified by its URI.  It applies only to the next
@@ -22,4 +26,7 @@
    Use of the EXT-X-BYTERANGE tag REQUIRES a compatibility version
    number of 4 or greater.
  */
-export type EXT_X_BYTERANGE = `#EXT-X-BYTERANGE:${number}${'' | `@${number}`}`;
+export type EXT_X_BYTERANGE_PARSED<T = EXT_X_BYTERANGE_STRING> = T extends `${string}@${string}`
+    ? EXT_X_BYTE_RANGE_DOUBLE_PARAM
+    : EXT_X_BYTE_RANGE_DOUBLE_PARAM | EXT_X_BYTE_RANGE_SINGLE_PARAM;
+export type EXT_X_BYTERANGE_STRING = `#EXT-X-BYTERANGE:${EXT_X_BYTE_RANGE_STRING_VALUE}`;

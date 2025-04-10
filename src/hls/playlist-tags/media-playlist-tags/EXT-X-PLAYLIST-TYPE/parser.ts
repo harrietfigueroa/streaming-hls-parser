@@ -1,7 +1,7 @@
-import { PlaylistTypeEnum } from './types';
+import { PlaylistTypes, PlaylistTypeValues } from './types';
 
-export default function (str: string | PlaylistTypeEnum): PlaylistTypeEnum | null {
-    if (str === PlaylistTypeEnum.EVENT) return PlaylistTypeEnum.EVENT;
-    if (str === PlaylistTypeEnum.VOD) return PlaylistTypeEnum.VOD;
+export default function (str: string | PlaylistTypeValues): PlaylistTypeValues | null {
+    if (str === PlaylistTypes.EVENT) return PlaylistTypes.EVENT;
+    if (str === PlaylistTypes.VOD) return PlaylistTypes.VOD;
     return null;
 }

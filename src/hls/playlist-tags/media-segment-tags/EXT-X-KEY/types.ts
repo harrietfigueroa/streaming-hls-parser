@@ -1,3 +1,40 @@
+import { QuotedString } from '../../../hls.types';
+
+export const EXT_X_KEY_METHOD = {
+    /**
+     * An encryption method of NONE means that Media Segments are not
+      encrypted.  If the encryption method is NONE, other attributes
+      MUST NOT be present.
+     */
+    NONE: 'NONE',
+    /**
+     * An encryption method of AES-128 signals that Media Segments are
+      completely encrypted using the Advanced Encryption Standard (AES)
+      [AES_128] with a 128-bit key, Cipher Block Chaining (CBC), and
+      Public-Key Cryptography Standards #7 (PKCS7) padding [RFC5652].
+      CBC is restarted on each segment boundary, using either the
+      Initialization Vector (IV) attribute value or the Media Sequence
+      Number as the IV; see Section 5.2.
+     */
+    'AES-128': 'AES-128',
+    /**
+     * An encryption method of SAMPLE-AES means that the Media Segments
+      contain media samples, such as audio or video, that are encrypted
+      using the Advanced Encryption Standard [AES_128].  How these media
+      streams are encrypted and encapsulated in a segment depends on the
+      media encoding and the media format of the segment.  fMP4 Media
+      Segments are encrypted using the 'cbcs' scheme of Common
+      Encryption [COMMON_ENC].  Encryption of other Media Segment
+      formats containing H.264 [H_264], AAC [ISO_14496], AC-3 [AC_3],
+      and Enhanced AC-3 [AC_3] media streams is described in the HTTP
+      Live Streaming (HLS) Sample Encryption specification [SampleEnc].
+      The IV attribute MAY be present; see Section 5.2.
+     */
+    'SAMPLE-AES': 'SAMPLE-AES',
+} as const;
+
+export type EXT_X_KEY_METHOD_VALUES = (typeof EXT_X_KEY_METHOD)[keyof typeof EXT_X_KEY_METHOD];
+
 /**
  * Media Segments MAY be encrypted.  The EXT-X-KEY tag specifies how to
    decrypt them.  It applies to every Media Segment and to every Media
@@ -81,4 +118,13 @@
    See Section 5 for the format of the Key file and Sections 5.2, 6.2.3,
    and 6.3.6 for additional information on Media Segment encryption. 
  */
-export type EXT_X_KEY = `#EXT-X-KEY:${string}`;
+
+export interface EXT_X_KEY_PARSED {
+    METHOD: EXT_X_KEY_METHOD_VALUES;
+    URI: QuotedString;
+    IV: string;
+    KEYFORMAT?: QuotedString;
+    KEYFORMATVERSIONS: QuotedString;
+}
+
+export type EXT_X_KEY_STRING = `#EXT-X-KEY:${string}`;

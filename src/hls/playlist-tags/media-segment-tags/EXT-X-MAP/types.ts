@@ -1,3 +1,5 @@
+import { EXT_X_BYTE_RANGE_STRING_VALUE, EXT_X_BYTERANGE_PARSED } from '../EXT-X-BYTERANGE/types';
+
 /**
  * The EXT-X-MAP tag specifies how to obtain the Media Initialization
    Section (Section 3) required to parse the applicable Media Segments.
@@ -42,4 +44,9 @@
    encrypted with a METHOD of AES-128, the IV attribute of the EXT-X-KEY
    tag that applies to the EXT-X-MAP is REQUIRED.
  */
-export type EXT_X_MAP = `#EXT-X-MAP:${string}`;
+export interface EXT_X_MAP_PARSED {
+    URI: string;
+    BYTERANGE?: EXT_X_BYTERANGE_PARSED;
+}
+
+export type EXT_X_MAP_STRING = `#EXT-X-MAP:${string}`;

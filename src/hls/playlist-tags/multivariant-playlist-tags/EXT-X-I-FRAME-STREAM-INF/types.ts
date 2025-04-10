@@ -1,4 +1,4 @@
-import { StreamInfAttributes } from '../EXT-X-STREAM-INF/types';
+import { EXT_X_STREAM_INF_PARSED } from '../EXT-X-STREAM-INF/types';
 
 /**
  * The EXT-X-I-FRAME-STREAM-INF tag identifies a Media Playlist file
@@ -30,8 +30,11 @@ import { StreamInfAttributes } from '../EXT-X-STREAM-INF/types';
    Rendition for each regular VIDEO Rendition, with the same NAME and
    LANGUAGE attributes.
  */
-export interface IFrameStreamInfAttributes
-    extends Omit<StreamInfAttributes, 'FRAME-RATE' | 'AUDIO' | 'SUBTITLES' | 'CLOSED-CAPTIONS'> {
+export interface EXT_I_FRAME_STREAM_PARSED
+    extends Omit<
+        EXT_X_STREAM_INF_PARSED,
+        'FRAME-RATE' | 'AUDIO' | 'SUBTITLES' | 'CLOSED-CAPTIONS'
+    > {
     /**
      * The value is a quoted-string containing a URI that identifies the
       I-frame Media Playlist file.  That Playlist file MUST contain an
@@ -40,4 +43,4 @@ export interface IFrameStreamInfAttributes
     URI: string;
 }
 
-export type EXT_X_I_FRAME_STREAM_INF = `#EXT-X-I-FRAME-STREAM-INF:${string}`;
+export type EXT_X_I_FRAME_STREAM_INF_STRING = `#EXT-X-I-FRAME-STREAM-INF:${string}`;

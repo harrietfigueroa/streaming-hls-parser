@@ -100,9 +100,8 @@ import {
 
    Clients SHOULD ignore EXT-X-DATERANGE tags with illegal syntax.
  */
-export type EXT_X_DATERANGE = `#EXT-X-DATERANGE:${string}`;
 
-export interface DateRangeAttributes {
+export interface EXT_X_DATERANGE_PARSED {
     /**
      * A quoted-string that uniquely identifies a Date Range in the
       Playlist.  This attribute is REQUIRED.
@@ -189,3 +188,5 @@ export interface DateRangeAttributes {
      */
     'END-ON-NEXT'?: 'YES';
 }
+
+export type EXT_X_DATERANGE_STRING = `#EXT-X-DATERANGE:${string}`;

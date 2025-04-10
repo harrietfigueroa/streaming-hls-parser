@@ -1,14 +1,13 @@
 import { numberfy } from '../../../../helpers/numberfy';
 import { quotedStringify } from '../../../../helpers/quoted-stringify';
-import { yesnoify } from '../../../../helpers/yesnoify';
 import { attributeList } from '../../../parse-helpers/attribute-list';
 import { extractProperties } from '../../../parse-helpers/extract-properties';
-import { DateRangeAttributes } from './type';
+import { EXT_X_DATERANGE_PARSED } from './type';
 
 export default function <XValues extends Record<string, string> = Record<string, string>>(
     str: string,
-): DateRangeAttributes {
-    const values = attributeList<DateRangeAttributes>(str);
+): EXT_X_DATERANGE_PARSED {
+    const values = attributeList<EXT_X_DATERANGE_PARSED>(str);
     const extractedProperties = extractProperties(values, [
         'ID',
         'CLASS',
@@ -41,5 +40,5 @@ export default function <XValues extends Record<string, string> = Record<string,
         'SCTE-IN': extractedProperties['SCTE-IN'],
         'END-ON-NEXT': extractedProperties['END-ON-NEXT'] as 'YES',
         ...xValues,
-    } as DateRangeAttributes;
+    } as EXT_X_DATERANGE_PARSED;
 }

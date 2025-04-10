@@ -5,4 +5,5 @@
 
    #EXTM3U
  */
-export type EXTM3U = `#EXTM3U`;
+export type EXTM3U_PARSED = boolean;
+export type EXTM3U_STRING = `#EXTM3U`;

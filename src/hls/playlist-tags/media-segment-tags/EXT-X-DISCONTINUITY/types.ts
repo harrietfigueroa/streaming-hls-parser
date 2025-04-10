@@ -25,4 +25,5 @@
    See Sections 3, 6.2.1, and 6.3.3 for more information about the EXT-
    X-DISCONTINUITY tag.
  */
-export type EXT_X_DISCONTINUITY = '#EXT-X-DISCONTINUITY';
+export type EXT_X_DISCONTINUITY_PARSED = boolean;
+export type EXT_X_DISCONTINUITY_STRING = '#EXT-X-DISCONTINUITY';

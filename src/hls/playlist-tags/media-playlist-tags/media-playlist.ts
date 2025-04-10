@@ -1,6 +1,5 @@
 import { BasicPlaylist } from '../../playlists/basic-playlist';
 import { MEDIA_PLAYLIST_TAGS } from '../../hls.types';
-import { MediaSegment } from '../../playlists/media-segment';
 
 export enum PlaylistType {
     EVENT = 'EVENT',
@@ -14,7 +13,7 @@ export class MediaPlaylist extends BasicPlaylist implements Record<MEDIA_PLAYLIS
     public '#EXT-X-ENDLIST': boolean;
     public '#EXT-X-PLAYLIST-TYPE': PlaylistType;
     public '#EXT-X-I-FRAMES-ONLY': boolean;
-    public mediaSegments: MediaSegment[] = [];
+    public mediaSegments: any[] = [];
     constructor(mediaPlaylistOptions: Record<MEDIA_PLAYLIST_TAGS, any>) {
         super(mediaPlaylistOptions);
 

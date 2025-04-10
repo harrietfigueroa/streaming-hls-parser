@@ -5,4 +5,5 @@
 
    #EXT-X-ENDLIST
  */
-export type EXT_X_ENDLIST = `#EXT-X-ENDLIST`;
+export type EXT_X_ENDLIST_PARSED = boolean;
+export type EXT_X_ENDLIST_STRING = `#EXT-X-ENDLIST`;

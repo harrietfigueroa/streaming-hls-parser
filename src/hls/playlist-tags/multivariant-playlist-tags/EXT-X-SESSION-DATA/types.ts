@@ -8,7 +8,7 @@ import { QuotedString } from '../../../hls.types';
 
    #EXT-X-SESSION-DATA:<attribute-list>
  */
-export interface SessionDataAttributes {
+export interface EXT_X_SESSION_DATA_PARSED {
     /**
      * The value of DATA-ID is a quoted-string that identifies a
       particular data value.  The DATA-ID SHOULD conform to a reverse
@@ -40,5 +40,4 @@ export interface SessionDataAttributes {
      */
     LANGUAGE?: QuotedString;
 }
-export type SESSION_DATA_ATTRIBUTE_KEYS = keyof SessionDataAttributes;
-export type EXT_X_SESSION_DATA = `#EXT-X-SESSION-DATA:${string}`;
+export type EXT_X_SESSION_DATA_STRING = `#EXT-X-SESSION-DATA:${string}`;

@@ -22,4 +22,5 @@
    See Sections 6.2.1 and 6.2.2 for more information about setting the
    value of the EXT-X-DISCONTINUITY-SEQUENCE tag.
  */
-export type EXT_X_DISCONTINUITY_SEQUENCE = `#EXT-X-DISCONTINUITY-SEQUENCE:${number}`;
+export type EXT_X_DISCONTINUITY_SEQUENCE_PARSED = number;
+export type EXT_X_DISCONTINUITY_SEQUENCE_STRING = `#EXT-X-DISCONTINUITY-SEQUENCE:${number}`;

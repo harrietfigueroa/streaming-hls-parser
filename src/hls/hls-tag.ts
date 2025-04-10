@@ -17,7 +17,7 @@ export default function <T extends PLAYLIST_TAGS>(tag: T): symbol {
     if (typeof tag !== 'string') {
         throw new TypeError(`HLSTag expected a string, but received ${typeof tag}`);
     }
-    // Some tags will have colon and attributes (much like people do in the real world)
+    // Some tags will have a colon and attributes (much like people do in the real world)
     if (tag.includes(':')) {
         const stripped = tag.split(':')[0];
         return Symbol.for(stripped);

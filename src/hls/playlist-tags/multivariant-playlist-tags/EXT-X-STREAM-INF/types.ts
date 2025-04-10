@@ -1,4 +1,4 @@
-import { QuotedString } from '../../hls.types';
+import { QuotedString } from '../../../hls.types';
 
 /**
  * The EXT-X-STREAM-INF tag specifies a Variant Stream, which is a set
@@ -15,7 +15,7 @@ import { QuotedString } from '../../hls.types';
    #EXT-X-STREAM-INF:<attribute-list>
    <URI>
  */
-export interface StreamInfAttributes {
+export interface EXT_X_STREAM_INF_PARSED {
     /**
      * The value is a decimal-integer of bits per second.  It represents
       the peak segment bit rate of the Variant Stream.
@@ -133,5 +133,5 @@ export interface StreamInfAttributes {
     VIDEO?: QuotedString;
 }
 
-export type STREAM_INF_KEYS = keyof StreamInfAttributes;
-export type EXT_X_STREAM_INF = `#EXT-X-STREAM-INF:${string}`;
+export type EXT_X_STREAM_INF_VALUES = keyof EXT_X_STREAM_INF_PARSED;
+export type EXT_X_STREAM_INF_STRING = `#EXT-X-STREAM-INF:${string}`;

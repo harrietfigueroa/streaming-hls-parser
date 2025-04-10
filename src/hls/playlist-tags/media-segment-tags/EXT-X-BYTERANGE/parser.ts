@@ -1,21 +1,16 @@
 import { colonSeparated } from '../../../parse-helpers/colon-separated';
+import { EXT_X_BYTERANGE_PARSED, EXT_X_BYTERANGE_STRING } from './types';
 
-type ByteRangeSingleParam = number;
-type ByteRangeDoubleParam = [number, number];
-type ByteRangeReturnType<T> = T extends `${string}@${string}`
-    ? ByteRangeDoubleParam
-    : ByteRangeDoubleParam | ByteRangeSingleParam;
-
-export default function <T extends string>(str: T): ByteRangeReturnType<T> {
+export default function <T extends EXT_X_BYTERANGE_STRING>(str: T): EXT_X_BYTERANGE_PARSED<T> {
     if (hasSecondParam(str)) {
         // Tag looks like this:
         // '#EXT-X-BYTERANGE:16920@49256';
         const [first, second] = str.split('@');
-        return [+colonSeparated(first), +second] as ByteRangeReturnType<T>;
+        return [+colonSeparated(first), +second] as EXT_X_BYTERANGE_PARSED<T>;
     }
     // Tag looks like this:
     // '#EXT-X-BYTERANGE:16920';
-    return +colonSeparated(str) as ByteRangeReturnType<T>;
+    return +colonSeparated(str) as EXT_X_BYTERANGE_PARSED<T>;
 }
 
 function hasSecondParam(str: string): str is `${string}@${string}` {

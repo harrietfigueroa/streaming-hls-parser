@@ -23,4 +23,5 @@
    an I-frame segment with an EXT-X-BYTERANGE tag applied to it
    (Section 4.3.2.2) MUST NOT include its Media Initialization Section;
  */
-export type EXT_X_I_FRAMES_ONLY = '#EXT-X-I-FRAMES-ONLY';
+export type EXT_X_I_FRAMES_ONLY_PARSED = boolean;
+export type EXT_X_I_FRAMES_ONLY_STRING = '#EXT-X-I-FRAMES-ONLY';

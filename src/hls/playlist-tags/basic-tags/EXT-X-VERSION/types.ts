@@ -11,4 +11,5 @@
    number.
  */
 
-export type EXT_X_VERSION = `#EXT-X-VERSION:${number}`;
+export type EXT_X_VERSION_PARSED = number;
+export type EXT_X_VERSION_STRING = `#EXT-X-VERSION:${number}`;

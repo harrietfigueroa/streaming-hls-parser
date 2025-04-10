@@ -11,4 +11,5 @@
    where s is a decimal-integer indicating the target duration in
    seconds.  The EXT-X-TARGETDURATION tag is REQUIRED.
  */
-export type EXT_X_TARGETDURATION = `#EXT-X-TARGETDURATION:${number}`;
+export type EXT_X_TARGETDURATION_PARSED = number;
+export type EXT_X_TARGETDURATION_STRING = `#EXT-X-TARGETDURATION:${number}`;

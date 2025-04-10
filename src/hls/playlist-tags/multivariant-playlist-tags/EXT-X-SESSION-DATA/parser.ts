@@ -1,10 +1,10 @@
 import { quotedStringify } from '../../../../helpers/quoted-stringify';
 import { attributeList } from '../../../parse-helpers/attribute-list';
 import { extractProperties } from '../../../parse-helpers/extract-properties';
-import { SessionDataAttributes } from './types';
+import { EXT_X_SESSION_DATA_PARSED } from './types';
 
-export default function (str: string): SessionDataAttributes {
-    const values: SessionDataAttributes = attributeList<SessionDataAttributes>(str);
+export default function (str: string): EXT_X_SESSION_DATA_PARSED {
+    const values: EXT_X_SESSION_DATA_PARSED = attributeList<EXT_X_SESSION_DATA_PARSED>(str);
     const extractedProperties = extractProperties(values, ['DATA-ID', 'VALUE', 'URI', 'LANGUAGE']);
 
     return {
