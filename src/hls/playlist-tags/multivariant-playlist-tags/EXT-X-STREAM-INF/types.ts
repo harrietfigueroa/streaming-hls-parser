@@ -73,7 +73,7 @@ export interface EXT_X_STREAM_INF_PARSED {
 
       Every EXT-X-STREAM-INF tag SHOULD include a CODECS attribute.
      */
-    CODECS: QuotedString[];
+    CODECS?: QuotedString[];
 
     /**
      * The value is a decimal-resolution describing the optimal pixel

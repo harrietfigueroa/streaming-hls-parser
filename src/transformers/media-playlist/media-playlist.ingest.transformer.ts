@@ -9,7 +9,7 @@ import parseEndlist from '../../hls/playlist-tags/media-playlist-tags/EXT-ENDLIS
 import parsePlaylistType from '../../hls/playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/parser';
 import parseIFramesOnly from '../../hls/playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/parser';
 import parseStart from '../../hls/playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/parser';
-import { LexicalToken, MediaPlaylistToken } from '../transformers.interfaces';
+import { LexicalToken, PlaylistToken } from '../transformers.interfaces';
 import HLSTag from '../../hls/hls-tag';
 
 export class MediaPlaylistIngestTransformer extends Transform {
@@ -20,15 +20,15 @@ export class MediaPlaylistIngestTransformer extends Transform {
     }
 
     _transform(chunk: LexicalToken, encoding: BufferEncoding, callback: TransformCallback): void {
-        let mediaPlaylistToken: LexicalToken = this.parseValue(chunk);
+        let playlistToken: LexicalToken = this.parseValue(chunk);
 
-        if (mediaPlaylistToken) {
-            this.push(mediaPlaylistToken);
+        if (playlistToken) {
+            this.push(playlistToken);
         }
         callback();
     }
 
-    private parseValue(line: LexicalToken): MediaPlaylistToken | LexicalToken {
+    private parseValue(line: LexicalToken): PlaylistToken | LexicalToken {
         switch (line.type) {
             case HLSTag('#EXTM3U'): {
                 return {

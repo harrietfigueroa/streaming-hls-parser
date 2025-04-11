@@ -12,12 +12,10 @@ export class MediaSegmentArrayBuilder extends Array<MediaSegment> {
 
     public addStreamInf(extInf: EXTINF_PARSED): void {
         if (this.inProgress) {
-            this.push(new MediaSegment(this.inProgress as MediaSegmentOptions));
-            this.inProgress = undefined;
+            this.inProgress = {
+                '#EXTINF': extInf,
+            };
         }
-        this.inProgress = {
-            '#EXTINF': extInf,
-        };
     }
 
     public addByteRange(byteRange: EXT_X_BYTERANGE_PARSED): void {
@@ -58,8 +56,10 @@ export class MediaSegmentArrayBuilder extends Array<MediaSegment> {
 
     public addURI(uri: string): void {
         if (this.inProgress) {
+            // When we get a URI then we're done with this segment and we can start a new one
             this.inProgress['URI'] = uri;
+            this.push(new MediaSegment(this.inProgress as MediaSegmentOptions));
         }
-        this.push(new MediaSegment(this.inProgress as MediaSegmentOptions));
+        this.inProgress = {};
     }
 }

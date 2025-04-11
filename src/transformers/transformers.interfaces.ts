@@ -10,7 +10,7 @@ export interface MediaSegmentToken<PlaylistTag extends PLAYLIST_TAGS = 'URI'>
     value: unknown;
 }
 
-export interface MediaPlaylistToken<PlaylistTag extends PLAYLIST_TAGS = 'URI'>
+export interface PlaylistToken<PlaylistTag extends PLAYLIST_TAGS = 'URI'>
     extends LexicalToken<PlaylistTag> {
     value: unknown;
 }

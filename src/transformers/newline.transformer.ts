@@ -7,17 +7,18 @@ export class NewlineTransformer extends Transform {
     }
     private remainder: string = '';
     _transform(chunk: any, encoding: BufferEncoding, callback: TransformCallback): void {
-        let workingChunk: string = this.remainder + Buffer.from(chunk).toString();
+        let workingChunk: string = this.remainder + Buffer.from(chunk).toString().trimStart();
         let newLineIndex: number;
 
         // We want to include the newline, so + 1
         while ((newLineIndex = workingChunk.indexOf('\n') + 1)) {
+            console.dir(workingChunk);
             // Grab the bit up to the new line
             const splitChunk: string = workingChunk.slice(0, newLineIndex);
             // Push it out to consumers
             this.push(splitChunk.trimEnd());
             // Remove the part of the workingChunk we just used
-            workingChunk = workingChunk.slice(newLineIndex);
+            workingChunk = workingChunk.slice(newLineIndex).trimStart();
         }
 
         this.remainder = workingChunk;

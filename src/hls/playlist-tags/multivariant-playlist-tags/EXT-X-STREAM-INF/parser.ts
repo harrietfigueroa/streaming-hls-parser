@@ -23,7 +23,7 @@ export default function (str: string): EXT_X_STREAM_INF_PARSED {
         'AVERAGE-BANDWIDTH': numberfy(extractedValues['AVERAGE-BANDWIDTH']),
         RESOLUTION: numberfy(extractedValues['RESOLUTION']),
         'FRAME-RATE': numberfy(extractedValues['FRAME-RATE']),
-        CODECS: extractedValues['CODECS'].split(',').map(quotedStringify),
+        CODECS: extractedValues['CODECS']?.split(',').map(quotedStringify),
         'HDCP-LEVEL': extractedValues['HDCP-LEVEL'] as EXT_X_STREAM_INF_PARSED['HDCP-LEVEL'],
         AUDIO: yesnoify(extractedValues['AUDIO'], true),
         VIDEO: yesnoify(extractedValues['VIDEO'], true),
