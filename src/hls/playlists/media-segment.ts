@@ -361,7 +361,6 @@ export class MediaSegment {
     }
 
     public *toHLSLines() {
-        yield stringifyEXTINF(this['#EXTINF']);
         if (this['#EXT-X-BYTERANGE']) {
             yield stringifyEXTXByterange(this['#EXT-X-BYTERANGE']);
         }
@@ -380,6 +379,7 @@ export class MediaSegment {
         if (this['#EXT-X-DATERANGE']) {
             yield stringifyEXTXDaterange(this['#EXT-X-DATERANGE']);
         }
+        yield stringifyEXTINF(this['#EXTINF']);
         yield this['URI'];
     }
 

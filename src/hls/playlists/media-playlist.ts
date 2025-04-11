@@ -240,7 +240,17 @@ export class MediaPlaylist extends Map<string, MediaSegment> {
         mediaSegments: Iterable<MediaSegment>,
     ) {
         super(Array.from(mediaSegments, (mediaSegment) => [mediaSegment.URI, mediaSegment]));
-        Object.assign(this, mediaPlaylistOptions);
+        this['#EXTM3U'] = mediaPlaylistOptions['#EXTM3U'];
+        this['#EXT-X-VERSION'] = mediaPlaylistOptions['#EXT-X-VERSION'];
+        this['#EXT-X-TARGETDURATION'] = mediaPlaylistOptions['#EXT-X-TARGETDURATION'];
+        this['#EXT-X-MEDIA-SEQUENCE'] = mediaPlaylistOptions['#EXT-X-MEDIA-SEQUENCE'];
+        this['#EXT-X-DISCONTINUITY-SEQUENCE'] =
+            mediaPlaylistOptions['#EXT-X-DISCONTINUITY-SEQUENCE'];
+        this['#EXT-X-ENDLIST'] = mediaPlaylistOptions['#EXT-X-ENDLIST'];
+        this['#EXT-X-PLAYLIST-TYPE'] = mediaPlaylistOptions['#EXT-X-PLAYLIST-TYPE'];
+        this['#EXT-X-I-FRAMES-ONLY'] = mediaPlaylistOptions['#EXT-X-I-FRAMES-ONLY'];
+        this['#EXT-X-INDEPENDENT-SEGMENTS'] = mediaPlaylistOptions['#EXT-X-INDEPENDENT-SEGMENTS'];
+        this['#EXT-X-START'] = mediaPlaylistOptions['#EXT-X-START'];
     }
 
     public static async from(source: Readable | Iterable<string>): Promise<MediaPlaylist> {
@@ -307,9 +317,8 @@ export class MediaPlaylist extends Map<string, MediaSegment> {
                         mediaPlaylistOptions['#EXT-X-START'] = token.value as any;
                         break;
                     }
-                    case HLSTag('#EXTINF'): {
-                        parsingSegments = true;
-                        break;
+                    default: {
+                        parsingSegments = MediaPlaylist.isMediaSegmentTag(token.type);
                     }
                 }
             }
@@ -357,6 +366,18 @@ export class MediaPlaylist extends Map<string, MediaSegment> {
         );
     }
 
+    static isMediaSegmentTag(tag: Symbol) {
+        return (
+            tag === HLSTag('#EXTINF') ||
+            tag === HLSTag('#EXT-X-BYTERANGE') ||
+            tag === HLSTag('#EXT-X-DISCONTINUITY') ||
+            tag === HLSTag('#EXT-X-KEY') ||
+            tag === HLSTag('#EXT-X-MAP') ||
+            tag === HLSTag('#EXT-X-PROGRAM-DATE-TIME') ||
+            tag === HLSTag('#EXT-X-DATERANGE')
+        );
+    }
+
     private *yieldValuesHLSLines() {
         for (const mediaSegment of this.values()) {
             yield* mediaSegment.toHLSLines();
@@ -366,8 +387,8 @@ export class MediaPlaylist extends Map<string, MediaSegment> {
     public *toHLSLines() {
         yield* [
             stringifyEXTM3U(),
-            stringifyTargetDuration(this['#EXT-X-TARGETDURATION']),
             stringifyVersion(this['#EXT-X-VERSION']),
+            stringifyTargetDuration(this['#EXT-X-TARGETDURATION']),
         ];
         if (this['#EXT-X-MEDIA-SEQUENCE']) {
             yield stringifyMediaSequence(this['#EXT-X-MEDIA-SEQUENCE']);

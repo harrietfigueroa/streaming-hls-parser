@@ -34,6 +34,13 @@ export class MediaSegmentIngestTransformer extends Transform {
                     value: parseInf(line.source as any),
                 };
             }
+            case HLSTag('URI'): {
+                return {
+                    type: line.type,
+                    source: line.source,
+                    value: line.source,
+                };
+            }
             case HLSTag('#EXT-X-BYTERANGE'): {
                 return {
                     type: line.type,
@@ -74,13 +81,6 @@ export class MediaSegmentIngestTransformer extends Transform {
                     type: line.type,
                     source: line.source,
                     value: parseDateRange(line.source as any),
-                };
-            }
-            case HLSTag('URI'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: line.source,
                 };
             }
         }

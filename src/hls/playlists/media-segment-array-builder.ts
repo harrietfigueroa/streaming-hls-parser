@@ -11,9 +11,7 @@ export class MediaSegmentArrayBuilder extends Array<MediaSegment> {
     private inProgress: Partial<MediaSegmentOptions> = {};
 
     public addStreamInf(extInf: EXTINF_PARSED): void {
-        this.inProgress = {
-            '#EXTINF': extInf,
-        };
+        this.inProgress['#EXTINF'] = extInf;
     }
 
     public addByteRange(byteRange: EXT_X_BYTERANGE_PARSED): void {

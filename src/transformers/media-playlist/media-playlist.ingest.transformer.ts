@@ -32,61 +32,71 @@ export class MediaPlaylistIngestTransformer extends Transform {
         switch (line.type) {
             case HLSTag('#EXTM3U'): {
                 return {
-                    ...line,
+                    type: line.type,
+                    source: line.source,
                     value: parseExtendedM3U(line.source),
                 };
             }
             case HLSTag('#EXT-X-VERSION'): {
                 return {
-                    ...line,
+                    type: line.type,
+                    source: line.source,
                     value: parseVersion(line.source),
                 };
             }
             case HLSTag('#EXT-X-TARGETDURATION'): {
                 return {
-                    ...line,
+                    type: line.type,
+                    source: line.source,
                     value: parseTargetDuration(line.source as any),
                 };
             }
             case HLSTag('#EXT-X-MEDIA-SEQUENCE'): {
                 return {
-                    ...line,
+                    type: line.type,
+                    source: line.source,
                     value: parseMediaSequence(line.source as any),
                 };
             }
             case HLSTag('#EXT-X-DISCONTINUITY-SEQUENCE'): {
                 return {
-                    ...line,
+                    type: line.type,
+                    source: line.source,
                     value: parseDiscontinuitySequence(line.source as any),
                 };
             }
             case HLSTag('#EXT-X-ENDLIST'): {
                 return {
-                    ...line,
+                    type: line.type,
+                    source: line.source,
                     value: parseEndlist(line.source as any),
                 };
             }
             case HLSTag('#EXT-X-PLAYLIST-TYPE'): {
                 return {
-                    ...line,
+                    type: line.type,
+                    source: line.source,
                     value: parsePlaylistType(line.source as any),
                 };
             }
             case HLSTag('#EXT-X-I-FRAMES-ONLY'): {
                 return {
-                    ...line,
+                    type: line.type,
+                    source: line.source,
                     value: parseIFramesOnly(line.source as any),
                 };
             }
             case HLSTag('#EXT-X-INDEPENDENT-SEGMENTS'): {
                 return {
-                    ...line,
+                    type: line.type,
+                    source: line.source,
                     value: parseIndependentSegments(line.source as any),
                 };
             }
             case HLSTag('#EXT-X-START'): {
                 return {
-                    ...line,
+                    type: line.type,
+                    source: line.source,
                     value: parseStart(line.source as any),
                 };
             }
