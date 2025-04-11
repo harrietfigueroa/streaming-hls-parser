@@ -2,7 +2,7 @@ import { describe } from 'node:test';
 import { loadTestFile, TestFiles } from '../../../test/helpers/load-test-file';
 import { MediaPlaylist } from './media-playlist';
 import * as HLS from 'hls-parser';
-import { readFileSync } from 'fs';
+import { createReadStream, readFileSync } from 'fs';
 import exp from 'constants';
 
 describe('Media Playlist', (): void => {
@@ -104,7 +104,7 @@ describe('Media Playlist', (): void => {
     });
 
     describe('speed test', () => {
-        let mine: any;
+        let mine: MediaPlaylist;
         let theirs: any;
         it('should go fast', async (): Promise<void> => {
             HLS.setOptions({
@@ -112,23 +112,24 @@ describe('Media Playlist', (): void => {
                 strictMode: false,
             });
             //parse
-            const inputStr = readFileSync('./examples/very-large-playlist.m3u8').toString();
             const theirsStart = Date.now();
+            const inputStr = readFileSync('./examples/very-large-playlist.m3u8').toString();
             theirs = await HLS.parse(inputStr);
             const theirsEnd = Date.now();
-            console.log('Theirs took', theirsEnd - theirsStart, 'ms');
+            console.log('Theirs string took', theirsEnd - theirsStart, 'ms');
+
+            // mine string
+            const mineStringStart = Date.now();
+            mine = await MediaPlaylist.from(inputStr);
+            const mineStringEnd = Date.now();
+            console.log('Mine string took', mineStringEnd - mineStringStart, 'ms');
 
             // mine stream
-            const mineStreamStart = Date.now();
-            mine = await MediaPlaylist.from(inputStr);
-            const mineStreamEnd = Date.now();
-            console.log('Mine string took', mineStreamEnd - mineStreamStart, 'ms');
-
-            const input = loadTestFile(TestFiles.VERY_LARGE_PLAYLIST);
             const start = Date.now();
+            const input = loadTestFile(TestFiles.VERY_LARGE_PLAYLIST);
             mine = await MediaPlaylist.from(input);
             const end = Date.now();
-            console.log('Mine took', end - start, 'ms');
+            console.log('Mine stream took', end - start, 'ms');
 
             //stringify
             const startStringify = Date.now();
@@ -141,8 +142,10 @@ describe('Media Playlist', (): void => {
             const theirsEndStringify = Date.now();
             console.log('Theirs stringify took', theirsEndStringify - theirsStartStringify, 'ms');
 
-            // console.log('Mine', mineString);
-            expect(mineString).toEqual(theirsString);
+            const mineLines = mineString.split('\n');
+            for (const [i, theirsLine] of theirsString.split('\n').entries()) {
+                expect(mineLines[i]).toEqual(theirsLine);
+            }
         });
     });
 });

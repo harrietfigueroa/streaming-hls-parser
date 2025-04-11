@@ -1,3 +1,3 @@
 export function isUri(line: string) {
-    return !line.startsWith('#');
+    return line[0] !== '#';
 }
