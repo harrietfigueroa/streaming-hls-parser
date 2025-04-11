@@ -30,7 +30,6 @@ describe('Media Segment Ingest Transformer', (): void => {
                 .pipe(new MediaSegmentIngestTransformer());
 
             for await (const token of readable) {
-                console.dir(token);
                 expect(token).toHaveProperty('type');
                 expect(token.source).toBeDefined();
             }

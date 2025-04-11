@@ -12,7 +12,6 @@ export class NewlineTransformer extends Transform {
 
         // We want to include the newline, so + 1
         while ((newLineIndex = workingChunk.indexOf('\n') + 1)) {
-            console.dir(workingChunk);
             // Grab the bit up to the new line
             const splitChunk: string = workingChunk.slice(0, newLineIndex);
             // Push it out to consumers

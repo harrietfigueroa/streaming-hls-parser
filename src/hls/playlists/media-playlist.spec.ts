@@ -3,13 +3,12 @@ import { loadTestFile, TestFiles } from '../../../test/helpers/load-test-file';
 import { MediaPlaylist } from './media-playlist';
 
 describe('Media Playlist', (): void => {
-    describe.skip('fromStream', (): void => {
+    describe('fromStream', (): void => {
         describe('Live Playlist', () => {
             it('should parse a Media Playlist', async (): Promise<void> => {
                 const stream = loadTestFile(TestFiles.LIVE_PLAYLIST);
                 const mediaPlaylist = await MediaPlaylist.from(stream);
 
-                console.dir(mediaPlaylist);
                 expect(mediaPlaylist).toBeInstanceOf(MediaPlaylist);
                 expect(mediaPlaylist['#EXT-X-VERSION']).toBe(3);
                 expect(mediaPlaylist['#EXT-X-TARGETDURATION']).toBe(8);
@@ -31,7 +30,7 @@ describe('Media Playlist', (): void => {
         });
     });
 
-    describe.only('fromString', (): void => {
+    describe('fromString', (): void => {
         describe('Live Playlist', () => {
             it('should parse a Media Playlist', async (): Promise<void> => {
                 const mediaPlaylist = await MediaPlaylist.from(`
@@ -68,7 +67,6 @@ describe('Media Playlist', (): void => {
                     http://media.example.com/third.ts
                     #EXT-X-ENDLIST`);
 
-                console.dir(mediaPlaylist);
                 expect(mediaPlaylist).toBeInstanceOf(MediaPlaylist);
                 expect(mediaPlaylist['#EXT-X-VERSION']).toBe(3);
                 expect(mediaPlaylist['#EXT-X-TARGETDURATION']).toBe(10);

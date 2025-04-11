@@ -16,7 +16,7 @@ import { EXT_X_PLAYLIST_TYPE_PARSED } from '../playlist-tags/media-playlist-tags
 import { EXT_X_TARGETDURATION_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/types';
 import { MediaSegment } from './media-segment';
 import { MediaSegmentArrayBuilder } from './media-segment-array-builder';
-import { MediaSegmentIngestTransformer } from '../../transformers/media-segment-playlist/media-segment.ingest.transformer';
+import { MediaSegmentIngestTransformer } from '../../transformers/media-segment/media-segment.ingest.transformer';
 
 export interface MediaPlaylistOptions extends Record<MEDIA_PLAYLIST_TAGS, unknown> {
     '#EXTM3U': EXTM3U_PARSED;
