@@ -22,83 +22,51 @@ export class MediaPlaylistIngestTransformer extends Transform {
     _transform(chunk: LexicalToken, encoding: BufferEncoding, callback: TransformCallback): void {
         let playlistToken: LexicalToken = this.parseValue(chunk);
 
-        if (playlistToken) {
-            this.push(playlistToken);
-        }
+        this.push(playlistToken);
         callback();
     }
 
-    private parseValue(line: LexicalToken): PlaylistToken | LexicalToken {
+    private parseValue(line: LexicalToken): LexicalToken {
         switch (line.type) {
             case HLSTag('#EXTM3U'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseExtendedM3U(line.source),
-                };
+                line.value = parseExtendedM3U(line.source);
+                break;
             }
             case HLSTag('#EXT-X-VERSION'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseVersion(line.source),
-                };
+                line.value = parseVersion(line.source);
+                break;
             }
             case HLSTag('#EXT-X-TARGETDURATION'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseTargetDuration(line.source as any),
-                };
+                line.value = parseTargetDuration(line.source);
+                break;
             }
             case HLSTag('#EXT-X-MEDIA-SEQUENCE'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseMediaSequence(line.source as any),
-                };
+                line.value = parseMediaSequence(line.source);
+                break;
             }
             case HLSTag('#EXT-X-DISCONTINUITY-SEQUENCE'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseDiscontinuitySequence(line.source as any),
-                };
+                line.value = parseDiscontinuitySequence(line.source);
+                break;
             }
             case HLSTag('#EXT-X-ENDLIST'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseEndlist(line.source as any),
-                };
+                line.value = parseEndlist(line.source);
+                break;
             }
             case HLSTag('#EXT-X-PLAYLIST-TYPE'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parsePlaylistType(line.source as any),
-                };
+                line.value = parsePlaylistType(line.source);
+                break;
             }
             case HLSTag('#EXT-X-I-FRAMES-ONLY'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseIFramesOnly(line.source as any),
-                };
+                line.value = parseIFramesOnly(line.source);
+                break;
             }
             case HLSTag('#EXT-X-INDEPENDENT-SEGMENTS'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseIndependentSegments(line.source as any),
-                };
+                line.value = parseIndependentSegments(line.source);
+                break;
             }
             case HLSTag('#EXT-X-START'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseStart(line.source as any),
-                };
+                line.value = parseStart(line.source);
+                break;
             }
         }
         return line;

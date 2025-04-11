@@ -14,7 +14,7 @@ import { EXT_X_I_FRAMES_ONLY_PARSED } from '../playlist-tags/media-playlist-tags
 import { EXT_X_MEDIA_SEQUENCE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/types';
 import { EXT_X_PLAYLIST_TYPE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/types';
 import { EXT_X_TARGETDURATION_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/types';
-import { MediaSegment } from './media-segment';
+import { MediaSegment, MediaSegmentOptions } from './media-segment';
 import { MediaSegmentArrayBuilder } from './media-segment-array-builder';
 import { MediaSegmentIngestTransformer } from '../../transformers/media-segment/media-segment.ingest.transformer';
 import stringifyEXTM3U from '../playlist-tags/basic-tags/EXTM3U/stringifier';
@@ -253,14 +253,28 @@ export class MediaPlaylist extends Map<string, MediaSegment> {
         this['#EXT-X-START'] = mediaPlaylistOptions['#EXT-X-START'];
     }
 
-    public static async from(source: Readable | Iterable<string>): Promise<MediaPlaylist> {
-        const stream = source instanceof Readable ? source : Readable.from(source);
+    public static async from(source: Readable | Iterable<string> | string): Promise<MediaPlaylist> {
+        const stream =
+            source instanceof Readable
+                ? source
+                : typeof source === 'string'
+                ? Readable.from(source.split('\n').map((line) => line.trim()))
+                : Readable.from(source);
 
-        const pipeline = stream
-            .pipe(new NewlineTransformer())
-            .pipe(new HlsLexicalTransformer())
-            .pipe(new MediaPlaylistIngestTransformer())
-            .pipe(new MediaSegmentIngestTransformer());
+        let pipeline = stream;
+        // If it's a string we don't need to newline parse
+        if (typeof source === 'string') {
+            pipeline = stream
+                .pipe(new HlsLexicalTransformer())
+                .pipe(new MediaPlaylistIngestTransformer())
+                .pipe(new MediaSegmentIngestTransformer());
+        } else {
+            pipeline = stream
+                .pipe(new NewlineTransformer())
+                .pipe(new HlsLexicalTransformer())
+                .pipe(new MediaPlaylistIngestTransformer())
+                .pipe(new MediaSegmentIngestTransformer());
+        }
 
         return await MediaPlaylist.fromTokenStream(pipeline);
     }
@@ -387,8 +401,8 @@ export class MediaPlaylist extends Map<string, MediaSegment> {
     public *toHLSLines() {
         yield* [
             stringifyEXTM3U(),
-            stringifyVersion(this['#EXT-X-VERSION']),
             stringifyTargetDuration(this['#EXT-X-TARGETDURATION']),
+            stringifyVersion(this['#EXT-X-VERSION']),
         ];
         if (this['#EXT-X-MEDIA-SEQUENCE']) {
             yield stringifyMediaSequence(this['#EXT-X-MEDIA-SEQUENCE']);
@@ -418,7 +432,7 @@ export class MediaPlaylist extends Map<string, MediaSegment> {
         return Array.from(this.toHLSLines()).join('\n');
     }
 
-    public toJSON(): any {
+    public toJSON() {
         return {
             '#EXTM3U': this['#EXTM3U'],
             '#EXT-X-VERSION': this['#EXT-X-VERSION'],

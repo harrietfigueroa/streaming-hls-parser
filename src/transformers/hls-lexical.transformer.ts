@@ -12,11 +12,9 @@ export class HlsLexicalTransformer extends Transform {
     }
 
     _transform(chunk: any, encoding: BufferEncoding, callback: TransformCallback): void {
-        let lexicalParsed: LexicalToken | null = this.parseLexical(chunk);
+        let lexicalParsed: LexicalToken = this.parseLexical(chunk);
 
-        if (lexicalParsed) {
-            this.push(lexicalParsed);
-        }
+        this.push(lexicalParsed);
         callback();
     }
 
@@ -25,6 +23,7 @@ export class HlsLexicalTransformer extends Transform {
             return {
                 type: HLSTag('URI'),
                 source: line,
+                value: undefined,
             };
         }
 
@@ -34,6 +33,7 @@ export class HlsLexicalTransformer extends Transform {
         return {
             type: tagSymbol,
             source: line,
+            value: undefined,
         };
     }
 }

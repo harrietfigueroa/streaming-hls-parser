@@ -17,71 +17,45 @@ export class MediaSegmentIngestTransformer extends Transform {
     }
 
     _transform(chunk: LexicalToken, encoding: BufferEncoding, callback: TransformCallback): void {
-        let mediaSegmentToken: any | null = this.parseValue(chunk);
+        let mediaSegmentToken: LexicalToken = this.parseValue(chunk);
 
-        if (mediaSegmentToken) {
-            this.push(mediaSegmentToken);
-        }
+        this.push(mediaSegmentToken);
         callback();
     }
 
-    private parseValue(line: LexicalToken): MediaSegmentToken | LexicalToken {
+    private parseValue(line: LexicalToken): LexicalToken {
         switch (line.type) {
             case HLSTag('#EXTINF'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseInf(line.source as any),
-                };
+                line.value = parseInf(line.source as any);
+                break;
             }
             case HLSTag('URI'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: line.source,
-                };
+                line.value = line.source;
+                break;
             }
             case HLSTag('#EXT-X-BYTERANGE'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseByteRange(line.source as any),
-                };
+                line.value = parseByteRange(line.source as any);
+                break;
             }
             case HLSTag('#EXT-X-DISCONTINUITY'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseDiscontinuity(line.source),
-                };
+                line.value = parseDiscontinuity(line.source as any);
+                break;
             }
             case HLSTag('#EXT-X-KEY'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseKey(line.source as any),
-                };
+                line.value = parseKey(line.source as any);
+                break;
             }
             case HLSTag('#EXT-X-MAP'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseMap(line.source as any),
-                };
+                line.value = parseMap(line.source as any);
+                break;
             }
             case HLSTag('#EXT-X-PROGRAM-DATE-TIME'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseProgramDateTime(line.source as any),
-                };
+                line.value = parseProgramDateTime(line.source as any);
+                break;
             }
             case HLSTag('#EXT-X-DATERANGE'): {
-                return {
-                    type: line.type,
-                    source: line.source,
-                    value: parseDateRange(line.source as any),
-                };
+                line.value = parseDateRange(line.source as any);
+                break;
             }
         }
         return line;

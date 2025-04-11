@@ -387,7 +387,7 @@ export class MediaSegment {
         return Array.from(this.toHLSLines()).join('\n');
     }
 
-    public toJSON(): any {
+    public toJSON() {
         return {
             '#EXTINF': this['#EXTINF'],
             '#EXT-X-BYTERANGE': this['#EXT-X-BYTERANGE'],
