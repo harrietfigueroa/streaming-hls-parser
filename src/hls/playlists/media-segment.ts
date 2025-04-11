@@ -5,6 +5,13 @@ import { EXT_X_KEY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-KEY/
 import { EXT_X_MAP_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-MAP/types';
 import { EXT_X_PROGRAM_DATE_TIME_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/types';
 import { EXTINF_PARSED } from '../playlist-tags/media-segment-tags/EXTINF/types';
+import stringifyEXTINF from '../playlist-tags/media-segment-tags/EXTINF/stringifier';
+import stringifyEXTXByterange from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE/stringifier';
+import stringifyEXTXDiscontinuity from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/stringifier';
+import stringifyEXTXKey from '../playlist-tags/media-segment-tags/EXT-X-KEY/stringifier';
+import stringifyEXTXMap from '../playlist-tags/media-segment-tags/EXT-X-MAP/stringifier';
+import stringifyEXTXProgramDateTime from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/stringifier';
+import stringifyEXTXDaterange from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/stringifier';
 
 export interface MediaSegmentOptions {
     '#EXTINF': EXTINF_PARSED;
@@ -351,6 +358,33 @@ export class MediaSegment {
         this['#EXT-X-PROGRAM-DATE-TIME'] = mediaSegmentOptions['#EXT-X-PROGRAM-DATE-TIME'];
         this['#EXT-X-DATERANGE'] = mediaSegmentOptions['#EXT-X-DATERANGE'];
         this['URI'] = mediaSegmentOptions['URI'];
+    }
+
+    public *toHLSLines() {
+        yield stringifyEXTINF(this['#EXTINF']);
+        if (this['#EXT-X-BYTERANGE']) {
+            yield stringifyEXTXByterange(this['#EXT-X-BYTERANGE']);
+        }
+        if (this['#EXT-X-DISCONTINUITY']) {
+            yield stringifyEXTXDiscontinuity();
+        }
+        if (this['#EXT-X-KEY']) {
+            yield stringifyEXTXKey(this['#EXT-X-KEY']);
+        }
+        if (this['#EXT-X-MAP']) {
+            yield stringifyEXTXMap(this['#EXT-X-MAP']);
+        }
+        if (this['#EXT-X-PROGRAM-DATE-TIME']) {
+            yield stringifyEXTXProgramDateTime(this['#EXT-X-PROGRAM-DATE-TIME']);
+        }
+        if (this['#EXT-X-DATERANGE']) {
+            yield stringifyEXTXDaterange(this['#EXT-X-DATERANGE']);
+        }
+        yield this['URI'];
+    }
+
+    public toHLS(): string {
+        return Array.from(this.toHLSLines()).join('\n');
     }
 
     public toJSON(): any {

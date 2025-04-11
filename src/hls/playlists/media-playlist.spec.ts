@@ -78,7 +78,7 @@ describe('Media Playlist', (): void => {
             });
         });
     });
-    describe('toHLSLines', () => {
+    describe('toHLS', () => {
         it('should return the correct HLS string', async (): Promise<void> => {
             const input = `#EXTM3U
                     #EXT-X-TARGETDURATION:10
@@ -92,7 +92,7 @@ describe('Media Playlist', (): void => {
                     #EXT-X-ENDLIST`;
 
             const mediaPlaylist = await MediaPlaylist.from(input);
-            const hls = mediaPlaylist.toHLSLines();
+            const hls = mediaPlaylist.toHLS().split('\n');
 
             for (const [i, inputLine] of input.split('\n').entries()) {
                 expect(hls[i]).toEqual(inputLine.trim());

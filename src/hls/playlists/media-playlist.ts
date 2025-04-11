@@ -357,35 +357,44 @@ export class MediaPlaylist extends Map<string, MediaSegment> {
         );
     }
 
-    public toHLSLines(): string[] {
-        const hlsLines: string[] = [
+    private *yieldValuesHLSLines() {
+        for (const mediaSegment of this.values()) {
+            yield* mediaSegment.toHLSLines();
+        }
+    }
+
+    public *toHLSLines() {
+        yield* [
             stringifyEXTM3U(),
             stringifyTargetDuration(this['#EXT-X-TARGETDURATION']),
             stringifyVersion(this['#EXT-X-VERSION']),
         ];
         if (this['#EXT-X-MEDIA-SEQUENCE']) {
-            hlsLines.push(stringifyMediaSequence(this['#EXT-X-MEDIA-SEQUENCE']));
+            yield stringifyMediaSequence(this['#EXT-X-MEDIA-SEQUENCE']);
         }
         if (this['#EXT-X-DISCONTINUITY-SEQUENCE']) {
-            hlsLines.push(stringifyDiscontinuitySequence(this['#EXT-X-DISCONTINUITY-SEQUENCE']));
+            yield stringifyDiscontinuitySequence(this['#EXT-X-DISCONTINUITY-SEQUENCE']);
         }
         if (this['#EXT-X-PLAYLIST-TYPE']) {
-            hlsLines.push(stringifyPlaylistType(this['#EXT-X-PLAYLIST-TYPE']));
+            yield stringifyPlaylistType(this['#EXT-X-PLAYLIST-TYPE']);
         }
         if (this['#EXT-X-I-FRAMES-ONLY']) {
-            hlsLines.push(stringifyIFramesOnly());
+            yield stringifyIFramesOnly();
         }
         if (this['#EXT-X-INDEPENDENT-SEGMENTS']) {
-            hlsLines.push(stringifyIndependentSegments());
+            yield stringifyIndependentSegments();
         }
         if (this['#EXT-X-START']) {
-            hlsLines.push(stringifyStart(this['#EXT-X-START']));
+            yield stringifyStart(this['#EXT-X-START']);
         }
+        yield* this.yieldValuesHLSLines();
         if (this['#EXT-X-ENDLIST']) {
-            hlsLines.push(stringifyEndlist());
+            yield stringifyEndlist();
         }
+    }
 
-        return hlsLines;
+    public toHLS() {
+        return Array.from(this.toHLSLines()).join('\n');
     }
 
     public toJSON(): any {
