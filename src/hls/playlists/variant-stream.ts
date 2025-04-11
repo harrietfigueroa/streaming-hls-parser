@@ -130,4 +130,18 @@ export class VariantStream implements EXT_X_STREAM_INF_PARSED {
         this['VIDEO'] = variantStreamOptions['VIDEO'];
         this['URI'] = variantStreamOptions['URI'];
     }
+
+    public toJSON(): any {
+        return {
+            BANDWIDTH: this['BANDWIDTH'],
+            'AVERAGE-BANDWIDTH': this['AVERAGE-BANDWIDTH'],
+            CODECS: this['CODECS'],
+            RESOLUTION: this['RESOLUTION'],
+            'FRAME-RATE': this['FRAME-RATE'],
+            'HDCP-LEVEL': this['HDCP-LEVEL'],
+            AUDIO: this['AUDIO'],
+            VIDEO: this['VIDEO'],
+            URI: this['URI'],
+        };
+    }
 }

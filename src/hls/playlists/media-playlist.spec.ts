@@ -8,6 +8,7 @@ describe('Media Playlist', (): void => {
             it('should parse a Media Playlist', async (): Promise<void> => {
                 const stream = loadTestFile(TestFiles.LIVE_PLAYLIST);
                 const mediaPlaylist = await MediaPlaylist.from(stream);
+                console.dir(mediaPlaylist, { depth: 5 });
 
                 expect(mediaPlaylist).toBeInstanceOf(MediaPlaylist);
                 expect(mediaPlaylist['#EXT-X-VERSION']).toBe(3);

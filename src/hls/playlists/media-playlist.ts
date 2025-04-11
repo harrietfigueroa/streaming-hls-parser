@@ -346,4 +346,20 @@ export class MediaPlaylist extends Map<string, MediaSegment> {
             mediaSegmentsArrayBuilder,
         );
     }
+
+    public toJSON(): any {
+        return {
+            '#EXTM3U': this['#EXTM3U'],
+            '#EXT-X-VERSION': this['#EXT-X-VERSION'],
+            '#EXT-X-TARGETDURATION': this['#EXT-X-TARGETDURATION'],
+            '#EXT-X-MEDIA-SEQUENCE': this['#EXT-X-MEDIA-SEQUENCE'],
+            '#EXT-X-DISCONTINUITY-SEQUENCE': this['#EXT-X-DISCONTINUITY-SEQUENCE'],
+            '#EXT-X-ENDLIST': this['#EXT-X-ENDLIST'],
+            '#EXT-X-PLAYLIST-TYPE': this['#EXT-X-PLAYLIST-TYPE'],
+            '#EXT-X-I-FRAMES-ONLY': this['#EXT-X-I-FRAMES-ONLY'],
+            '#EXT-X-INDEPENDENT-SEGMENTS': this['#EXT-X-INDEPENDENT-SEGMENTS'],
+            '#EXT-X-START': this['#EXT-X-START'],
+            mediaSegments: Array.from(this.values()).map((mediaSegment) => mediaSegment.toJSON()),
+        };
+    }
 }

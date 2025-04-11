@@ -345,4 +345,17 @@ export class MediaSegment {
     constructor(mediaSegmentOptions: MediaSegmentOptions) {
         Object.assign(this, mediaSegmentOptions);
     }
+
+    public toJSON(): any {
+        return {
+            '#EXTINF': this['#EXTINF'],
+            '#EXT-X-BYTERANGE': this['#EXT-X-BYTERANGE'],
+            '#EXT-X-DISCONTINUITY': this['#EXT-X-DISCONTINUITY'],
+            '#EXT-X-KEY': this['#EXT-X-KEY'],
+            '#EXT-X-MAP': this['#EXT-X-MAP'],
+            '#EXT-X-PROGRAM-DATE-TIME': this['#EXT-X-PROGRAM-DATE-TIME'],
+            '#EXT-X-DATERANGE': this['#EXT-X-DATERANGE'],
+            URI: this['URI'],
+        };
+    }
 }

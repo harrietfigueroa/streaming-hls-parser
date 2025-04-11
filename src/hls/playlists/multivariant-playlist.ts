@@ -186,7 +186,6 @@ export class MultivariantPlaylist extends Map<string, VariantStream> {
 
         let parsingStreamVariants: boolean = false;
         for await (const token of tokenStream) {
-            console.dir(token);
             if (parsingStreamVariants == false) {
                 switch (token.type) {
                     case HLSTag('#EXTM3U'): {
@@ -242,5 +241,18 @@ export class MultivariantPlaylist extends Map<string, VariantStream> {
             multivariantPlaylistOptions as MultivariantPlaylistOptions,
             variantStreamsArrayBuilder,
         );
+    }
+
+    public toJSON(): any {
+        return {
+            '#EXTM3U': this['#EXTM3U'],
+            '#EXT-X-VERSION': this['#EXT-X-VERSION'],
+            '#EXT-X-MEDIA': this['#EXT-X-MEDIA'],
+            '#EXT-X-SESSION-DATA': this['#EXT-X-SESSION-DATA'],
+            '#EXT-X-SESSION-KEY': this['#EXT-X-SESSION-KEY'],
+            '#EXT-X-INDEPENDENT-SEGMENTS': this['#EXT-X-INDEPENDENT-SEGMENTS'],
+            '#EXT-X-START': this['#EXT-X-START'],
+            variantStreams: Array.from(this.values(), (variantStream) => variantStream.toJSON()),
+        };
     }
 }
