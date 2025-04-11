@@ -343,7 +343,14 @@ export class MediaSegment {
     public readonly 'URI': MediaSegmentOptions['URI'];
 
     constructor(mediaSegmentOptions: MediaSegmentOptions) {
-        Object.assign(this, mediaSegmentOptions);
+        this['#EXTINF'] = mediaSegmentOptions['#EXTINF'];
+        this['#EXT-X-BYTERANGE'] = mediaSegmentOptions['#EXT-X-BYTERANGE'];
+        this['#EXT-X-DISCONTINUITY'] = mediaSegmentOptions['#EXT-X-DISCONTINUITY'];
+        this['#EXT-X-KEY'] = mediaSegmentOptions['#EXT-X-KEY'];
+        this['#EXT-X-MAP'] = mediaSegmentOptions['#EXT-X-MAP'];
+        this['#EXT-X-PROGRAM-DATE-TIME'] = mediaSegmentOptions['#EXT-X-PROGRAM-DATE-TIME'];
+        this['#EXT-X-DATERANGE'] = mediaSegmentOptions['#EXT-X-DATERANGE'];
+        this['URI'] = mediaSegmentOptions['URI'];
     }
 
     public toJSON(): any {

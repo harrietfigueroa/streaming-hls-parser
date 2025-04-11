@@ -8,58 +8,43 @@ import { EXTINF_PARSED } from '../playlist-tags/media-segment-tags/EXTINF/types'
 import { MediaSegment, MediaSegmentOptions } from './media-segment';
 
 export class MediaSegmentArrayBuilder extends Array<MediaSegment> {
-    private inProgress: Partial<MediaSegmentOptions> | undefined;
+    private inProgress: Partial<MediaSegmentOptions> = {};
 
     public addStreamInf(extInf: EXTINF_PARSED): void {
-        if (this.inProgress) {
-            this.inProgress = {
-                '#EXTINF': extInf,
-            };
-        }
+        this.inProgress = {
+            '#EXTINF': extInf,
+        };
     }
 
     public addByteRange(byteRange: EXT_X_BYTERANGE_PARSED): void {
-        if (this.inProgress) {
-            this.inProgress['#EXT-X-BYTERANGE'] = byteRange;
-        }
+        this.inProgress['#EXT-X-BYTERANGE'] = byteRange;
     }
 
     public addDiscontinuity(discontinuity: EXT_X_DISCONTINUITY_PARSED): void {
-        if (this.inProgress) {
-            this.inProgress['#EXT-X-DISCONTINUITY'] = discontinuity;
-        }
+        this.inProgress['#EXT-X-DISCONTINUITY'] = discontinuity;
     }
 
     public addKey(key: EXT_X_KEY_PARSED): void {
-        if (this.inProgress) {
-            this.inProgress['#EXT-X-KEY'] = key;
-        }
+        this.inProgress['#EXT-X-KEY'] = key;
     }
 
     public addMap(map: EXT_X_MAP_PARSED): void {
-        if (this.inProgress) {
-            this.inProgress['#EXT-X-MAP'] = map;
-        }
+        this.inProgress['#EXT-X-MAP'] = map;
     }
 
     public addProgramDateTime(programDateTime: EXT_X_PROGRAM_DATE_TIME_PARSED): void {
-        if (this.inProgress) {
-            this.inProgress['#EXT-X-PROGRAM-DATE-TIME'] = programDateTime;
-        }
+        this.inProgress['#EXT-X-PROGRAM-DATE-TIME'] = programDateTime;
     }
 
     public addDateRange(dateRange: EXT_X_DATERANGE_PARSED): void {
-        if (this.inProgress) {
-            this.inProgress['#EXT-X-DATERANGE'] = dateRange;
-        }
+        this.inProgress['#EXT-X-DATERANGE'] = dateRange;
     }
 
     public addURI(uri: string): void {
-        if (this.inProgress) {
-            // When we get a URI then we're done with this segment and we can start a new one
-            this.inProgress['URI'] = uri;
-            this.push(new MediaSegment(this.inProgress as MediaSegmentOptions));
-        }
+        // When we get a URI then we're done with this segment and we can start a new one
+        this.inProgress['URI'] = uri;
+        this.push(new MediaSegment(this.inProgress as MediaSegmentOptions));
+
         this.inProgress = {};
     }
 }

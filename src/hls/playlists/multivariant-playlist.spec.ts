@@ -34,7 +34,6 @@ describe('Multivariant Playlist', (): void => {
                 expect(multivariantPlaylist['#EXT-X-VERSION']).toBeUndefined();
                 expect(multivariantPlaylist.size).toBe(4);
 
-                console.dir(JSON.stringify(multivariantPlaylist as any), { depth: 5 });
                 for (const variantStream of multivariantPlaylist.values()) {
                     expect(variantStream).toBeInstanceOf(VariantStream);
                     expect(variantStream['BANDWIDTH']).toBeDefined();
