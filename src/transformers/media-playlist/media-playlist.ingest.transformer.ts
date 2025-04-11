@@ -5,7 +5,7 @@ import parseMediaSequence from '../../hls/playlist-tags/media-playlist-tags/EXT-
 import parseTargetDuration from '../../hls/playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/parser';
 import parseDiscontinuitySequence from '../../hls/playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/parser';
 import parseIndependentSegments from '../../hls/playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/parser';
-import parseEndlist from '../../hls/playlist-tags/media-playlist-tags/EXT-ENDLIST/parser';
+import parseEndlist from '../../hls/playlist-tags/media-playlist-tags/EXT-X-ENDLIST/parser';
 import parsePlaylistType from '../../hls/playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/parser';
 import parseIFramesOnly from '../../hls/playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/parser';
 import parseStart from '../../hls/playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/parser';

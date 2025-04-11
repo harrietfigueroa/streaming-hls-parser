@@ -1,4 +1,4 @@
-import { pipeline, Readable } from 'node:stream';
+import { Readable } from 'node:stream';
 import HLSTag from '../../hls/hls-tag';
 import { HlsLexicalTransformer } from '../../transformers/hls-lexical.transformer';
 import { MediaPlaylistIngestTransformer } from '../../transformers/media-playlist/media-playlist.ingest.transformer';
@@ -8,7 +8,7 @@ import { EXT_X_VERSION_PARSED } from '../playlist-tags/basic-tags/EXT-X-VERSION/
 import { EXTM3U_PARSED } from '../playlist-tags/basic-tags/EXTM3U/types';
 import { EXT_X_INDEPENDENT_SEGMENTS_PARSED } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/types';
 import { EXT_X_START_PARSED } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/types';
-import { EXT_X_ENDLIST_PARSED } from '../playlist-tags/media-playlist-tags/EXT-ENDLIST/types';
+import { EXT_X_ENDLIST_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-ENDLIST/types';
 import { EXT_X_DISCONTINUITY_SEQUENCE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-DISCONTINUITY-SEQUENCE/types';
 import { EXT_X_I_FRAMES_ONLY_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/types';
 import { EXT_X_MEDIA_SEQUENCE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/types';
@@ -17,6 +17,16 @@ import { EXT_X_TARGETDURATION_PARSED } from '../playlist-tags/media-playlist-tag
 import { MediaSegment } from './media-segment';
 import { MediaSegmentArrayBuilder } from './media-segment-array-builder';
 import { MediaSegmentIngestTransformer } from '../../transformers/media-segment/media-segment.ingest.transformer';
+import stringifyEXTM3U from '../playlist-tags/basic-tags/EXTM3U/stringifier';
+import stringifyVersion from '../playlist-tags/basic-tags/EXT-X-VERSION/stringifier';
+import stringifyTargetDuration from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/stringifier';
+import stringifyMediaSequence from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/stringifier';
+import stringifyDiscontinuitySequence from '../playlist-tags/media-playlist-tags/EXT-X-DISCONTINUITY-SEQUENCE/stringifier';
+import stringifyEndlist from '../playlist-tags/media-playlist-tags/EXT-X-ENDLIST/stringifier';
+import stringifyPlaylistType from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/stringifier';
+import stringifyIFramesOnly from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/stringifier';
+import stringifyIndependentSegments from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/stringifier';
+import stringifyStart from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/stringifier';
 
 export interface MediaPlaylistOptions extends Record<MEDIA_PLAYLIST_TAGS, unknown> {
     '#EXTM3U': EXTM3U_PARSED;
@@ -345,6 +355,37 @@ export class MediaPlaylist extends Map<string, MediaSegment> {
             mediaPlaylistOptions as MediaPlaylistOptions,
             mediaSegmentsArrayBuilder,
         );
+    }
+
+    public toHLSLines(): string[] {
+        const hlsLines: string[] = [
+            stringifyEXTM3U(),
+            stringifyTargetDuration(this['#EXT-X-TARGETDURATION']),
+            stringifyVersion(this['#EXT-X-VERSION']),
+        ];
+        if (this['#EXT-X-MEDIA-SEQUENCE']) {
+            hlsLines.push(stringifyMediaSequence(this['#EXT-X-MEDIA-SEQUENCE']));
+        }
+        if (this['#EXT-X-DISCONTINUITY-SEQUENCE']) {
+            hlsLines.push(stringifyDiscontinuitySequence(this['#EXT-X-DISCONTINUITY-SEQUENCE']));
+        }
+        if (this['#EXT-X-PLAYLIST-TYPE']) {
+            hlsLines.push(stringifyPlaylistType(this['#EXT-X-PLAYLIST-TYPE']));
+        }
+        if (this['#EXT-X-I-FRAMES-ONLY']) {
+            hlsLines.push(stringifyIFramesOnly());
+        }
+        if (this['#EXT-X-INDEPENDENT-SEGMENTS']) {
+            hlsLines.push(stringifyIndependentSegments());
+        }
+        if (this['#EXT-X-START']) {
+            hlsLines.push(stringifyStart(this['#EXT-X-START']));
+        }
+        if (this['#EXT-X-ENDLIST']) {
+            hlsLines.push(stringifyEndlist());
+        }
+
+        return hlsLines;
     }
 
     public toJSON(): any {

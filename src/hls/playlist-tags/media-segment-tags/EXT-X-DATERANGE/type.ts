@@ -120,14 +120,14 @@ export interface EXT_X_DATERANGE_PARSED {
      * A quoted-string containing the ISO-8601 date at which the Date
       Range begins.  This attribute is REQUIRED.
      */
-    'START-DATE': string;
+    'START-DATE': Date;
 
     /**
      * A quoted-string containing the ISO-8601 date at which the Date
       Range ends.  It MUST be equal to or later than the value of the
       START-DATE attribute.  This attribute is OPTIONAL.
      */
-    'END-DATE'?: string;
+    'END-DATE'?: Date;
 
     /**
      * The duration of the Date Range expressed as a decimal-floating-
@@ -164,19 +164,19 @@ export interface EXT_X_DATERANGE_PARSED {
      * Used to carry SCTE-35 data; see Section 4.3.2.7.1 for more
       information.  These attributes are OPTIONAL.
      */
-    'SCTE-CMD': any;
+    'SCTE35-CMD': any;
 
     /**
      * Used to carry SCTE-35 data; see Section 4.3.2.7.1 for more
       information.  These attributes are OPTIONAL.
      */
-    'SCTE-OUT': any;
+    'SCTE35-OUT': any;
 
     /**
      * Used to carry SCTE-35 data; see Section 4.3.2.7.1 for more
       information.  These attributes are OPTIONAL.
      */
-    'SCTE-IN': any;
+    'SCTE35-IN': any;
 
     /**
      * An enumerated-string whose value MUST be YES.  This attribute

@@ -2,7 +2,7 @@ import { EXT_X_VERSION_STRING } from './playlist-tags/basic-tags/EXT-X-VERSION/t
 import { EXTM3U_STRING } from './playlist-tags/basic-tags/EXTM3U/types';
 import { EXT_X_INDEPENDENT_SEGMENTS_STRING } from './playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/types';
 import { EXT_X_START_STRING } from './playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/types';
-import { EXT_X_ENDLIST_STRING } from './playlist-tags/media-playlist-tags/EXT-ENDLIST/types';
+import { EXT_X_ENDLIST_STRING } from './playlist-tags/media-playlist-tags/EXT-X-ENDLIST/types';
 import { EXT_X_DISCONTINUITY_SEQUENCE_STRING } from './playlist-tags/media-playlist-tags/EXT-X-DISCONTINUITY-SEQUENCE/types';
 import { EXT_X_I_FRAMES_ONLY_STRING } from './playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/types';
 import { EXT_X_MEDIA_SEQUENCE_STRING } from './playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/types';

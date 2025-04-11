@@ -28,11 +28,14 @@ export default function <XValues extends Record<string, string> = Record<string,
         }
     }
 
+    const END_DATE = extractedProperties['END-DATE']
+        ? new Date(extractedProperties['END-DATE'])
+        : undefined;
     return {
         ID: quotedStringify(extractedProperties['ID']),
         CLASS: quotedStringify(extractedProperties['CLASS']),
-        'START-DATE': extractedProperties['START-DATE'],
-        'END-DATE': extractedProperties['END-DATE'],
+        'START-DATE': new Date(extractedProperties['START-DATE']),
+        'END-DATE': END_DATE,
         DURATION: numberfy(extractedProperties['DURATION']),
         'PLANNED-DURATION': numberfy(extractedProperties['PLANNED-DURATION']),
         'SCTE-CMD': extractedProperties['SCTE-CMD'],
