@@ -1,17 +1,24 @@
-import { EXT_X_BYTERANGE_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE/types';
-import { EXT_X_DATERANGE_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/type';
-import { EXT_X_DISCONTINUITY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/types';
-import { EXT_X_KEY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-KEY/types';
-import { EXT_X_MAP_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-MAP/types';
-import { EXT_X_PROGRAM_DATE_TIME_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/types';
-import { EXTINF_PARSED } from '../playlist-tags/media-segment-tags/EXTINF/types';
-import stringifyEXTINF from '../playlist-tags/media-segment-tags/EXTINF/stringifier';
 import stringifyEXTXByterange from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE/stringifier';
-import stringifyEXTXDiscontinuity from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/stringifier';
-import stringifyEXTXKey from '../playlist-tags/media-segment-tags/EXT-X-KEY/stringifier';
-import stringifyEXTXMap from '../playlist-tags/media-segment-tags/EXT-X-MAP/stringifier';
-import stringifyEXTXProgramDateTime from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/stringifier';
+import { EXT_X_BYTERANGE_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE/types';
+import validateEXTXByterange from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE/validator';
 import stringifyEXTXDaterange from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/stringifier';
+import { EXT_X_DATERANGE_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/type';
+import validateEXTXDaterange from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/validator';
+import stringifyEXTXDiscontinuity from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/stringifier';
+import { EXT_X_DISCONTINUITY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/types';
+import validateEXTXDiscontinuity from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/validator';
+import stringifyEXTXKey from '../playlist-tags/media-segment-tags/EXT-X-KEY/stringifier';
+import { EXT_X_KEY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-KEY/types';
+import validateEXTXKey from '../playlist-tags/media-segment-tags/EXT-X-KEY/validator';
+import stringifyEXTXMap from '../playlist-tags/media-segment-tags/EXT-X-MAP/stringifier';
+import { EXT_X_MAP_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-MAP/types';
+import validateEXTXMap from '../playlist-tags/media-segment-tags/EXT-X-MAP/validator';
+import stringifyEXTXProgramDateTime from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/stringifier';
+import { EXT_X_PROGRAM_DATE_TIME_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/types';
+import validateEXTXProgramDateTime from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/validator';
+import stringifyEXTINF from '../playlist-tags/media-segment-tags/EXTINF/stringifier';
+import { EXTINF_PARSED } from '../playlist-tags/media-segment-tags/EXTINF/types';
+import validateEXTINF from '../playlist-tags/media-segment-tags/EXTINF/validator';
 
 export interface MediaSegmentOptions {
     '#EXTINF': EXTINF_PARSED;
@@ -348,8 +355,39 @@ export class MediaSegment {
     */
     public readonly '#EXT-X-DATERANGE': MediaSegmentOptions['#EXT-X-DATERANGE'];
     public readonly 'URI': MediaSegmentOptions['URI'];
+    public readonly error?: Error;
 
     constructor(mediaSegmentOptions: MediaSegmentOptions) {
+        const errors: Error[] = [];
+
+        // Validate each property and collect errors
+        const keyErrors = validateEXTXKey(mediaSegmentOptions['#EXT-X-KEY']);
+        if (keyErrors.length > 0) {
+            errors.push(new Error('#EXT-X-KEY validation failed', { cause: keyErrors }));
+        }
+        const mapErrors = validateEXTXMap(mediaSegmentOptions['#EXT-X-MAP']);
+        if (mapErrors.length > 0) {
+            errors.push(new Error('#EXT-X-MAP validation failed', { cause: mapErrors }));
+        }
+        const programDateTimeErrors = validateEXTXProgramDateTime(
+            mediaSegmentOptions['#EXT-X-PROGRAM-DATE-TIME'],
+        );
+        if (programDateTimeErrors.length > 0) {
+            errors.push(
+                new Error('#EXT-X-PROGRAM-DATE-TIME validation failed', {
+                    cause: programDateTimeErrors,
+                }),
+            );
+        }
+        const daterangeErrors = validateEXTXDaterange(mediaSegmentOptions['#EXT-X-DATERANGE']);
+        if (daterangeErrors.length > 0) {
+            errors.push(
+                new Error('#EXT-X-DATERANGE validation failed', { cause: daterangeErrors }),
+            );
+        }
+
+        this.error = new Error('MediaSegment validation failed', { cause: errors });
+
         this['#EXTINF'] = mediaSegmentOptions['#EXTINF'];
         this['#EXT-X-BYTERANGE'] = mediaSegmentOptions['#EXT-X-BYTERANGE'];
         this['#EXT-X-DISCONTINUITY'] = mediaSegmentOptions['#EXT-X-DISCONTINUITY'];
