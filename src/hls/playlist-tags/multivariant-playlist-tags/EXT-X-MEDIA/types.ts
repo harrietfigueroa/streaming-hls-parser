@@ -138,7 +138,7 @@ export interface EXT_X_MEDIA_PARSED {
 
       The CHARACTERISTICS attribute MAY include private UTIs.
      */
-    CHARACTERISTICS: QuotedString[];
+    CHARACTERISTICS: QuotedString;
 
     /**
      * The value is a quoted-string that specifies an ordered, backslash-

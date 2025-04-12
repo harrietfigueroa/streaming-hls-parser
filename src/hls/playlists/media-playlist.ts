@@ -22,11 +22,15 @@ import stringifyPlaylistType from '../playlist-tags/media-playlist-tags/EXT-X-PL
 import { EXT_X_PLAYLIST_TYPE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/types';
 import stringifyTargetDuration from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/stringifier';
 import { EXT_X_TARGETDURATION_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/types';
-import { BasePlaylist } from './base-playlist';
-import { MediaSegment } from './media-segment';
+import { HLSObject } from './hls-object';
+import { MediaSegment, MediaSegmentOptions } from './media-segment';
 import { MediaSegmentArrayBuilder } from './media-segment-array-builder';
+import validateEXTXMedia from '../playlist-tags/multivariant-playlist-tags/EXT-X-MEDIA/validator';
+import validateEXTXSessionData from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-DATA/validator';
+import validateEXTXSessionKey from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-KEY/validator';
+import { HLSPlaylist } from './hls-playlist';
 
-export interface MediaPlaylistOptions extends Record<MEDIA_PLAYLIST_TAGS, unknown> {
+export interface MediaPlaylistOptions {
     '#EXTM3U': EXTM3U_PARSED;
     '#EXT-X-VERSION': EXT_X_VERSION_PARSED;
     '#EXT-X-TARGETDURATION': EXT_X_TARGETDURATION_PARSED;
@@ -37,10 +41,9 @@ export interface MediaPlaylistOptions extends Record<MEDIA_PLAYLIST_TAGS, unknow
     '#EXT-X-I-FRAMES-ONLY': EXT_X_I_FRAMES_ONLY_PARSED;
     '#EXT-X-INDEPENDENT-SEGMENTS': EXT_X_INDEPENDENT_SEGMENTS_PARSED;
     '#EXT-X-START': EXT_X_START_PARSED;
-    mediaSegments: MediaSegmentArrayBuilder;
 }
 
-export class MediaPlaylist extends BasePlaylist<MediaSegment> {
+export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
     /**
      * The EXTM3U tag indicates that the file is an Extended M3U [M3U]
      Playlist file.  It MUST be the first line of every Media Playlist and
@@ -238,6 +241,9 @@ export class MediaPlaylist extends BasePlaylist<MediaSegment> {
         mediaSegments: Iterable<MediaSegment>,
     ) {
         super(Array.from(mediaSegments, (mediaSegment) => [mediaSegment.URI, mediaSegment]));
+
+        // Validate each property and collect errors
+
         this['#EXTM3U'] = mediaPlaylistOptions['#EXTM3U'];
         this['#EXT-X-VERSION'] = mediaPlaylistOptions['#EXT-X-VERSION'];
         this['#EXT-X-TARGETDURATION'] = mediaPlaylistOptions['#EXT-X-TARGETDURATION'];
@@ -371,12 +377,6 @@ export class MediaPlaylist extends BasePlaylist<MediaSegment> {
         );
     }
 
-    private *yieldValuesHLSLines() {
-        for (const mediaSegment of this.values()) {
-            yield* mediaSegment.toHLSLines();
-        }
-    }
-
     public *toHLSLines() {
         yield* [
             stringifyEXTM3U(),
@@ -401,7 +401,9 @@ export class MediaPlaylist extends BasePlaylist<MediaSegment> {
         if (this['#EXT-X-START']) {
             yield stringifyStart(this['#EXT-X-START']);
         }
-        yield* this.yieldValuesHLSLines();
+
+        yield* this.childHLSValues();
+
         if (this['#EXT-X-ENDLIST']) {
             yield stringifyEndlist();
         }
@@ -418,12 +420,12 @@ export class MediaPlaylist extends BasePlaylist<MediaSegment> {
             '#EXT-X-TARGETDURATION': this['#EXT-X-TARGETDURATION'],
             '#EXT-X-MEDIA-SEQUENCE': this['#EXT-X-MEDIA-SEQUENCE'],
             '#EXT-X-DISCONTINUITY-SEQUENCE': this['#EXT-X-DISCONTINUITY-SEQUENCE'],
-            '#EXT-X-ENDLIST': this['#EXT-X-ENDLIST'],
             '#EXT-X-PLAYLIST-TYPE': this['#EXT-X-PLAYLIST-TYPE'],
             '#EXT-X-I-FRAMES-ONLY': this['#EXT-X-I-FRAMES-ONLY'],
             '#EXT-X-INDEPENDENT-SEGMENTS': this['#EXT-X-INDEPENDENT-SEGMENTS'],
             '#EXT-X-START': this['#EXT-X-START'],
-            mediaSegments: Array.from(this.values()).map((mediaSegment) => mediaSegment.toJSON()),
+            mediaSegments: Array.from(this.childJSONValues()),
+            '#EXT-X-ENDLIST': this['#EXT-X-ENDLIST'],
         };
     }
 }

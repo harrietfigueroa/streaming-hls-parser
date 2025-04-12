@@ -30,7 +30,7 @@ import { EXT_X_STREAM_INF_PARSED } from '../EXT-X-STREAM-INF/types';
    Rendition for each regular VIDEO Rendition, with the same NAME and
    LANGUAGE attributes.
  */
-export interface EXT_I_FRAME_STREAM_PARSED
+export interface EXT_X_I_FRAME_STREAM_INF_PARSED
     extends Omit<
         EXT_X_STREAM_INF_PARSED,
         'FRAME-RATE' | 'AUDIO' | 'SUBTITLES' | 'CLOSED-CAPTIONS'

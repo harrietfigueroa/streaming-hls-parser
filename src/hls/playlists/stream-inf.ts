@@ -1,8 +1,9 @@
 import { EXT_X_STREAM_INF_PARSED } from '../playlist-tags/multivariant-playlist-tags/EXT-X-STREAM-INF/types';
+import { HLSObject } from './hls-object';
 
 export type VariantStreamOptions = EXT_X_STREAM_INF_PARSED & { URI: string };
 
-export class VariantStream implements EXT_X_STREAM_INF_PARSED {
+export class StreamInf extends HLSObject<VariantStreamOptions> implements EXT_X_STREAM_INF_PARSED {
     /** The value is a decimal-integer of bits per second.  It represents
       the peak segment bit rate of the Variant Stream.
 
@@ -119,7 +120,8 @@ export class VariantStream implements EXT_X_STREAM_INF_PARSED {
 
     public readonly ['URI']: string;
 
-    constructor(variantStreamOptions: VariantStreamOptions) {
+    private constructor(variantStreamOptions: VariantStreamOptions) {
+        super();
         this['BANDWIDTH'] = variantStreamOptions['BANDWIDTH'];
         this['AVERAGE-BANDWIDTH'] = variantStreamOptions['AVERAGE-BANDWIDTH'];
         this['CODECS'] = variantStreamOptions['CODECS'];
@@ -129,6 +131,39 @@ export class VariantStream implements EXT_X_STREAM_INF_PARSED {
         this['AUDIO'] = variantStreamOptions['AUDIO'];
         this['VIDEO'] = variantStreamOptions['VIDEO'];
         this['URI'] = variantStreamOptions['URI'];
+    }
+
+    public static fromOptions(variantStreamOptions: VariantStreamOptions): StreamInf {
+        return new StreamInf(variantStreamOptions);
+    }
+
+    public *toHLSLines(): Iterable<string> {
+        const attrs: string[] = [];
+        if (this['BANDWIDTH']) {
+            attrs.push(`BANDWIDTH=${this['BANDWIDTH']}`);
+        }
+        if (this['AVERAGE-BANDWIDTH']) {
+            attrs.push(`AVERAGE-BANDWIDTH=${this['AVERAGE-BANDWIDTH']}`);
+        }
+        if (this['CODECS']) {
+            attrs.push(`CODECS=${this['CODECS'].map((codec) => codec).join(',')}`);
+        }
+        if (this['RESOLUTION']) {
+            attrs.push(`RESOLUTION=${this['RESOLUTION']}`);
+        }
+        if (this['FRAME-RATE']) {
+            attrs.push(`FRAME-RATE=${this['FRAME-RATE']}`);
+        }
+        if (this['HDCP-LEVEL']) {
+            attrs.push(`HDCP-LEVEL=${this['HDCP-LEVEL']}`);
+        }
+        if (this['AUDIO']) {
+            attrs.push(`AUDIO=${this['AUDIO']}`);
+        }
+        if (this['VIDEO']) {
+            attrs.push(`VIDEO=${this['VIDEO']}`);
+        }
+        yield this['URI'];
     }
 
     public toJSON(): any {

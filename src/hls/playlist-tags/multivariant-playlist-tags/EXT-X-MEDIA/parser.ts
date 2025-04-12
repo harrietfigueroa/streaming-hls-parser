@@ -31,7 +31,7 @@ export default function (str: string): EXT_X_MEDIA_PARSED {
         AUTOSELECT: extractedProperties['AUTOSELECT'] as EXT_X_MEDIA_PARSED['AUTOSELECT'],
         FORCED: extractedProperties['FORCED'] as EXT_X_MEDIA_PARSED['FORCED'],
         'INSTREAM-ID': extractedProperties['INSTREAM-ID'] as EXT_X_MEDIA_PARSED['INSTREAM-ID'],
-        CHARACTERISTICS: extractedProperties['CHARACTERISTICS']?.split(',').map(quotedStringify),
+        CHARACTERISTICS: quotedStringify(extractedProperties['CHARACTERISTICS']),
         CHANNELS: quotedStringify(extractedProperties['CHANNELS']),
     };
 }

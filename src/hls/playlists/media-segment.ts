@@ -1,12 +1,10 @@
 import stringifyEXTXByterange from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE/stringifier';
 import { EXT_X_BYTERANGE_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE/types';
-import validateEXTXByterange from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE/validator';
 import stringifyEXTXDaterange from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/stringifier';
 import { EXT_X_DATERANGE_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/type';
 import validateEXTXDaterange from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/validator';
 import stringifyEXTXDiscontinuity from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/stringifier';
 import { EXT_X_DISCONTINUITY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/types';
-import validateEXTXDiscontinuity from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/validator';
 import stringifyEXTXKey from '../playlist-tags/media-segment-tags/EXT-X-KEY/stringifier';
 import { EXT_X_KEY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-KEY/types';
 import validateEXTXKey from '../playlist-tags/media-segment-tags/EXT-X-KEY/validator';
@@ -18,7 +16,7 @@ import { EXT_X_PROGRAM_DATE_TIME_PARSED } from '../playlist-tags/media-segment-t
 import validateEXTXProgramDateTime from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/validator';
 import stringifyEXTINF from '../playlist-tags/media-segment-tags/EXTINF/stringifier';
 import { EXTINF_PARSED } from '../playlist-tags/media-segment-tags/EXTINF/types';
-import validateEXTINF from '../playlist-tags/media-segment-tags/EXTINF/validator';
+import { HLSObject } from './hls-object';
 
 export interface MediaSegmentOptions {
     '#EXTINF': EXTINF_PARSED;
@@ -30,7 +28,7 @@ export interface MediaSegmentOptions {
     '#EXT-X-DATERANGE': EXT_X_DATERANGE_PARSED;
     URI: string;
 }
-export class MediaSegment {
+export class MediaSegment extends HLSObject<MediaSegmentOptions> implements MediaSegmentOptions {
     /**
    * The EXTINF tag specifies the duration of a Media Segment.  It applies
    only to the next Media Segment.  This tag is REQUIRED for each Media
@@ -358,6 +356,7 @@ export class MediaSegment {
     public readonly error?: Error;
 
     constructor(mediaSegmentOptions: MediaSegmentOptions) {
+        super();
         const errors: Error[] = [];
 
         // Validate each property and collect errors

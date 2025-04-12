@@ -2,7 +2,7 @@ import { describe } from 'node:test';
 import { loadTestFile, TestFiles } from '../../../test/helpers/load-test-file';
 import { MediaPlaylist } from './media-playlist';
 import { MultivariantPlaylist } from './multivariant-playlist';
-import { VariantStream } from './variant-stream';
+import { StreamInf } from './stream-inf';
 
 describe('Multivariant Playlist', (): void => {
     describe('fromStream', (): void => {
@@ -35,7 +35,7 @@ describe('Multivariant Playlist', (): void => {
                 expect(multivariantPlaylist.size).toBe(4);
 
                 for (const variantStream of multivariantPlaylist.values()) {
-                    expect(variantStream).toBeInstanceOf(VariantStream);
+                    expect(variantStream).toBeInstanceOf(StreamInf);
                     expect(variantStream['BANDWIDTH']).toBeDefined();
                 }
             });
