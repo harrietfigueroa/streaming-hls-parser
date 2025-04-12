@@ -1,4 +1,4 @@
-import { describe } from 'node:test';
+import { describe, expect, it } from 'vitest';
 import { TestFiles, loadTestFile } from '../../test/helpers/load-test-file';
 import { NewlineTransformer } from './newline.transformer';
 

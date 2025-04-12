@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { attributeList } from './attribute-list';
 
 describe('Attribute List', () => {

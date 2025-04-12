@@ -1,4 +1,4 @@
-import { describe } from 'node:test';
+import { describe, expect, it } from 'vitest';
 import { loadTestFile, TestFiles } from '../../../test/helpers/load-test-file';
 import { HlsLexicalTransformer } from '../hls-lexical.transformer';
 import { NewlineTransformer } from '../newline.transformer';

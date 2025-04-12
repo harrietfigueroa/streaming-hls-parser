@@ -1,4 +1,4 @@
-import { describe } from 'node:test';
+import { describe, expect, it } from 'vitest';
 import { loadTestFile, TestFiles } from '../../../test/helpers/load-test-file';
 import { MediaPlaylist } from './media-playlist';
 import { MultivariantPlaylist } from './multivariant-playlist';

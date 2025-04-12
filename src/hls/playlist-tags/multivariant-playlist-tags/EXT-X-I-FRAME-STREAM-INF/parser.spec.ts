@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import iFrameStreamInfParser from './parser';
 
 describe('EXT-X-I-FRAME-STREAM-INF', () => {

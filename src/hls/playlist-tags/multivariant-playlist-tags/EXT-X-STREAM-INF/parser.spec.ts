@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import streamInfParser from './parser';
 
 describe('EXT-X-STREAM-INF', () => {

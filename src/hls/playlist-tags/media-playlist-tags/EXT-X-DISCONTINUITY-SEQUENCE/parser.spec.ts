@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import discontinuitySequenceParser from './parser';
 describe('EXT-X-DISCONTINUITY-SEQUENCE', () => {
     it('should parse the tag', () => {

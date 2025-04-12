@@ -1,7 +1,7 @@
-import { describe } from 'node:test';
 import { TestFiles, loadTestFile } from '../../test/helpers/load-test-file';
 import { NewlineTransformer } from './newline.transformer';
 import { HlsLexicalTransformer } from './hls-lexical.transformer';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 describe('HLS Lexical Transformer', (): void => {
     let readable: HlsLexicalTransformer;

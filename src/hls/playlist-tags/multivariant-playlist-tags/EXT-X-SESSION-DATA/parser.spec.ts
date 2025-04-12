@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import sessionDataParser from './parser';
 
 describe('EXT-X-SESSION-DATA', () => {

@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import mediaSequenceParser from './parser';
 describe('EXT-X-MEDIA-SEQUENCE', () => {
     it('should parse the tag', () => {
