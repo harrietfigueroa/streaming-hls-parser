@@ -1,6 +1,4 @@
-import { pipeline, Readable, Transform } from 'node:stream';
-import { buffer } from 'node:stream/consumers';
-import { StringDecoder } from 'node:string_decoder';
+import { Transform } from 'node:stream';
 import { TransformCallback } from 'stream';
 
 function* charItr(previous: Iterable<string>, next: Iterable<string>) {
@@ -35,26 +33,6 @@ export class NewlineTransformer extends Transform {
         }
         this.remainder = line;
         callback();
-
-        // // We want to include the newline, so + 1
-        // while ((newLineIndex = workingChunk.indexOf('\n') + 1)) {
-        //     // Grab the bit up to the new line
-        //     const splitChunk: string = workingChunk.slice(0, newLineIndex);
-        // let newLineIndex: number;
-
-        // // We want to include the newline, so + 1
-        // while ((newLineIndex = workingChunk.indexOf('\n') + 1)) {
-        //     // Grab the bit up to the new line
-        //     const splitChunk: string = workingChunk.slice(0, newLineIndex);
-        //     // Push it out to consumers
-        //     this.push(splitChunk.trimEnd());
-        //     // Remove the part of the workingChunk we just used
-        //     workingChunk = workingChunk.slice(newLineIndex).trimStart();
-        // }
-
-        // this.remainder = workingChunk;
-
-        // callback();
     }
 
     _final(callback: (error?: Error | null | undefined) => void): void {

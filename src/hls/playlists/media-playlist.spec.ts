@@ -4,6 +4,7 @@ import { MediaPlaylist } from './media-playlist';
 import * as HLS from 'hls-parser';
 import { createReadStream, readFileSync } from 'fs';
 import exp from 'constants';
+import { Readable } from 'stream';
 
 describe('Media Playlist', (): void => {
     describe('fromStream', (): void => {
@@ -18,6 +19,23 @@ describe('Media Playlist', (): void => {
             expect(mediaPlaylist['#EXT-X-ENDLIST']).toBeFalsy();
             expect(mediaPlaylist.size).toBe(3);
         });
+
+        // it('should parse a Live Media Playlist from the web', async (): Promise<void> => {
+        //     const url =
+        //         'https://test-streams.mux.dev/x36xhzz/url_0/193039199_mp4_h264_aac_hd_7.m3u8';
+        //     const resp = await fetch(url);
+        //     if (!resp.body) {
+        //         throw new Error('Response body is null');
+        //     }
+        //     const mediaPlaylist = await MediaPlaylist.from(resp.body);
+
+        //     expect(mediaPlaylist).toBeInstanceOf(MediaPlaylist);
+        //     expect(mediaPlaylist['#EXT-X-VERSION']).toBe(3);
+        //     expect(mediaPlaylist['#EXT-X-TARGETDURATION']).toBe(8);
+        //     expect(mediaPlaylist['#EXT-X-MEDIA-SEQUENCE']).toBe(2680);
+        //     expect(mediaPlaylist['#EXT-X-ENDLIST']).toBeFalsy();
+        //     expect(mediaPlaylist.size).toBe(3);
+        // });
 
         it('should parse a VOD Media Playlist', async (): Promise<void> => {
             const stream = loadTestFile(TestFiles.VOD_PLAYLIST);

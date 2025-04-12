@@ -5,13 +5,3 @@ export type LexicalToken<PlaylistTag extends PLAYLIST_TAGS = 'URI'> = {
     source: PLAYLIST_TAGS_TO_STRING_TYPES[PlaylistTag];
     value: unknown;
 };
-
-export interface MediaSegmentToken<PlaylistTag extends PLAYLIST_TAGS = 'URI'>
-    extends LexicalToken<PlaylistTag> {
-    value: unknown;
-}
-
-export interface PlaylistToken<PlaylistTag extends PLAYLIST_TAGS = 'URI'>
-    extends LexicalToken<PlaylistTag> {
-    value: unknown;
-}

@@ -4,12 +4,12 @@ import parseVersion from '../../hls/playlist-tags/basic-tags/EXT-X-VERSION/parse
 import parseExtendedM3U from '../../hls/playlist-tags/basic-tags/EXTM3U/parser';
 import parseIndependentSegments from '../../hls/playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/parser';
 import parseStart from '../../hls/playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/parser';
-import parseMedia from '../../hls/playlist-tags/multivariant-playlist-tags/EXT-X-MEDIA/parser';
-import parseStreamInf from '../../hls/playlist-tags/multivariant-playlist-tags/EXT-X-STREAM-INF/parser';
 import parseIFrameStreamInf from '../../hls/playlist-tags/multivariant-playlist-tags/EXT-X-I-FRAME-STREAM-INF/parser';
+import parseMedia from '../../hls/playlist-tags/multivariant-playlist-tags/EXT-X-MEDIA/parser';
 import parseSessionData from '../../hls/playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-DATA/parser';
 import parseSessionKey from '../../hls/playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-KEY/parser';
-import { LexicalToken, PlaylistToken } from '../transformers.interfaces';
+import parseStreamInf from '../../hls/playlist-tags/multivariant-playlist-tags/EXT-X-STREAM-INF/parser';
+import { LexicalToken } from '../transformers.interfaces';
 
 export class MultivariantPlaylistIngestTransformer extends Transform {
     constructor() {
@@ -27,7 +27,7 @@ export class MultivariantPlaylistIngestTransformer extends Transform {
         callback();
     }
 
-    private parseValue(line: LexicalToken): PlaylistToken | LexicalToken {
+    private parseValue(line: LexicalToken): LexicalToken {
         switch (line.type) {
             case HLSTag('#EXTM3U'): {
                 return {

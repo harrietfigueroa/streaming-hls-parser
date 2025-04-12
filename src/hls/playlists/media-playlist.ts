@@ -1,32 +1,30 @@
-import { Readable } from 'node:stream';
 import HLSTag from '../../hls/hls-tag';
-import { HlsLexicalTransformer } from '../../transformers/hls-lexical.transformer';
 import { MediaPlaylistIngestTransformer } from '../../transformers/media-playlist/media-playlist.ingest.transformer';
-import { NewlineTransformer } from '../../transformers/newline.transformer';
-import { MEDIA_PLAYLIST_TAGS } from '../hls.types';
-import { EXT_X_VERSION_PARSED } from '../playlist-tags/basic-tags/EXT-X-VERSION/types';
-import { EXTM3U_PARSED } from '../playlist-tags/basic-tags/EXTM3U/types';
-import { EXT_X_INDEPENDENT_SEGMENTS_PARSED } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/types';
-import { EXT_X_START_PARSED } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/types';
-import { EXT_X_ENDLIST_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-ENDLIST/types';
-import { EXT_X_DISCONTINUITY_SEQUENCE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-DISCONTINUITY-SEQUENCE/types';
-import { EXT_X_I_FRAMES_ONLY_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/types';
-import { EXT_X_MEDIA_SEQUENCE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/types';
-import { EXT_X_PLAYLIST_TYPE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/types';
-import { EXT_X_TARGETDURATION_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/types';
-import { MediaSegment, MediaSegmentOptions } from './media-segment';
-import { MediaSegmentArrayBuilder } from './media-segment-array-builder';
 import { MediaSegmentIngestTransformer } from '../../transformers/media-segment/media-segment.ingest.transformer';
-import stringifyEXTM3U from '../playlist-tags/basic-tags/EXTM3U/stringifier';
+import { MEDIA_PLAYLIST_TAGS } from '../hls.types';
 import stringifyVersion from '../playlist-tags/basic-tags/EXT-X-VERSION/stringifier';
-import stringifyTargetDuration from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/stringifier';
-import stringifyMediaSequence from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/stringifier';
-import stringifyDiscontinuitySequence from '../playlist-tags/media-playlist-tags/EXT-X-DISCONTINUITY-SEQUENCE/stringifier';
-import stringifyEndlist from '../playlist-tags/media-playlist-tags/EXT-X-ENDLIST/stringifier';
-import stringifyPlaylistType from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/stringifier';
-import stringifyIFramesOnly from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/stringifier';
+import { EXT_X_VERSION_PARSED } from '../playlist-tags/basic-tags/EXT-X-VERSION/types';
+import stringifyEXTM3U from '../playlist-tags/basic-tags/EXTM3U/stringifier';
+import { EXTM3U_PARSED } from '../playlist-tags/basic-tags/EXTM3U/types';
 import stringifyIndependentSegments from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/stringifier';
+import { EXT_X_INDEPENDENT_SEGMENTS_PARSED } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/types';
 import stringifyStart from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/stringifier';
+import { EXT_X_START_PARSED } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/types';
+import stringifyDiscontinuitySequence from '../playlist-tags/media-playlist-tags/EXT-X-DISCONTINUITY-SEQUENCE/stringifier';
+import { EXT_X_DISCONTINUITY_SEQUENCE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-DISCONTINUITY-SEQUENCE/types';
+import stringifyEndlist from '../playlist-tags/media-playlist-tags/EXT-X-ENDLIST/stringifier';
+import { EXT_X_ENDLIST_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-ENDLIST/types';
+import stringifyIFramesOnly from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/stringifier';
+import { EXT_X_I_FRAMES_ONLY_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/types';
+import stringifyMediaSequence from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/stringifier';
+import { EXT_X_MEDIA_SEQUENCE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/types';
+import stringifyPlaylistType from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/stringifier';
+import { EXT_X_PLAYLIST_TYPE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/types';
+import stringifyTargetDuration from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/stringifier';
+import { EXT_X_TARGETDURATION_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/types';
+import { BasePlaylist } from './base-playlist';
+import { MediaSegment } from './media-segment';
+import { MediaSegmentArrayBuilder } from './media-segment-array-builder';
 
 export interface MediaPlaylistOptions extends Record<MEDIA_PLAYLIST_TAGS, unknown> {
     '#EXTM3U': EXTM3U_PARSED;
@@ -42,7 +40,7 @@ export interface MediaPlaylistOptions extends Record<MEDIA_PLAYLIST_TAGS, unknow
     mediaSegments: MediaSegmentArrayBuilder;
 }
 
-export class MediaPlaylist extends Map<string, MediaSegment> {
+export class MediaPlaylist extends BasePlaylist<MediaSegment> {
     /**
      * The EXTM3U tag indicates that the file is an Extended M3U [M3U]
      Playlist file.  It MUST be the first line of every Media Playlist and
@@ -253,38 +251,19 @@ export class MediaPlaylist extends Map<string, MediaSegment> {
         this['#EXT-X-START'] = mediaPlaylistOptions['#EXT-X-START'];
     }
 
-    public static async from(source: Readable | Iterable<string> | string): Promise<MediaPlaylist> {
-        const stream =
-            source instanceof Readable
-                ? source
-                : typeof source === 'string'
-                ? Readable.from(source.split('\n').map((line) => line.trim()))
-                : Readable.from(source);
+    public static async from<Input extends Iterable<string> | AsyncIterable<string>>(
+        source: Input,
+    ): Promise<MediaPlaylist> {
+        const tokenizedStream = super
+            .createTokenizedStream(source)
+            .pipe(new MediaPlaylistIngestTransformer())
+            .pipe(new MediaSegmentIngestTransformer());
 
-        let pipeline = stream;
-        // If it's a string we don't need to newline parse
-        if (typeof source === 'string') {
-            pipeline = stream
-                .pipe(new HlsLexicalTransformer())
-                .pipe(new MediaPlaylistIngestTransformer())
-                .pipe(new MediaSegmentIngestTransformer());
-        } else {
-            pipeline = stream
-                .pipe(new NewlineTransformer())
-                .pipe(new HlsLexicalTransformer())
-                .pipe(new MediaPlaylistIngestTransformer())
-                .pipe(new MediaSegmentIngestTransformer());
-        }
-
-        return await MediaPlaylist.fromTokenStream(pipeline);
-    }
-
-    static async fromTokenStream(tokenStream: Readable): Promise<MediaPlaylist> {
         const mediaPlaylistOptions: Partial<MediaPlaylistOptions> = {};
         const mediaSegmentsArrayBuilder = new MediaSegmentArrayBuilder();
 
         let parsingSegments: boolean = false;
-        for await (const token of tokenStream) {
+        for await (const token of tokenizedStream) {
             if (token.type === HLSTag('#EXT-X-ENDLIST')) {
                 mediaPlaylistOptions['#EXT-X-ENDLIST'] = token.value as any;
             }

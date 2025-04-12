@@ -1,7 +1,7 @@
 import { Transform, TransformCallback } from 'stream';
 import HLSTag from '../../hls/hls-tag';
 import parseStreamInf from '../../hls/playlist-tags/multivariant-playlist-tags/EXT-X-STREAM-INF/parser';
-import { LexicalToken, MediaSegmentToken } from '../transformers.interfaces';
+import { LexicalToken } from '../transformers.interfaces';
 
 export class VariantStreamIngestTransformer extends Transform {
     constructor() {
@@ -12,14 +12,11 @@ export class VariantStreamIngestTransformer extends Transform {
 
     _transform(chunk: LexicalToken, encoding: BufferEncoding, callback: TransformCallback): void {
         let mediaSegmentToken: any | null = this.parseValue(chunk);
-
-        if (mediaSegmentToken) {
-            this.push(mediaSegmentToken);
-        }
+        this.push(mediaSegmentToken);
         callback();
     }
 
-    private parseValue(line: LexicalToken): MediaSegmentToken | LexicalToken {
+    private parseValue(line: LexicalToken): LexicalToken {
         switch (line.type) {
             case HLSTag('#EXT-X-STREAM-INF'): {
                 return {

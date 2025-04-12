@@ -7,7 +7,7 @@ import parseKey from '../../hls/playlist-tags/media-segment-tags/EXT-X-KEY/parse
 import parseMap from '../../hls/playlist-tags/media-segment-tags/EXT-X-MAP/parser';
 import parseProgramDateTime from '../../hls/playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/parser';
 import parseInf from '../../hls/playlist-tags/media-segment-tags/EXTINF/parser';
-import { LexicalToken, MediaSegmentToken } from '../transformers.interfaces';
+import { LexicalToken } from '../transformers.interfaces';
 
 export class MediaSegmentIngestTransformer extends Transform {
     constructor() {
