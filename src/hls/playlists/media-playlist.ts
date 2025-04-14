@@ -257,7 +257,7 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
         this['#EXT-X-START'] = mediaPlaylistOptions['#EXT-X-START'];
     }
 
-    public static async from<Input extends Iterable<string> | AsyncIterable<string>>(
+    public static async from<Input extends Iterable<string> | AsyncIterable<string | Uint8Array>>(
         source: Input,
     ): Promise<MediaPlaylist> {
         const tokenizedStream = super

@@ -32,9 +32,9 @@ export abstract class HLSPlaylist<ChildHLSProperties> extends Map<
         }
     }
 
-    protected static createTokenizedStream<Input extends Iterable<string> | AsyncIterable<string>>(
-        source: Input,
-    ): Readable {
+    protected static createTokenizedStream<
+        Input extends Iterable<string> | AsyncIterable<string | Uint8Array>,
+    >(source: Input): Readable {
         return Readable.from(source)
             .pipe(new NewlineTransformer())
             .pipe(new HlsLexicalTransformer())

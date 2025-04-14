@@ -1,11 +1,6 @@
 import { Transform } from 'node:stream';
 import { TransformCallback } from 'stream';
 
-function* charItr(previous: Iterable<string>, next: Iterable<string>) {
-    yield* previous;
-    yield* next;
-}
-
 export class NewlineTransformer extends Transform {
     constructor() {
         super({
@@ -14,13 +9,13 @@ export class NewlineTransformer extends Transform {
             encoding: 'utf-8',
         });
     }
-    private remainder: Iterable<string> = [];
+    private remainder: string = '';
 
     _transform(chunk: string, encoding: BufferEncoding, callback: TransformCallback): void {
-        const itr: Iterable<string> = charItr(this.remainder, chunk);
         let line: string = '';
 
-        for (const char of itr) {
+        const strChunk = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf-8');
+        for (const char of this.remainder.concat(strChunk)) {
             if (char === '\n') {
                 this.push(line, 'utf-8');
                 line = '';
@@ -28,7 +23,7 @@ export class NewlineTransformer extends Transform {
                 // Ignore whitespace
                 continue;
             } else {
-                line = line + char;
+                line = line.concat(char);
             }
         }
         this.remainder = line;

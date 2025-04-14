@@ -28,14 +28,6 @@ export class MediaPlaylistIngestTransformer extends Transform {
 
     private parseValue(line: LexicalToken): LexicalToken {
         switch (line.type) {
-            case HLSTag('#EXTM3U'): {
-                line.value = parseExtendedM3U(line.source);
-                break;
-            }
-            case HLSTag('#EXT-X-VERSION'): {
-                line.value = parseVersion(line.source);
-                break;
-            }
             case HLSTag('#EXT-X-TARGETDURATION'): {
                 line.value = parseTargetDuration(line.source);
                 break;
