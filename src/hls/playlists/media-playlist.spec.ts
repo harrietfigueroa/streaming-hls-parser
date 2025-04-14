@@ -52,7 +52,7 @@ describe('Media Playlist', (): void => {
             expect(mediaPlaylist['#EXT-X-VERSION']).toBe(4);
             expect(mediaPlaylist['#EXT-X-TARGETDURATION']).toBe(6);
             expect(mediaPlaylist['#EXT-X-ENDLIST']).toBeTruthy();
-            expect(mediaPlaylist.size).toBe(11701);
+            expect(mediaPlaylist.size).toBe(11702);
         });
     });
 
@@ -119,7 +119,7 @@ describe('Media Playlist', (): void => {
             const hls = mediaPlaylist.toHLS().split('\n');
 
             for (const [i, inputLine] of input.split('\n').entries()) {
-                expect(hls[i]).toEqual(inputLine.trim());
+                expect(hls[i].trim()).toEqual(inputLine.trim());
             }
         });
 

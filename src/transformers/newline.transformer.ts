@@ -1,39 +1,35 @@
 import { Transform } from 'node:stream';
+import { StringDecoder } from 'node:string_decoder';
 import { TransformCallback } from 'stream';
 
 export class NewlineTransformer extends Transform {
+    private stringDecoder = new StringDecoder('utf-8');
+
     constructor() {
         super({
-            readableObjectMode: false,
-            writableObjectMode: true,
+            objectMode: true,
             encoding: 'utf-8',
         });
     }
-    private remainder: string = '';
+    private finalString: string = '';
 
     _transform(chunk: string, encoding: BufferEncoding, callback: TransformCallback): void {
-        let line: string = '';
-
-        const strChunk = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf-8');
-        for (const char of this.remainder.concat(strChunk)) {
-            if (char === '\n') {
-                this.push(line, 'utf-8');
-                line = '';
-            } else if (char === ' ' || char === '\t' || char === '\r') {
-                // Ignore whitespace
-                continue;
-            } else {
-                line = line.concat(char);
-            }
-        }
-        this.remainder = line;
+        this.finalString += this.stringDecoder.write(chunk);
         callback();
     }
 
-    _final(callback: (error?: Error | null | undefined) => void): void {
-        if (this.remainder) {
-            this.push(Array.from(this.remainder).join(''), 'utf-8');
+    _flush(callback: (error?: Error | null | undefined) => void): void {
+        let sliceStart = 0;
+        let sliceEnd = this.finalString.indexOf('\n', sliceStart);
+        for (
+            ;
+            sliceEnd !== -1;
+            sliceStart = sliceEnd + 1, sliceEnd = this.finalString.indexOf('\n', sliceStart)
+        ) {
+            const lastLine = this.finalString.slice(sliceStart, sliceEnd);
+            this.push(lastLine);
         }
+        this.push(this.finalString.slice(sliceStart));
         callback();
     }
 }
