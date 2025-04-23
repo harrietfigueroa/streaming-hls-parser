@@ -25,6 +25,7 @@ import stringifyEXTXSessionKey from '../playlist-tags/multivariant-playlist-tags
 import { HlsParseTransformer } from '../../stream-transformers/hls-parse.transformer';
 import { tokenizeLine } from '../../parser/tokenize-line';
 import { parseTokenizedLine } from '../../parser/parse-tokenized-line';
+import { LexicalToken } from '../../parser/parser.interfaces';
 
 export interface MultivariantPlaylistOptions {
     '#EXTM3U': EXTM3U_PARSED;
@@ -206,6 +207,59 @@ export class MultivariantPlaylist
         this['#EXT-X-START'] = multivariantPlaylistOptions['#EXT-X-START'];
     }
 
+    private static buildPlaylistOptions(
+        token: LexicalToken,
+        multivariantPlaylistOptions: Partial<MultivariantPlaylistOptions>,
+    ): Partial<MultivariantPlaylistOptions> {
+        switch (token.type) {
+            case HLSTag('#EXTM3U'): {
+                multivariantPlaylistOptions['#EXTM3U'] = token.value as any;
+                break;
+            }
+            case HLSTag('#EXT-X-VERSION'): {
+                multivariantPlaylistOptions['#EXT-X-VERSION'] = token.value as any;
+                break;
+            }
+            case HLSTag('#EXT-X-MEDIA'): {
+                multivariantPlaylistOptions['#EXT-X-MEDIA'] = token.value as any;
+                break;
+            }
+            case HLSTag('#EXT-X-SESSION-DATA'): {
+                multivariantPlaylistOptions['#EXT-X-SESSION-DATA'] = token.value as any;
+                break;
+            }
+            case HLSTag('#EXT-X-SESSION-KEY'): {
+                multivariantPlaylistOptions['#EXT-X-SESSION-KEY'] = token.value as any;
+                break;
+            }
+            case HLSTag('#EXT-X-INDEPENDENT-SEGMENTS'): {
+                multivariantPlaylistOptions['#EXT-X-INDEPENDENT-SEGMENTS'] = token.value as any;
+                break;
+            }
+            case HLSTag('#EXT-X-START'): {
+                multivariantPlaylistOptions['#EXT-X-START'] = token.value as any;
+                break;
+            }
+        }
+        return multivariantPlaylistOptions;
+    }
+    private static buildVariantStreams(
+        token: LexicalToken,
+        variantStreamsArrayBuilder: StreamInfArrayBuilder,
+    ): StreamInfArrayBuilder {
+        switch (token.type) {
+            case HLSTag('#EXT-X-STREAM-INF'): {
+                variantStreamsArrayBuilder.addStreamInf(token.value as any);
+                break;
+            }
+            case HLSTag('URI'): {
+                variantStreamsArrayBuilder.addURI(token.value as any);
+                break;
+            }
+        }
+        return variantStreamsArrayBuilder;
+    }
+
     public static fromString(input: string): MultivariantPlaylist {
         const parsedTokens = input.split('\n').map(tokenizeLine).map(parseTokenizedLine);
 
@@ -215,54 +269,14 @@ export class MultivariantPlaylist
         let parsingStreamVariants: boolean = false;
         for (const token of parsedTokens) {
             if (parsingStreamVariants == false) {
-                switch (token.type) {
-                    case HLSTag('#EXTM3U'): {
-                        multivariantPlaylistOptions['#EXTM3U'] = token.value as any;
-                        break;
-                    }
-                    case HLSTag('#EXT-X-VERSION'): {
-                        multivariantPlaylistOptions['#EXT-X-VERSION'] = token.value as any;
-                        break;
-                    }
-                    case HLSTag('#EXT-X-MEDIA'): {
-                        multivariantPlaylistOptions['#EXT-X-MEDIA'] = token.value as any;
-                        break;
-                    }
-                    case HLSTag('#EXT-X-SESSION-DATA'): {
-                        multivariantPlaylistOptions['#EXT-X-SESSION-DATA'] = token.value as any;
-                        break;
-                    }
-                    case HLSTag('#EXT-X-SESSION-KEY'): {
-                        multivariantPlaylistOptions['#EXT-X-SESSION-KEY'] = token.value as any;
-                        break;
-                    }
-                    case HLSTag('#EXT-X-INDEPENDENT-SEGMENTS'): {
-                        multivariantPlaylistOptions['#EXT-X-INDEPENDENT-SEGMENTS'] =
-                            token.value as any;
-                        break;
-                    }
-                    case HLSTag('#EXT-X-START'): {
-                        multivariantPlaylistOptions['#EXT-X-START'] = token.value as any;
-                        break;
-                    }
-                    case HLSTag('#EXT-X-STREAM-INF'): {
-                        parsingStreamVariants = true;
-                        break;
-                    }
+                MultivariantPlaylist.buildPlaylistOptions(token, multivariantPlaylistOptions);
+                if (token.type == HLSTag('#EXT-X-STREAM-INF')) {
+                    parsingStreamVariants = true;
                 }
             }
 
             if (parsingStreamVariants) {
-                switch (token.type) {
-                    case HLSTag('#EXT-X-STREAM-INF'): {
-                        variantStreamsArrayBuilder.addStreamInf(token.value as any);
-                        break;
-                    }
-                    case HLSTag('URI'): {
-                        variantStreamsArrayBuilder.addURI(token.value as any);
-                        break;
-                    }
-                }
+                MultivariantPlaylist.buildVariantStreams(token, variantStreamsArrayBuilder);
             }
         }
         return new MultivariantPlaylist(
@@ -282,54 +296,14 @@ export class MultivariantPlaylist
         let parsingStreamVariants: boolean = false;
         for await (const token of tokenizedStream) {
             if (parsingStreamVariants == false) {
-                switch (token.type) {
-                    case HLSTag('#EXTM3U'): {
-                        multivariantPlaylistOptions['#EXTM3U'] = token.value as any;
-                        break;
-                    }
-                    case HLSTag('#EXT-X-VERSION'): {
-                        multivariantPlaylistOptions['#EXT-X-VERSION'] = token.value as any;
-                        break;
-                    }
-                    case HLSTag('#EXT-X-MEDIA'): {
-                        multivariantPlaylistOptions['#EXT-X-MEDIA'] = token.value as any;
-                        break;
-                    }
-                    case HLSTag('#EXT-X-SESSION-DATA'): {
-                        multivariantPlaylistOptions['#EXT-X-SESSION-DATA'] = token.value as any;
-                        break;
-                    }
-                    case HLSTag('#EXT-X-SESSION-KEY'): {
-                        multivariantPlaylistOptions['#EXT-X-SESSION-KEY'] = token.value as any;
-                        break;
-                    }
-                    case HLSTag('#EXT-X-INDEPENDENT-SEGMENTS'): {
-                        multivariantPlaylistOptions['#EXT-X-INDEPENDENT-SEGMENTS'] =
-                            token.value as any;
-                        break;
-                    }
-                    case HLSTag('#EXT-X-START'): {
-                        multivariantPlaylistOptions['#EXT-X-START'] = token.value as any;
-                        break;
-                    }
-                    case HLSTag('#EXT-X-STREAM-INF'): {
-                        parsingStreamVariants = true;
-                        break;
-                    }
+                MultivariantPlaylist.buildPlaylistOptions(token, multivariantPlaylistOptions);
+                if (token.type == HLSTag('#EXT-X-STREAM-INF')) {
+                    parsingStreamVariants = true;
                 }
             }
 
             if (parsingStreamVariants) {
-                switch (token.type) {
-                    case HLSTag('#EXT-X-STREAM-INF'): {
-                        variantStreamsArrayBuilder.addStreamInf(token.value as any);
-                        break;
-                    }
-                    case HLSTag('URI'): {
-                        variantStreamsArrayBuilder.addURI(token.value as any);
-                        break;
-                    }
-                }
+                MultivariantPlaylist.buildVariantStreams(token, variantStreamsArrayBuilder);
             }
         }
         return new MultivariantPlaylist(
