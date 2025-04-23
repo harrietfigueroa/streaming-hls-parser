@@ -1,7 +1,6 @@
 import HLSTag from '../../hls/hls-tag';
-import { MediaPlaylistIngestTransformer } from '../../transformers/media-playlist/media-playlist.ingest.transformer';
-import { MediaSegmentIngestTransformer } from '../../transformers/media-segment/media-segment.ingest.transformer';
-import { MEDIA_PLAYLIST_TAGS } from '../hls.types';
+import { parseTokenizedLine } from '../../parser/parse-tokenized-line';
+import { tokenizeLine } from '../../parser/tokenize-line';
 import stringifyVersion from '../playlist-tags/basic-tags/EXT-X-VERSION/stringifier';
 import { EXT_X_VERSION_PARSED } from '../playlist-tags/basic-tags/EXT-X-VERSION/types';
 import stringifyEXTM3U from '../playlist-tags/basic-tags/EXTM3U/stringifier';
@@ -22,13 +21,9 @@ import stringifyPlaylistType from '../playlist-tags/media-playlist-tags/EXT-X-PL
 import { EXT_X_PLAYLIST_TYPE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/types';
 import stringifyTargetDuration from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/stringifier';
 import { EXT_X_TARGETDURATION_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/types';
-import { HLSObject } from './hls-object';
+import { HLSPlaylist } from './hls-playlist';
 import { MediaSegment, MediaSegmentOptions } from './media-segment';
 import { MediaSegmentArrayBuilder } from './media-segment-array-builder';
-import validateEXTXMedia from '../playlist-tags/multivariant-playlist-tags/EXT-X-MEDIA/validator';
-import validateEXTXSessionData from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-DATA/validator';
-import validateEXTXSessionKey from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-KEY/validator';
-import { HLSPlaylist } from './hls-playlist';
 
 export interface MediaPlaylistOptions {
     '#EXTM3U': EXTM3U_PARSED;
@@ -257,13 +252,113 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
         this['#EXT-X-START'] = mediaPlaylistOptions['#EXT-X-START'];
     }
 
-    public static async from<Input extends Iterable<string> | AsyncIterable<string | Uint8Array>>(
-        source: Input,
-    ): Promise<MediaPlaylist> {
-        const tokenizedStream = super
-            .createTokenizedStream(source)
-            .pipe(new MediaPlaylistIngestTransformer())
-            .pipe(new MediaSegmentIngestTransformer());
+    public static async fromString(input: string): Promise<MediaPlaylist> {
+        const parsedTokens = input.split('\n').map(tokenizeLine).map(parseTokenizedLine);
+
+        const mediaPlaylistOptions: Partial<MediaPlaylistOptions> = {};
+        const mediaSegmentsArrayBuilder = new MediaSegmentArrayBuilder();
+
+        let parsingSegments: boolean = false;
+        for (const token of parsedTokens) {
+            if (token.type === HLSTag('#EXT-X-ENDLIST')) {
+                mediaPlaylistOptions['#EXT-X-ENDLIST'] = token.value as any;
+            }
+
+            if (parsingSegments == false) {
+                switch (token.type) {
+                    case HLSTag('#EXTM3U'): {
+                        mediaPlaylistOptions['#EXTM3U'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-VERSION'): {
+                        mediaPlaylistOptions['#EXT-X-VERSION'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-TARGETDURATION'): {
+                        mediaPlaylistOptions['#EXT-X-TARGETDURATION'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-MEDIA-SEQUENCE'): {
+                        mediaPlaylistOptions['#EXT-X-MEDIA-SEQUENCE'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-DISCONTINUITY-SEQUENCE'): {
+                        mediaPlaylistOptions['#EXT-X-DISCONTINUITY-SEQUENCE'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-ENDLIST'): {
+                        mediaPlaylistOptions['#EXT-X-ENDLIST'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-PLAYLIST-TYPE'): {
+                        mediaPlaylistOptions['#EXT-X-PLAYLIST-TYPE'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-I-FRAMES-ONLY'): {
+                        mediaPlaylistOptions['#EXT-X-I-FRAMES-ONLY'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-INDEPENDENT-SEGMENTS'): {
+                        mediaPlaylistOptions['#EXT-X-INDEPENDENT-SEGMENTS'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-START'): {
+                        mediaPlaylistOptions['#EXT-X-START'] = token.value as any;
+                        break;
+                    }
+                    default: {
+                        parsingSegments = MediaPlaylist.isMediaSegmentTag(token.type);
+                    }
+                }
+            }
+
+            if (parsingSegments) {
+                switch (token.type) {
+                    case HLSTag('#EXTINF'): {
+                        mediaSegmentsArrayBuilder.addStreamInf(token.value as any);
+                        break;
+                    }
+                    case HLSTag('#EXT-X-BYTERANGE'): {
+                        mediaSegmentsArrayBuilder.addByteRange(token.value as any);
+                        break;
+                    }
+                    case HLSTag('#EXT-X-DISCONTINUITY'): {
+                        mediaSegmentsArrayBuilder.addDiscontinuity(token.value as any);
+                        break;
+                    }
+                    case HLSTag('#EXT-X-KEY'): {
+                        mediaSegmentsArrayBuilder.addKey(token.value as any);
+                        break;
+                    }
+                    case HLSTag('#EXT-X-MAP'): {
+                        mediaSegmentsArrayBuilder.addMap(token.value as any);
+                        break;
+                    }
+                    case HLSTag('#EXT-X-PROGRAM-DATE-TIME'): {
+                        mediaSegmentsArrayBuilder.addProgramDateTime(token.value as any);
+                        break;
+                    }
+                    case HLSTag('#EXT-X-DATERANGE'): {
+                        mediaSegmentsArrayBuilder.addDateRange(token.value as any);
+                        break;
+                    }
+                    case HLSTag('URI'): {
+                        mediaSegmentsArrayBuilder.addURI(token.value as any);
+                        break;
+                    }
+                }
+            }
+        }
+        return new MediaPlaylist(
+            mediaPlaylistOptions as MediaPlaylistOptions,
+            mediaSegmentsArrayBuilder,
+        );
+    }
+
+    public static async fromStream<
+        Input extends Iterable<string> | AsyncIterable<string | Uint8Array>,
+    >(source: Input): Promise<MediaPlaylist> {
+        const tokenizedStream = super.createStream(source);
 
         const mediaPlaylistOptions: Partial<MediaPlaylistOptions> = {};
         const mediaSegmentsArrayBuilder = new MediaSegmentArrayBuilder();

@@ -1,9 +1,8 @@
 import { Readable } from 'node:stream';
-import { HlsLexicalTransformer } from '../../transformers/hls-lexical.transformer';
-import { NewlineTransformer } from '../../transformers/newline.transformer';
-import { MultivariantOrMediaPlaylistIngestTransformer } from '../../transformers/multivariant-or-media-playlist/multivariant-or-media-playlist.ingest.transformer';
-import { BasicPlaylistIngestTransformer } from '../../transformers/basic-tags/basic-tags.ingest.transformer';
+import { HlsLexicalTransformer } from '../../stream-transformers/hls-lexical.transformer';
+import { NewlineTransformer } from '../../stream-transformers/newline.transformer';
 import { HLSObject } from './hls-object';
+import { HlsParseTransformer } from '../../stream-transformers/hls-parse.transformer';
 
 export abstract class HLSPlaylist<ChildHLSProperties> extends Map<
     string,
@@ -32,13 +31,12 @@ export abstract class HLSPlaylist<ChildHLSProperties> extends Map<
         }
     }
 
-    protected static createTokenizedStream<
+    protected static createStream<
         Input extends Iterable<string> | AsyncIterable<string | Uint8Array>,
     >(source: Input): Readable {
         return Readable.from(source)
             .pipe(new NewlineTransformer())
             .pipe(new HlsLexicalTransformer())
-            .pipe(new BasicPlaylistIngestTransformer())
-            .pipe(new MultivariantOrMediaPlaylistIngestTransformer());
+            .pipe(new HlsParseTransformer());
     }
 }

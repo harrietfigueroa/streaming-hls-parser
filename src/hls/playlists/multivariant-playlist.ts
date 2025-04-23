@@ -11,8 +11,6 @@ import { EXT_X_SESSION_KEY_PARSED } from '../playlist-tags/multivariant-playlist
 import { MediaSegmentArrayBuilder } from './media-segment-array-builder';
 import { StreamInf, VariantStreamOptions } from './stream-inf';
 import { StreamInfArrayBuilder } from './stream-inf-array-builder';
-import { MultivariantPlaylistIngestTransformer } from '../../transformers/multivariant-playlist/multivariant-playlist.ingest.transformer';
-import { VariantStreamIngestTransformer } from '../../transformers/variant-stream/variant-stream.ingest.transformer';
 import validateEXTXMedia from '../playlist-tags/multivariant-playlist-tags/EXT-X-MEDIA/validator';
 import validateEXTXSessionKey from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-KEY/validator';
 import { HLSPlaylist } from './hls-playlist';
@@ -24,6 +22,9 @@ import stringifyEXTXIndependentSegments from '../playlist-tags/media-or-multivar
 import stringifyEXTXStart from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/stringifier';
 import stringifyEXTXSessionData from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-DATA/stringifier';
 import stringifyEXTXSessionKey from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-KEY/stringifier';
+import { HlsParseTransformer } from '../../stream-transformers/hls-parse.transformer';
+import { tokenizeLine } from '../../parser/tokenize-line';
+import { parseTokenizedLine } from '../../parser/parse-tokenized-line';
 
 export interface MultivariantPlaylistOptions {
     '#EXTM3U': EXTM3U_PARSED;
@@ -205,13 +206,75 @@ export class MultivariantPlaylist
         this['#EXT-X-START'] = multivariantPlaylistOptions['#EXT-X-START'];
     }
 
-    public static async from<Input extends Iterable<string> | AsyncIterable<string>>(
+    public static fromString(input: string): MultivariantPlaylist {
+        const parsedTokens = input.split('\n').map(tokenizeLine).map(parseTokenizedLine);
+
+        const multivariantPlaylistOptions: Partial<MultivariantPlaylistOptions> = {};
+        const variantStreamsArrayBuilder = new StreamInfArrayBuilder();
+
+        let parsingStreamVariants: boolean = false;
+        for (const token of parsedTokens) {
+            if (parsingStreamVariants == false) {
+                switch (token.type) {
+                    case HLSTag('#EXTM3U'): {
+                        multivariantPlaylistOptions['#EXTM3U'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-VERSION'): {
+                        multivariantPlaylistOptions['#EXT-X-VERSION'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-MEDIA'): {
+                        multivariantPlaylistOptions['#EXT-X-MEDIA'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-SESSION-DATA'): {
+                        multivariantPlaylistOptions['#EXT-X-SESSION-DATA'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-SESSION-KEY'): {
+                        multivariantPlaylistOptions['#EXT-X-SESSION-KEY'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-INDEPENDENT-SEGMENTS'): {
+                        multivariantPlaylistOptions['#EXT-X-INDEPENDENT-SEGMENTS'] =
+                            token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-START'): {
+                        multivariantPlaylistOptions['#EXT-X-START'] = token.value as any;
+                        break;
+                    }
+                    case HLSTag('#EXT-X-STREAM-INF'): {
+                        parsingStreamVariants = true;
+                        break;
+                    }
+                }
+            }
+
+            if (parsingStreamVariants) {
+                switch (token.type) {
+                    case HLSTag('#EXT-X-STREAM-INF'): {
+                        variantStreamsArrayBuilder.addStreamInf(token.value as any);
+                        break;
+                    }
+                    case HLSTag('URI'): {
+                        variantStreamsArrayBuilder.addURI(token.value as any);
+                        break;
+                    }
+                }
+            }
+        }
+        return new MultivariantPlaylist(
+            multivariantPlaylistOptions as MultivariantPlaylistOptions,
+            variantStreamsArrayBuilder,
+        );
+    }
+
+    public static async fromStream<Input extends Iterable<string> | AsyncIterable<string>>(
         source: Input,
     ): Promise<MultivariantPlaylist> {
-        const tokenizedStream = super
-            .createTokenizedStream(source)
-            .pipe(new MultivariantPlaylistIngestTransformer())
-            .pipe(new VariantStreamIngestTransformer());
+        const tokenizedStream = super.createStream(source);
 
         const multivariantPlaylistOptions: Partial<MultivariantPlaylistOptions> = {};
         const variantStreamsArrayBuilder = new StreamInfArrayBuilder();

@@ -6,7 +6,7 @@ describe('Media Playlist', (): void => {
     describe('fromStream', (): void => {
         it('should parse a Live Media Playlist', async (): Promise<void> => {
             const stream = loadTestFile(TestFiles.LIVE_PLAYLIST);
-            const mediaPlaylist = await MediaPlaylist.from(stream);
+            const mediaPlaylist = await MediaPlaylist.fromStream(stream);
 
             expect(mediaPlaylist).toBeInstanceOf(MediaPlaylist);
             expect(mediaPlaylist['#EXT-X-VERSION']).toBe(3);
@@ -35,7 +35,7 @@ describe('Media Playlist', (): void => {
 
         it('should parse a VOD Media Playlist', async (): Promise<void> => {
             const stream = loadTestFile(TestFiles.VOD_PLAYLIST);
-            const mediaPlaylist = await MediaPlaylist.from(stream);
+            const mediaPlaylist = await MediaPlaylist.fromStream(stream);
 
             expect(mediaPlaylist).toBeInstanceOf(MediaPlaylist);
             expect(mediaPlaylist['#EXT-X-VERSION']).toBe(3);
@@ -46,7 +46,7 @@ describe('Media Playlist', (): void => {
 
         it('should parse a Very Large Media Playlist', async (): Promise<void> => {
             const stream = loadTestFile(TestFiles.VERY_LARGE_PLAYLIST);
-            const mediaPlaylist = await MediaPlaylist.from(stream);
+            const mediaPlaylist = await MediaPlaylist.fromStream(stream);
 
             expect(mediaPlaylist).toBeInstanceOf(MediaPlaylist);
             expect(mediaPlaylist['#EXT-X-VERSION']).toBe(4);
@@ -59,7 +59,7 @@ describe('Media Playlist', (): void => {
     describe('fromString', (): void => {
         describe('Live Playlist', () => {
             it('should parse a Media Playlist', async (): Promise<void> => {
-                const mediaPlaylist = await MediaPlaylist.from(`
+                const mediaPlaylist = await MediaPlaylist.fromString(`
                         #EXTM3U
                         #EXT-X-VERSION:3
                         #EXT-X-TARGETDURATION:8
@@ -82,7 +82,7 @@ describe('Media Playlist', (): void => {
 
         describe('VOD Playlist', () => {
             it('should parse a Media Playlist', async (): Promise<void> => {
-                const mediaPlaylist = await MediaPlaylist.from(`
+                const mediaPlaylist = await MediaPlaylist.fromString(`
                     #EXTM3U
                     #EXT-X-TARGETDURATION:10
                     #EXT-X-VERSION:3
@@ -115,7 +115,7 @@ describe('Media Playlist', (): void => {
                     http://media.example.com/third.ts
                     #EXT-X-ENDLIST`;
 
-            const mediaPlaylist = await MediaPlaylist.from(input);
+            const mediaPlaylist = await MediaPlaylist.fromStream(input);
             const hls = mediaPlaylist.toHLS().split('\n');
 
             for (const [i, inputLine] of input.split('\n').entries()) {
