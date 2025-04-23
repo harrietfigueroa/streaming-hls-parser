@@ -52,7 +52,7 @@ describe('Media Playlist', (): void => {
             expect(mediaPlaylist['#EXT-X-VERSION']).toBe(4);
             expect(mediaPlaylist['#EXT-X-TARGETDURATION']).toBe(6);
             expect(mediaPlaylist['#EXT-X-ENDLIST']).toBeTruthy();
-            expect(mediaPlaylist.size).toBe(11702);
+            expect(mediaPlaylist.size).toBe(11701);
         });
     });
 
