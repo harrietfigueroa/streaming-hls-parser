@@ -1,5 +1,4 @@
 import { Readable } from 'node:stream';
-import HLSTag from '../hls-tag';
 import { MULTIVARIANT_PLAYLIST_TAGS } from '../hls.types';
 import { EXT_X_VERSION_PARSED } from '../playlist-tags/basic-tags/EXT-X-VERSION/types';
 import { EXTM3U_PARSED } from '../playlist-tags/basic-tags/EXTM3U/types';
