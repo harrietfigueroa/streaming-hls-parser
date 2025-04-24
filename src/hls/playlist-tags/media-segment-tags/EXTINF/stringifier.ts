@@ -1,7 +1,7 @@
 import { EXTINF_PARSED } from './types';
 
 export default function (val: EXTINF_PARSED) {
-    const DURATION = val.DURATION.toFixed(3);
+    const DURATION = val.DURATION.toFixed(5);
     const TITLE = val.TITLE;
     // The comma should always be present, even if there is no title.
     const attrs = [`${DURATION},`];
