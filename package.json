@@ -2,13 +2,13 @@
     "name": "hallys-hls-parser",
     "version": "0.0.0",
     "description": "A Better HLS Parser",
-    "main": "index.js",
+    "main": "dist/src/index.js",
     "scripts": {
         "test": "vitest run",
         "test:watch": "vitest watch",
         "compile": "tsc"
     },
-    "author": "harriet.f.waters@gmail.com",
+    "author": "harriet.f.figueroa@gmail.com",
     "license": "ISC",
     "devDependencies": {
         "@types/node": "^22.14.1",
