@@ -313,6 +313,14 @@ export class MultivariantPlaylist
         );
     }
 
+    public static isMultivariantPlaylist(input: string): boolean {
+        return (
+            input.includes('#EXT-X-MEDIA') ||
+            input.includes('#EXT-X-STREAM-INF') ||
+            input.includes('EXT-X-I-FRAME-STREAM-INF')
+        );
+    }
+
     public *toHLSLines(): Iterable<string> {
         yield stringifyEXTM3U();
         yield stringifyEXTXVersion(this['#EXT-X-VERSION']);

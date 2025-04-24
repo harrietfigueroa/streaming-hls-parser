@@ -253,6 +253,19 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
         this['#EXT-X-START'] = mediaPlaylistOptions['#EXT-X-START'];
     }
 
+    private static isMediaSegmentTag(tag: PLAYLIST_TAGS) {
+        return (
+            tag === '#EXT-X-PROGRAM-DATE-TIME' ||
+            tag === 'URI' ||
+            tag === '#EXTINF' ||
+            tag === '#EXT-X-BYTERANGE' ||
+            tag === '#EXT-X-DISCONTINUITY' ||
+            tag === '#EXT-X-KEY' ||
+            tag === '#EXT-X-MAP' ||
+            tag === '#EXT-X-DATERANGE'
+        );
+    }
+
     private static buildPlaylistOptions(
         token: LexicalToken,
         mediaPlaylistOptions: Partial<MediaPlaylistOptions>,
@@ -302,7 +315,7 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
         return mediaPlaylistOptions;
     }
 
-    public static buildSegments(
+    private static buildSegments(
         token: LexicalToken,
         mediaSegmentsArrayBuilder: MediaSegmentArrayBuilder,
     ): MediaSegmentArrayBuilder {
@@ -343,7 +356,7 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
         return mediaSegmentsArrayBuilder;
     }
 
-    public static async fromString(input: string): Promise<MediaPlaylist> {
+    public static fromString(input: string): MediaPlaylist {
         const mediaPlaylistOptions: Partial<MediaPlaylistOptions> = {};
         const mediaSegmentsArrayBuilder = new MediaSegmentArrayBuilder();
 
@@ -401,17 +414,8 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
         );
     }
 
-    static isMediaSegmentTag(tag: PLAYLIST_TAGS) {
-        return (
-            tag === '#EXT-X-PROGRAM-DATE-TIME' ||
-            tag === 'URI' ||
-            tag === '#EXTINF' ||
-            tag === '#EXT-X-BYTERANGE' ||
-            tag === '#EXT-X-DISCONTINUITY' ||
-            tag === '#EXT-X-KEY' ||
-            tag === '#EXT-X-MAP' ||
-            tag === '#EXT-X-DATERANGE'
-        );
+    public static isMediaPlaylist(input: string): boolean {
+        return input.includes('#EXT-X-TARGETDURATION');
     }
 
     public *toHLSLines() {
