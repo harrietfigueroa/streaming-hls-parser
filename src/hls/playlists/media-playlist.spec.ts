@@ -1,8 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { loadTestFile, TestFiles } from '../../../test/helpers/load-test-file';
 import { MediaPlaylist } from './media-playlist';
 
 describe('Media Playlist', (): void => {
+    let veryLargePlaylistStr: string;
+    beforeAll(async () => {
+        const stream = loadTestFile(TestFiles.VERY_LARGE_PLAYLIST);
+        const strPiece = [];
+        for await (const chunk of stream) {
+            strPiece.push(chunk);
+        }
+        veryLargePlaylistStr = strPiece.join('');
+    });
+
     describe('fromStream', (): void => {
         it('should parse a Live Media Playlist', async (): Promise<void> => {
             const stream = loadTestFile(TestFiles.LIVE_PLAYLIST);
@@ -59,17 +69,16 @@ describe('Media Playlist', (): void => {
     describe('fromString', (): void => {
         describe('Live Playlist', () => {
             it('should parse a Media Playlist', async (): Promise<void> => {
-                const mediaPlaylist = await MediaPlaylist.fromString(`
-                        #EXTM3U
-                        #EXT-X-VERSION:3
-                        #EXT-X-TARGETDURATION:8
-                        #EXT-X-MEDIA-SEQUENCE:2680
-                        #EXTINF:7.975,
-                        https://priv.example.com/fileSequence2680.ts
-                        #EXTINF:7.941,
-                        https://priv.example.com/fileSequence2681.ts
-                        #EXTINF:7.975,
-                        https://priv.example.com/fileSequence2682.ts`);
+                const mediaPlaylist = await MediaPlaylist.fromString(`#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:8
+#EXT-X-MEDIA-SEQUENCE:2680
+#EXTINF:7.975,
+https://priv.example.com/fileSequence2680.ts
+#EXTINF:7.941,
+https://priv.example.com/fileSequence2681.ts
+#EXTINF:7.975,
+https://priv.example.com/fileSequence2682.ts`);
 
                 expect(mediaPlaylist).toBeInstanceOf(MediaPlaylist);
                 expect(mediaPlaylist['#EXT-X-VERSION']).toBe(3);
@@ -82,17 +91,16 @@ describe('Media Playlist', (): void => {
 
         describe('VOD Playlist', () => {
             it('should parse a Media Playlist', async (): Promise<void> => {
-                const mediaPlaylist = await MediaPlaylist.fromString(`
-                    #EXTM3U
-                    #EXT-X-TARGETDURATION:10
-                    #EXT-X-VERSION:3
-                    #EXTINF:9.009,
-                    http://media.example.com/first.ts
-                    #EXTINF:9.009,
-                    http://media.example.com/second.ts
-                    #EXTINF:3.003,
-                    http://media.example.com/third.ts
-                    #EXT-X-ENDLIST`);
+                const mediaPlaylist = await MediaPlaylist.fromString(`#EXTM3U
+#EXT-X-TARGETDURATION:10
+#EXT-X-VERSION:3
+#EXTINF:9.009,
+http://media.example.com/first.ts
+#EXTINF:9.009,
+http://media.example.com/second.ts
+#EXTINF:3.003,
+http://media.example.com/third.ts
+#EXT-X-ENDLIST`);
 
                 expect(mediaPlaylist).toBeInstanceOf(MediaPlaylist);
                 expect(mediaPlaylist['#EXT-X-VERSION']).toBe(3);
@@ -101,19 +109,29 @@ describe('Media Playlist', (): void => {
                 expect(mediaPlaylist.size).toBe(3);
             });
         });
+
+        it('should parse a Very Large Media Playlist', async (): Promise<void> => {
+            const mediaPlaylist = await MediaPlaylist.fromString(veryLargePlaylistStr);
+
+            expect(mediaPlaylist).toBeInstanceOf(MediaPlaylist);
+            expect(mediaPlaylist['#EXT-X-VERSION']).toBe(4);
+            expect(mediaPlaylist['#EXT-X-TARGETDURATION']).toBe(6);
+            expect(mediaPlaylist['#EXT-X-ENDLIST']).toBeTruthy();
+            expect(mediaPlaylist.size).toBe(11702);
+        });
     });
     describe('toHLS', () => {
         it('should return the correct HLS string', async (): Promise<void> => {
             const input = `#EXTM3U
-                    #EXT-X-TARGETDURATION:10
-                    #EXT-X-VERSION:3
-                    #EXTINF:9.009,
-                    http://media.example.com/first.ts
-                    #EXTINF:9.009,
-                    http://media.example.com/second.ts
-                    #EXTINF:3.003,
-                    http://media.example.com/third.ts
-                    #EXT-X-ENDLIST`;
+#EXT-X-TARGETDURATION:10
+#EXT-X-VERSION:3
+#EXTINF:9.009,
+http://media.example.com/first.ts
+#EXTINF:9.009,
+http://media.example.com/second.ts
+#EXTINF:3.003,
+http://media.example.com/third.ts
+#EXT-X-ENDLIST`;
 
             const mediaPlaylist = await MediaPlaylist.fromStream(input);
             const hls = mediaPlaylist.toHLS().split('\n');

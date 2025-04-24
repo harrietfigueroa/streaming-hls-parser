@@ -1,4 +1,3 @@
-import { LexicalToken } from './parser.interfaces';
 import parseVersion from '../hls/playlist-tags/basic-tags/EXT-X-VERSION/parser';
 import parseExtendedM3U from '../hls/playlist-tags/basic-tags/EXTM3U/parser';
 import parseIndependentSegments from '../hls/playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/parser';
@@ -21,125 +20,126 @@ import parseMedia from '../hls/playlist-tags/multivariant-playlist-tags/EXT-X-ME
 import parseSessionData from '../hls/playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-DATA/parser';
 import parseSessionKey from '../hls/playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-KEY/parser';
 import parseStreamInf from '../hls/playlist-tags/multivariant-playlist-tags/EXT-X-STREAM-INF/parser';
-import HLSTag from '../hls/hls-tag';
+import { LexicalToken } from './parser.interfaces';
 
 export function parseTokenizedLine(line: LexicalToken) {
     switch (line.type) {
-        case HLSTag('#EXTM3U'): {
+        // Media Segment Tags
+        case '#EXTINF': {
+            line.value = parseInf(line.source as any);
+            break;
+        }
+        case 'URI': {
+            line.value = line.source;
+            break;
+        }
+        case '#EXT-X-BYTERANGE': {
+            line.value = parseByteRange(line.source as any);
+            break;
+        }
+        case '#EXT-X-DISCONTINUITY': {
+            line.value = parseDiscontinuity(line.source as any);
+            break;
+        }
+        case '#EXT-X-KEY': {
+            line.value = parseKey(line.source as any);
+            break;
+        }
+        case '#EXT-X-MAP': {
+            line.value = parseMap(line.source as any);
+            break;
+        }
+        case '#EXT-X-PROGRAM-DATE-TIME': {
+            line.value = parseProgramDateTime(line.source as any);
+            break;
+        }
+        case '#EXT-X-DATERANGE': {
+            line.value = parseDateRange(line.source as any);
+            break;
+        }
+
+        // Media or Multivariant Playlist Tags
+        case '#EXTM3U': {
             line.value = parseExtendedM3U(line.source);
             break;
         }
-        case HLSTag('#EXT-X-VERSION'): {
+        case '#EXT-X-VERSION': {
             line.value = parseVersion(line.source);
             break;
         }
-        case HLSTag('#EXT-X-TARGETDURATION'): {
+        case '#EXT-X-TARGETDURATION': {
             line.value = parseTargetDuration(line.source);
             break;
         }
-        case HLSTag('#EXT-X-MEDIA-SEQUENCE'): {
+        case '#EXT-X-MEDIA-SEQUENCE': {
             line.value = parseMediaSequence(line.source);
             break;
         }
-        case HLSTag('#EXT-X-DISCONTINUITY-SEQUENCE'): {
+        case '#EXT-X-DISCONTINUITY-SEQUENCE': {
             line.value = parseDiscontinuitySequence(line.source);
             break;
         }
-        case HLSTag('#EXT-X-ENDLIST'): {
+        case '#EXT-X-ENDLIST': {
             line.value = parseEndlist(line.source);
             break;
         }
-        case HLSTag('#EXT-X-PLAYLIST-TYPE'): {
+        case '#EXT-X-PLAYLIST-TYPE': {
             line.value = parsePlaylistType(line.source);
             break;
         }
-        case HLSTag('#EXT-X-I-FRAMES-ONLY'): {
+        case '#EXT-X-I-FRAMES-ONLY': {
             line.value = parseIFramesOnly(line.source);
             break;
         }
-        case HLSTag('#EXT-X-INDEPENDENT-SEGMENTS'): {
+        case '#EXT-X-INDEPENDENT-SEGMENTS': {
             line.value = parseIndependentSegments(line.source);
             break;
         }
-        case HLSTag('#EXT-X-START'): {
+        case '#EXT-X-START': {
             line.value = parseStart(line.source);
             break;
         }
-        case HLSTag('#EXT-X-MEDIA'): {
+        case '#EXT-X-MEDIA': {
             return {
                 ...line,
                 value: parseMedia(line.source as any),
             };
         }
-        case HLSTag('#EXT-X-STREAM-INF'): {
+        case '#EXT-X-STREAM-INF': {
             return {
                 ...line,
                 value: parseStreamInf(line.source as any),
             };
         }
-        case HLSTag('#EXT-X-I-FRAME-STREAM-INF'): {
+        case '#EXT-X-I-FRAME-STREAM-INF': {
             return {
                 ...line,
                 value: parseIFrameStreamInf(line.source as any),
             };
         }
-        case HLSTag('#EXT-X-SESSION-DATA'): {
+        case '#EXT-X-SESSION-DATA': {
             return {
                 ...line,
                 value: parseSessionData(line.source as any),
             };
         }
-        case HLSTag('#EXT-X-SESSION-KEY'): {
+        case '#EXT-X-SESSION-KEY': {
             return {
                 ...line,
                 value: parseSessionKey(line.source as any),
             };
         }
-        case HLSTag('#EXT-X-INDEPENDENT-SEGMENTS'): {
+        case '#EXT-X-INDEPENDENT-SEGMENTS': {
             return {
                 ...line,
                 value: parseIndependentSegments(line.source as any),
             };
         }
-        case HLSTag('#EXT-X-START'): {
+        case '#EXT-X-START': {
             return {
                 ...line,
                 value: parseStart(line.source as any),
             };
-        }
-
-        // Media Segment Tags
-        case HLSTag('#EXTINF'): {
-            line.value = parseInf(line.source as any);
-            break;
-        }
-        case HLSTag('URI'): {
-            line.value = line.source;
-            break;
-        }
-        case HLSTag('#EXT-X-BYTERANGE'): {
-            line.value = parseByteRange(line.source as any);
-            break;
-        }
-        case HLSTag('#EXT-X-DISCONTINUITY'): {
-            line.value = parseDiscontinuity(line.source as any);
-            break;
-        }
-        case HLSTag('#EXT-X-KEY'): {
-            line.value = parseKey(line.source as any);
-            break;
-        }
-        case HLSTag('#EXT-X-MAP'): {
-            line.value = parseMap(line.source as any);
-            break;
-        }
-        case HLSTag('#EXT-X-PROGRAM-DATE-TIME'): {
-            line.value = parseProgramDateTime(line.source as any);
-            break;
-        }
-        case HLSTag('#EXT-X-DATERANGE'): {
-            line.value = parseDateRange(line.source as any);
-            break;
         }
     }
     return line;

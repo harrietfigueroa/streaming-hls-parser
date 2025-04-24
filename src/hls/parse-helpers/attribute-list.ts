@@ -60,7 +60,7 @@ export function attributeList<T>(str: string): T {
     const attributes: string = colonSeparated(str);
     const pairs: string[][] = attributes
         .split(',')
-        .map((pair: string): string[] => pair.trim().split('='));
+        .map((pair: string): string[] => pair.split('='));
 
     return Object.fromEntries(pairs);
 }

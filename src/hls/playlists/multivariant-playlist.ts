@@ -212,31 +212,31 @@ export class MultivariantPlaylist
         multivariantPlaylistOptions: Partial<MultivariantPlaylistOptions>,
     ): Partial<MultivariantPlaylistOptions> {
         switch (token.type) {
-            case HLSTag('#EXTM3U'): {
+            case '#EXTM3U': {
                 multivariantPlaylistOptions['#EXTM3U'] = token.value as any;
                 break;
             }
-            case HLSTag('#EXT-X-VERSION'): {
+            case '#EXT-X-VERSION': {
                 multivariantPlaylistOptions['#EXT-X-VERSION'] = token.value as any;
                 break;
             }
-            case HLSTag('#EXT-X-MEDIA'): {
+            case '#EXT-X-MEDIA': {
                 multivariantPlaylistOptions['#EXT-X-MEDIA'] = token.value as any;
                 break;
             }
-            case HLSTag('#EXT-X-SESSION-DATA'): {
+            case '#EXT-X-SESSION-DATA': {
                 multivariantPlaylistOptions['#EXT-X-SESSION-DATA'] = token.value as any;
                 break;
             }
-            case HLSTag('#EXT-X-SESSION-KEY'): {
+            case '#EXT-X-SESSION-KEY': {
                 multivariantPlaylistOptions['#EXT-X-SESSION-KEY'] = token.value as any;
                 break;
             }
-            case HLSTag('#EXT-X-INDEPENDENT-SEGMENTS'): {
+            case '#EXT-X-INDEPENDENT-SEGMENTS': {
                 multivariantPlaylistOptions['#EXT-X-INDEPENDENT-SEGMENTS'] = token.value as any;
                 break;
             }
-            case HLSTag('#EXT-X-START'): {
+            case '#EXT-X-START': {
                 multivariantPlaylistOptions['#EXT-X-START'] = token.value as any;
                 break;
             }
@@ -248,11 +248,11 @@ export class MultivariantPlaylist
         variantStreamsArrayBuilder: StreamInfArrayBuilder,
     ): StreamInfArrayBuilder {
         switch (token.type) {
-            case HLSTag('#EXT-X-STREAM-INF'): {
+            case '#EXT-X-STREAM-INF': {
                 variantStreamsArrayBuilder.addStreamInf(token.value as any);
                 break;
             }
-            case HLSTag('URI'): {
+            case 'URI': {
                 variantStreamsArrayBuilder.addURI(token.value as any);
                 break;
             }
@@ -270,7 +270,7 @@ export class MultivariantPlaylist
         for (const token of parsedTokens) {
             if (parsingStreamVariants == false) {
                 MultivariantPlaylist.buildPlaylistOptions(token, multivariantPlaylistOptions);
-                if (token.type == HLSTag('#EXT-X-STREAM-INF')) {
+                if (token.type == '#EXT-X-STREAM-INF') {
                     parsingStreamVariants = true;
                 }
             }
@@ -297,7 +297,7 @@ export class MultivariantPlaylist
         for await (const token of tokenizedStream) {
             if (parsingStreamVariants == false) {
                 MultivariantPlaylist.buildPlaylistOptions(token, multivariantPlaylistOptions);
-                if (token.type == HLSTag('#EXT-X-STREAM-INF')) {
+                if (token.type == '#EXT-X-STREAM-INF') {
                     parsingStreamVariants = true;
                 }
             }

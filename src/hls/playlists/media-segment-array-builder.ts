@@ -8,16 +8,7 @@ import { EXTINF_PARSED } from '../playlist-tags/media-segment-tags/EXTINF/types'
 import { MediaSegment, MediaSegmentOptions } from './media-segment';
 
 export class MediaSegmentArrayBuilder extends Array<MediaSegment> {
-    private inProgress: Record<keyof MediaSegmentOptions, unknown> = {
-        '#EXTINF': undefined,
-        '#EXT-X-BYTERANGE': undefined,
-        '#EXT-X-DISCONTINUITY': undefined,
-        '#EXT-X-KEY': undefined,
-        '#EXT-X-MAP': undefined,
-        '#EXT-X-PROGRAM-DATE-TIME': undefined,
-        '#EXT-X-DATERANGE': undefined,
-        URI: undefined,
-    };
+    private inProgress: Partial<MediaSegmentOptions> = {};
 
     public addStreamInf(extInf: EXTINF_PARSED): void {
         this.inProgress['#EXTINF'] = extInf;
@@ -53,13 +44,6 @@ export class MediaSegmentArrayBuilder extends Array<MediaSegment> {
         this.push(new MediaSegment(this.inProgress as MediaSegmentOptions));
 
         this.inProgress = {
-            '#EXTINF': undefined,
-            '#EXT-X-BYTERANGE': undefined,
-            '#EXT-X-DISCONTINUITY': undefined,
-            '#EXT-X-KEY': undefined,
-            '#EXT-X-MAP': undefined,
-            '#EXT-X-PROGRAM-DATE-TIME': undefined,
-            '#EXT-X-DATERANGE': undefined,
             URI: undefined,
         };
     }
