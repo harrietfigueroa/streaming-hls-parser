@@ -100,46 +100,32 @@ export function parseTokenizedLine(line: LexicalToken) {
             break;
         }
         case '#EXT-X-MEDIA': {
-            return {
-                ...line,
-                value: parseMedia(line.source as any),
-            };
+            line.value = parseMedia(line.source as any);
+            break;
         }
         case '#EXT-X-STREAM-INF': {
-            return {
-                ...line,
-                value: parseStreamInf(line.source as any),
-            };
+            line.value = parseStreamInf(line.source as any);
+            break;
         }
         case '#EXT-X-I-FRAME-STREAM-INF': {
-            return {
-                ...line,
-                value: parseIFrameStreamInf(line.source as any),
-            };
+            line.value = parseIFrameStreamInf(line.source as any);
+            break;
         }
         case '#EXT-X-SESSION-DATA': {
-            return {
-                ...line,
-                value: parseSessionData(line.source as any),
-            };
+            line.value = parseSessionData(line.source as any);
+            break;
         }
         case '#EXT-X-SESSION-KEY': {
-            return {
-                ...line,
-                value: parseSessionKey(line.source as any),
-            };
+            line.value = parseSessionKey(line.source as any);
+            break;
         }
         case '#EXT-X-INDEPENDENT-SEGMENTS': {
-            return {
-                ...line,
-                value: parseIndependentSegments(line.source as any),
-            };
+            line.value = parseIndependentSegments(line.source as any);
+            break;
         }
         case '#EXT-X-START': {
-            return {
-                ...line,
-                value: parseStart(line.source as any),
-            };
+            line.value = parseStart(line.source as any);
+            break;
         }
     }
     return line;
