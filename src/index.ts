@@ -8,7 +8,7 @@ export class HLS {
         input: string | AsyncIterable<string>,
     ): MediaPlaylist | Promise<MediaPlaylist> {
         if (typeof input === 'string') {
-            return MediaPlaylist.fromStream(input);
+            return MediaPlaylist.fromString(input);
         }
         return MediaPlaylist.fromStream(input);
     }
@@ -21,9 +21,20 @@ export class HLS {
         input: string | AsyncIterable<string>,
     ): MultivariantPlaylist | Promise<MultivariantPlaylist> {
         if (typeof input === 'string') {
-            return MultivariantPlaylist.fromStream(input);
+            return MultivariantPlaylist.fromString(input);
         }
         return MultivariantPlaylist.fromStream(input);
+    }
+
+    public static parse(input: string): MediaPlaylist | MultivariantPlaylist {
+        if (typeof input === 'string') {
+            if (MediaPlaylist.isMediaPlaylist(input)) {
+                return MediaPlaylist.fromString(input);
+            } else if (MultivariantPlaylist.isMultivariantPlaylist(input)) {
+                return MultivariantPlaylist.fromString(input);
+            }
+        }
+        throw new Error(`Unable to determine playlist type from input`);
     }
 
     public static stringify(playlist: MediaPlaylist | MultivariantPlaylist): string {
