@@ -1,4 +1,3 @@
-import HLSTag from '../../hls/hls-tag';
 import { parseTokenizedLine } from '../../parser/parse-tokenized-line';
 import { LexicalToken } from '../../parser/parser.interfaces';
 import { tokenizeLine } from '../../parser/tokenize-line';
@@ -356,7 +355,7 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
                 mediaPlaylistOptions['#EXT-X-ENDLIST'] = token.value as any;
             }
 
-            if (parsingSegments == false) {
+            if (parsingSegments === false) {
                 MediaPlaylist.buildPlaylistOptions(token, mediaPlaylistOptions);
                 parsingSegments = MediaPlaylist.isMediaSegmentTag(token.type);
             }
@@ -382,7 +381,7 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
 
         let parsingSegments: boolean = false;
         for await (const token of tokenizedStream) {
-            if (parsingSegments == false) {
+            if (parsingSegments === false) {
                 MediaPlaylist.buildPlaylistOptions(token, mediaPlaylistOptions);
                 parsingSegments = MediaPlaylist.isMediaSegmentTag(token.type);
             }

@@ -261,16 +261,16 @@ export class MultivariantPlaylist
     }
 
     public static fromString(input: string): MultivariantPlaylist {
-        const parsedTokens = input.split('\n').map(tokenizeLine).map(parseTokenizedLine);
-
         const multivariantPlaylistOptions: Partial<MultivariantPlaylistOptions> = {};
         const variantStreamsArrayBuilder = new StreamInfArrayBuilder();
 
         let parsingStreamVariants: boolean = false;
-        for (const token of parsedTokens) {
-            if (parsingStreamVariants == false) {
+
+        input.split('\n').map((line) => {
+            const token = parseTokenizedLine(tokenizeLine(line));
+            if (parsingStreamVariants === false) {
                 MultivariantPlaylist.buildPlaylistOptions(token, multivariantPlaylistOptions);
-                if (token.type == '#EXT-X-STREAM-INF') {
+                if (token.type === '#EXT-X-STREAM-INF') {
                     parsingStreamVariants = true;
                 }
             }
@@ -278,7 +278,8 @@ export class MultivariantPlaylist
             if (parsingStreamVariants) {
                 MultivariantPlaylist.buildVariantStreams(token, variantStreamsArrayBuilder);
             }
-        }
+        });
+
         return new MultivariantPlaylist(
             multivariantPlaylistOptions as MultivariantPlaylistOptions,
             variantStreamsArrayBuilder,
@@ -295,9 +296,9 @@ export class MultivariantPlaylist
 
         let parsingStreamVariants: boolean = false;
         for await (const token of tokenizedStream) {
-            if (parsingStreamVariants == false) {
+            if (parsingStreamVariants === false) {
                 MultivariantPlaylist.buildPlaylistOptions(token, multivariantPlaylistOptions);
-                if (token.type == '#EXT-X-STREAM-INF') {
+                if (token.type === '#EXT-X-STREAM-INF') {
                     parsingStreamVariants = true;
                 }
             }
@@ -306,6 +307,7 @@ export class MultivariantPlaylist
                 MultivariantPlaylist.buildVariantStreams(token, variantStreamsArrayBuilder);
             }
         }
+
         return new MultivariantPlaylist(
             multivariantPlaylistOptions as MultivariantPlaylistOptions,
             variantStreamsArrayBuilder,
