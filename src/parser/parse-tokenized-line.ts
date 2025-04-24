@@ -119,14 +119,6 @@ export function parseTokenizedLine(line: LexicalToken) {
             line.value = parseSessionKey(line.source as any);
             break;
         }
-        case '#EXT-X-INDEPENDENT-SEGMENTS': {
-            line.value = parseIndependentSegments(line.source as any);
-            break;
-        }
-        case '#EXT-X-START': {
-            line.value = parseStart(line.source as any);
-            break;
-        }
     }
     return line;
 }
