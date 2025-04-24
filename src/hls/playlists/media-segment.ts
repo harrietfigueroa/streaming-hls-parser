@@ -385,7 +385,9 @@ export class MediaSegment extends HLSObject<MediaSegmentOptions> implements Medi
             );
         }
 
-        this.error = new Error('MediaSegment validation failed', { cause: errors });
+        if (errors.length > 0) {
+            this.error = new Error('MediaSegment validation failed', { cause: errors });
+        }
 
         this['#EXTINF'] = mediaSegmentOptions['#EXTINF'];
         this['#EXT-X-BYTERANGE'] = mediaSegmentOptions['#EXT-X-BYTERANGE'];
