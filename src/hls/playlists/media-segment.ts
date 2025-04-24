@@ -353,7 +353,6 @@ export class MediaSegment extends HLSObject<MediaSegmentOptions> implements Medi
     */
     public readonly '#EXT-X-DATERANGE': MediaSegmentOptions['#EXT-X-DATERANGE'];
     public readonly 'URI': MediaSegmentOptions['URI'];
-    public readonly error?: Error;
 
     constructor(mediaSegmentOptions: MediaSegmentOptions) {
         super();
