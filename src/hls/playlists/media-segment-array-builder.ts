@@ -7,7 +7,7 @@ import { EXT_X_PROGRAM_DATE_TIME_PARSED } from '../playlist-tags/media-segment-t
 import { EXTINF_PARSED } from '../playlist-tags/media-segment-tags/EXTINF/types';
 import { MediaSegment, MediaSegmentOptions } from './media-segment';
 
-export class MediaSegmentArrayBuilder extends Array<MediaSegment> {
+export class MediaSegmentArrayBuilder extends Map<string, MediaSegment> {
     private inProgress: Partial<MediaSegmentOptions> = {};
 
     public addStreamInf(extInf: EXTINF_PARSED): void {
@@ -41,7 +41,7 @@ export class MediaSegmentArrayBuilder extends Array<MediaSegment> {
     public addURI(uri: string): void {
         // When we get a URI then we're done with this segment and we can start a new one
         this.inProgress['URI'] = uri;
-        this.push(new MediaSegment(this.inProgress as MediaSegmentOptions));
+        this.set(uri, new MediaSegment(this.inProgress as MediaSegmentOptions));
 
         this.inProgress = {
             URI: undefined,

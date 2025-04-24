@@ -1,7 +1,7 @@
 import { EXT_X_STREAM_INF_PARSED } from '../playlist-tags/multivariant-playlist-tags/EXT-X-STREAM-INF/types';
 import { StreamInf, VariantStreamOptions } from './stream-inf';
 
-export class StreamInfArrayBuilder extends Array<StreamInf> {
+export class StreamInfArrayBuilder extends Map<string, StreamInf> {
     private inProgress: Partial<VariantStreamOptions> = {
         BANDWIDTH: undefined,
         'AVERAGE-BANDWIDTH': undefined,
@@ -27,7 +27,7 @@ export class StreamInfArrayBuilder extends Array<StreamInf> {
     public addURI(uri: string): void {
         // When we get a URI then we're done with this segment and we can start a new one
         this.inProgress['URI'] = uri;
-        this.push(StreamInf.fromOptions(this.inProgress as VariantStreamOptions));
+        this.set(uri, StreamInf.fromOptions(this.inProgress as VariantStreamOptions));
 
         this.inProgress = {
             BANDWIDTH: undefined,

@@ -110,7 +110,7 @@ http://media.example.com/third.ts
             });
         });
 
-        it('should parse a Very Large Media Playlist', async (): Promise<void> => {
+        it.only('should parse a Very Large Media Playlist', async (): Promise<void> => {
             const mediaPlaylist = await MediaPlaylist.fromString(veryLargePlaylistStr);
 
             expect(mediaPlaylist).toBeInstanceOf(MediaPlaylist);

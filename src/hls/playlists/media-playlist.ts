@@ -234,9 +234,9 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
 
     private constructor(
         mediaPlaylistOptions: MediaPlaylistOptions,
-        mediaSegments: Iterable<MediaSegment>,
+        mediaSegments: Map<string, MediaSegment>,
     ) {
-        super(Array.from(mediaSegments, (mediaSegment) => [mediaSegment.URI, mediaSegment]));
+        super(mediaSegments);
 
         // Validate each property and collect errors
 
@@ -404,12 +404,13 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
 
     static isMediaSegmentTag(tag: PLAYLIST_TAGS) {
         return (
+            tag === '#EXT-X-PROGRAM-DATE-TIME' ||
+            tag === 'URI' ||
             tag === '#EXTINF' ||
             tag === '#EXT-X-BYTERANGE' ||
             tag === '#EXT-X-DISCONTINUITY' ||
             tag === '#EXT-X-KEY' ||
             tag === '#EXT-X-MAP' ||
-            tag === '#EXT-X-PROGRAM-DATE-TIME' ||
             tag === '#EXT-X-DATERANGE'
         );
     }

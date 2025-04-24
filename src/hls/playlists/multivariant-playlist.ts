@@ -171,9 +171,9 @@ export class MultivariantPlaylist
 
     private constructor(
         multivariantPlaylistOptions: MultivariantPlaylistOptions,
-        variantStreams: Iterable<StreamInf>,
+        variantStreams: Map<string, StreamInf>,
     ) {
-        super(Array.from(variantStreams, (variantStream) => [variantStream.URI, variantStream]));
+        super(variantStreams);
 
         const errors: Error[] = [];
 
