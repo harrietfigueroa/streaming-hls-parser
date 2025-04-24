@@ -417,8 +417,8 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
     public *toHLSLines() {
         yield* [
             stringifyEXTM3U(),
-            stringifyTargetDuration(this['#EXT-X-TARGETDURATION']),
             stringifyVersion(this['#EXT-X-VERSION']),
+            stringifyTargetDuration(this['#EXT-X-TARGETDURATION']),
         ];
         if (this['#EXT-X-MEDIA-SEQUENCE']) {
             yield stringifyMediaSequence(this['#EXT-X-MEDIA-SEQUENCE']);

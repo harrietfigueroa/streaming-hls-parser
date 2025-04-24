@@ -129,13 +129,13 @@ http://media.example.com/third.ts
 
         it('should return the correct HLS string', async (): Promise<void> => {
             const input = `#EXTM3U
-#EXT-X-TARGETDURATION:10
 #EXT-X-VERSION:3
-#EXTINF:9.009,
+#EXT-X-TARGETDURATION:10
+#EXTINF:9.00900,
 http://media.example.com/first.ts
-#EXTINF:9.009,
+#EXTINF:9.00900,
 http://media.example.com/second.ts
-#EXTINF:3.003,
+#EXTINF:3.00300,
 http://media.example.com/third.ts
 #EXT-X-ENDLIST`;
 
