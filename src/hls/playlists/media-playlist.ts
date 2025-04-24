@@ -353,13 +353,13 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
             const token = parseTokenizedLine(tokenizeLine(line));
             if (token.type === '#EXT-X-ENDLIST') {
                 mediaPlaylistOptions['#EXT-X-ENDLIST'] = token.value as any;
+                parsingSegments = false;
             }
 
             if (parsingSegments === false) {
                 MediaPlaylist.buildPlaylistOptions(token, mediaPlaylistOptions);
                 parsingSegments = MediaPlaylist.isMediaSegmentTag(token.type);
             }
-
             if (parsingSegments) {
                 MediaPlaylist.buildSegments(token, mediaSegmentsArrayBuilder);
             }
@@ -381,15 +381,14 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
 
         let parsingSegments: boolean = false;
         for await (const token of tokenizedStream) {
+            if (token.type === '#EXT-X-ENDLIST') {
+                mediaPlaylistOptions['#EXT-X-ENDLIST'] = token.value as any;
+                break;
+            }
+
             if (parsingSegments === false) {
                 MediaPlaylist.buildPlaylistOptions(token, mediaPlaylistOptions);
                 parsingSegments = MediaPlaylist.isMediaSegmentTag(token.type);
-            }
-
-            // This happens _after_ we parse the segments so it's gotta go inside its own if statement
-            if (token.type === '#EXT-X-ENDLIST') {
-                mediaPlaylistOptions['#EXT-X-ENDLIST'] = token.value as any;
-                parsingSegments = false;
             }
 
             if (parsingSegments) {

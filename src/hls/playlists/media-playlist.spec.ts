@@ -110,17 +110,23 @@ http://media.example.com/third.ts
             });
         });
 
-        it.only('should parse a Very Large Media Playlist', async (): Promise<void> => {
+        it('should parse a Very Large Media Playlist', async (): Promise<void> => {
             const mediaPlaylist = await MediaPlaylist.fromString(veryLargePlaylistStr);
 
             expect(mediaPlaylist).toBeInstanceOf(MediaPlaylist);
             expect(mediaPlaylist['#EXT-X-VERSION']).toBe(4);
             expect(mediaPlaylist['#EXT-X-TARGETDURATION']).toBe(6);
             expect(mediaPlaylist['#EXT-X-ENDLIST']).toBeTruthy();
-            expect(mediaPlaylist.size).toBe(11702);
+            expect(mediaPlaylist.size).toBe(11701);
         });
     });
     describe('toHLS', () => {
+        let veryLargeMediaPlaylist: MediaPlaylist;
+
+        beforeAll(async () => {
+            veryLargeMediaPlaylist = await MediaPlaylist.fromString(veryLargePlaylistStr);
+        });
+
         it('should return the correct HLS string', async (): Promise<void> => {
             const input = `#EXTM3U
 #EXT-X-TARGETDURATION:10
@@ -137,6 +143,14 @@ http://media.example.com/third.ts
             const hls = mediaPlaylist.toHLS().split('\n');
 
             for (const [i, inputLine] of input.split('\n').entries()) {
+                expect(hls[i].trim()).toEqual(inputLine.trim());
+            }
+        });
+
+        it('should return the correct HLS string for a Very Large Playlist', async (): Promise<void> => {
+            const hls = veryLargeMediaPlaylist.toHLS().split('\n');
+
+            for (const [i, inputLine] of veryLargePlaylistStr.split('\n').entries()) {
                 expect(hls[i].trim()).toEqual(inputLine.trim());
             }
         });
