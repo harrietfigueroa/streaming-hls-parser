@@ -1,7 +1,7 @@
 {
-    "name": "hallys-hls-parser",
+    "name": "streaming-hls-parser",
     "version": "0.0.0",
-    "description": "A Better HLS Parser",
+    "description": "An HLS Parser that supports both streaming and string input",
     "main": "dist/src/index.js",
     "scripts": {
         "test": "vitest run",
