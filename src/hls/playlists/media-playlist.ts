@@ -92,8 +92,10 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
     Media Playlist SHALL be considered to be 0.  A client MUST NOT assume
     that segments with the same Media Sequence Number in different Media
     Playlists contain matching content (see Section 6.3.2).
+
+    @default 0
     */
-    public readonly '#EXT-X-MEDIA-SEQUENCE': MediaPlaylistOptions['#EXT-X-MEDIA-SEQUENCE'];
+    public readonly '#EXT-X-MEDIA-SEQUENCE': MediaPlaylistOptions['#EXT-X-MEDIA-SEQUENCE'] = 0;
 
     /**
      * The EXT-X-DISCONTINUITY tag indicates a discontinuity between the
@@ -121,8 +123,9 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
 
     See Sections 3, 6.2.1, and 6.3.3 for more information about the EXT-
     X-DISCONTINUITY tag.
+    @default 0
     */
-    public readonly '#EXT-X-DISCONTINUITY-SEQUENCE': MediaPlaylistOptions['#EXT-X-DISCONTINUITY-SEQUENCE'];
+    public readonly '#EXT-X-DISCONTINUITY-SEQUENCE': MediaPlaylistOptions['#EXT-X-DISCONTINUITY-SEQUENCE'] = 0;
 
     /**
      * The EXT-X-ENDLIST tag indicates that no more Media Segments will be
@@ -238,7 +241,44 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
     ) {
         super(mediaSegments);
 
-        // Validate each property and collect errors
+        const errors: Error[] = [];
+
+        /**
+         * The EXTINF duration of each Media Segment in the Playlist
+         * file, when rounded to the nearest integer, MUST be less than or equal
+         * to the target duration; longer segments can trigger playback stalls
+         * or other errors.
+         */
+        for (const [uri, segment] of this) {
+            if (segment['#EXTINF'].DURATION > mediaPlaylistOptions['#EXT-X-TARGETDURATION']) {
+                errors.push(
+                    new Error(
+                        `#EXTINF duration (${segment['#EXTINF'].DURATION}) exceeds #EXT-X-TARGETDURATION of ${mediaPlaylistOptions['#EXT-X-TARGETDURATION']} for segment ${uri}`,
+                    ),
+                );
+            }
+        }
+
+        /**
+         * Use of the EXT-X-I-FRAMES-ONLY REQUIRES a compatibility version
+         * number of 4 or greater.
+         */
+        if (
+            mediaPlaylistOptions['#EXT-X-I-FRAMES-ONLY'] &&
+            mediaPlaylistOptions['#EXT-X-VERSION'] < 4
+        ) {
+            errors.push(
+                new Error(
+                    `#EXT-X-I-FRAMES-ONLY requires an #EXT-X-VERSION number of 4 or greater, but got ${mediaPlaylistOptions['#EXT-X-VERSION']}`,
+                ),
+            );
+        }
+
+        if (errors.length > 0) {
+            this.error = new Error(`MediaPlaylist validation failed`, {
+                cause: errors,
+            });
+        }
 
         this['#EXTM3U'] = mediaPlaylistOptions['#EXTM3U'];
         this['#EXT-X-VERSION'] = mediaPlaylistOptions['#EXT-X-VERSION'];
@@ -362,11 +402,11 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
 
         let parsingSegments: boolean = false;
 
-        input.split('\n').map((line) => {
+        for (const line of input.split('\n')) {
             const token = parseTokenizedLine(tokenizeLine(line));
             if (token.type === '#EXT-X-ENDLIST') {
                 mediaPlaylistOptions['#EXT-X-ENDLIST'] = token.value as any;
-                parsingSegments = false;
+                continue;
             }
 
             if (parsingSegments === false) {
@@ -376,7 +416,7 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
             if (parsingSegments) {
                 MediaPlaylist.buildSegments(token, mediaSegmentsArrayBuilder);
             }
-        });
+        }
 
         return new MediaPlaylist(
             mediaPlaylistOptions as MediaPlaylistOptions,
@@ -396,14 +436,13 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
         for await (const token of tokenizedStream) {
             if (token.type === '#EXT-X-ENDLIST') {
                 mediaPlaylistOptions['#EXT-X-ENDLIST'] = token.value as any;
-                break;
+                continue;
             }
 
             if (parsingSegments === false) {
                 MediaPlaylist.buildPlaylistOptions(token, mediaPlaylistOptions);
                 parsingSegments = MediaPlaylist.isMediaSegmentTag(token.type);
             }
-
             if (parsingSegments) {
                 MediaPlaylist.buildSegments(token, mediaSegmentsArrayBuilder);
             }
@@ -424,10 +463,10 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
             stringifyVersion(this['#EXT-X-VERSION']),
             stringifyTargetDuration(this['#EXT-X-TARGETDURATION']),
         ];
-        if (this['#EXT-X-MEDIA-SEQUENCE']) {
+        if (this['#EXT-X-MEDIA-SEQUENCE'] && this['#EXT-X-MEDIA-SEQUENCE'] > 0) {
             yield stringifyMediaSequence(this['#EXT-X-MEDIA-SEQUENCE']);
         }
-        if (this['#EXT-X-DISCONTINUITY-SEQUENCE']) {
+        if (this['#EXT-X-DISCONTINUITY-SEQUENCE'] && this['#EXT-X-DISCONTINUITY-SEQUENCE'] > 0) {
             yield stringifyDiscontinuitySequence(this['#EXT-X-DISCONTINUITY-SEQUENCE']);
         }
         if (this['#EXT-X-PLAYLIST-TYPE']) {
