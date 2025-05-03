@@ -3,7 +3,8 @@ import { StringDecoder } from 'node:string_decoder';
 import { TransformCallback } from 'stream';
 
 export class NewlineTransformer extends Transform {
-    private stringDecoder = new StringDecoder('utf-8');
+    private stringDecoder: StringDecoder = new StringDecoder('utf-8');
+    private remainder: string = '';
 
     constructor() {
         super({
@@ -11,25 +12,33 @@ export class NewlineTransformer extends Transform {
             encoding: 'utf-8',
         });
     }
-    private finalString: string = '';
 
     _transform(chunk: string, encoding: BufferEncoding, callback: TransformCallback): void {
-        this.finalString += this.stringDecoder.write(chunk);
+        const workingChunk = this.stringDecoder.end(chunk);
+
+        const lines = (this.remainder + workingChunk).split('\n');
+
+        if (lines.length === 1) {
+            // If there's only one line then send it off and blank the remainder
+            this.push(lines[0]);
+            this.remainder = '';
+            callback();
+            return;
+        }
+
+        // Pop off the last line, which may be incomplete
+        this.remainder = lines.pop()!;
+
+        for (const line of lines) {
+            this.push(line);
+        }
         callback();
     }
 
     _flush(callback: (error?: Error | null | undefined) => void): void {
-        let sliceStart = 0;
-        let sliceEnd = this.finalString.indexOf('\n', sliceStart);
-        for (
-            ;
-            sliceEnd !== -1;
-            sliceStart = sliceEnd + 1, sliceEnd = this.finalString.indexOf('\n', sliceStart)
-        ) {
-            const lastLine = this.finalString.slice(sliceStart, sliceEnd);
-            this.push(lastLine);
+        if (this.remainder) {
+            this.push(this.remainder);
         }
-        this.push(this.finalString.slice(sliceStart));
         callback();
     }
 }
