@@ -5,3 +5,5 @@ export type LexicalToken<PlaylistTag extends PLAYLIST_TAGS = 'URI'> = {
     source: PLAYLIST_TAGS_TO_STRING_TYPES[PlaylistTag];
     value: unknown;
 };
+
+export type Reviver = (context: LexicalToken) => LexicalToken;
