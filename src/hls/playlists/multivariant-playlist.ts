@@ -24,7 +24,8 @@ import stringifyEXTXSessionKey from '../playlist-tags/multivariant-playlist-tags
 import { HlsParseTransformer } from '../../stream-transformers/hls-parse.transformer';
 import { tokenizeLine } from '../../parser/tokenize-line';
 import { parseTokenizedLine } from '../../parser/parse-tokenized-line';
-import { LexicalToken } from '../../parser/parser.interfaces';
+import { LexicalToken, Reviver } from '../../parser/parser.interfaces';
+import { Replacer } from '../hlsifier/hlsifier.interfaces';
 
 export interface MultivariantPlaylistOptions {
     '#EXTM3U': EXTM3U_PARSED;
@@ -259,14 +260,19 @@ export class MultivariantPlaylist
         return variantStreamsArrayBuilder;
     }
 
-    public static fromString(input: string): MultivariantPlaylist {
+    public static fromString(input: string, reviver?: Reviver): MultivariantPlaylist {
         const multivariantPlaylistOptions: Partial<MultivariantPlaylistOptions> = {};
         const variantStreamsArrayBuilder = new StreamInfArrayBuilder();
 
         let parsingStreamVariants: boolean = false;
 
         input.split('\n').map((line) => {
-            const token = parseTokenizedLine(tokenizeLine(line));
+            let token = parseTokenizedLine(tokenizeLine(line));
+
+            if (reviver) {
+                token = reviver(token);
+            }
+
             if (parsingStreamVariants === false) {
                 MultivariantPlaylist.buildPlaylistOptions(token, multivariantPlaylistOptions);
                 if (token.type === '#EXT-X-STREAM-INF') {
@@ -287,14 +293,18 @@ export class MultivariantPlaylist
 
     public static async fromStream<Input extends Iterable<string> | AsyncIterable<string>>(
         source: Input,
+        reviver?: Reviver,
     ): Promise<MultivariantPlaylist> {
-        const tokenizedStream = super.createStream(source);
+        const tokenizedStream: AsyncIterable<LexicalToken> = super.createStream(source);
 
         const multivariantPlaylistOptions: Partial<MultivariantPlaylistOptions> = {};
         const variantStreamsArrayBuilder = new StreamInfArrayBuilder();
 
         let parsingStreamVariants: boolean = false;
-        for await (const token of tokenizedStream) {
+        for await (let token of tokenizedStream) {
+            if (reviver) {
+                token = reviver(token);
+            }
             if (parsingStreamVariants === false) {
                 MultivariantPlaylist.buildPlaylistOptions(token, multivariantPlaylistOptions);
                 if (token.type === '#EXT-X-STREAM-INF') {
@@ -341,6 +351,13 @@ export class MultivariantPlaylist
         }
 
         yield* this.childHLSValues();
+    }
+
+    public toHLS(replacer?: Replacer): string {
+        if (replacer) {
+            return Array.from(this.toHLSLines(), replacer).join('\n');
+        }
+        return Array.from(this.toHLSLines()).join('\n');
     }
 
     public toJSON(): any {
