@@ -37,12 +37,12 @@ export class HLS {
         throw new Error(`Unable to determine playlist type from input`);
     }
 
-    public static stringify(playlist: MediaPlaylist | MultivariantPlaylist): string {
+    public static hlsify(playlist: MediaPlaylist | MultivariantPlaylist): string {
         if (playlist instanceof MediaPlaylist) {
-            return playlist.toString();
+            return playlist.toHLS();
         }
         if (playlist instanceof MultivariantPlaylist) {
-            return playlist.toString();
+            return playlist.toHLS();
         }
 
         throw new Error(`Invalid playlist type: ${playlist}`);
