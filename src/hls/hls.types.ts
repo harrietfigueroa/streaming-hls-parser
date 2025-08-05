@@ -9,7 +9,7 @@ import { EXT_X_MEDIA_SEQUENCE_STRING } from './playlist-tags/media-playlist-tags
 import { EXT_X_PLAYLIST_TYPE_STRING } from './playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/types';
 import { EXT_X_TARGETDURATION_STRING } from './playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/types';
 import { EXT_X_BYTERANGE_STRING } from './playlist-tags/media-segment-tags/EXT-X-BYTERANGE/types';
-import { EXT_X_DATERANGE_STRING } from './playlist-tags/media-segment-tags/EXT-X-DATERANGE/type';
+import { EXT_X_DATERANGE_STRING } from './playlist-tags/media-segment-tags/EXT-X-DATERANGE/types';
 import { EXT_X_DISCONTINUITY_STRING } from './playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/types';
 import { EXT_X_KEY_STRING } from './playlist-tags/media-segment-tags/EXT-X-KEY/types';
 import { EXT_X_MAP_STRING } from './playlist-tags/media-segment-tags/EXT-X-MAP/types';
@@ -21,6 +21,7 @@ import { EXT_X_SESSION_DATA_STRING } from './playlist-tags/multivariant-playlist
 import { EXT_X_SESSION_KEY_STRING } from './playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-KEY/types';
 import { EXT_X_STREAM_INF_STRING } from './playlist-tags/multivariant-playlist-tags/EXT-X-STREAM-INF/types';
 
+export type TAG_KIND = 'segment' | 'playlist' | 'basic';
 export type BASIC_TAGS = '#EXTM3U' | '#EXT-X-VERSION';
 
 export type MEDIA_SEGMENT_TAGS =
@@ -39,23 +40,23 @@ export type MEDIA_OR_MULTIVARIANT_TAGS =
 export type MEDIA_PLAYLIST_TAGS =
     | MEDIA_OR_MULTIVARIANT_TAGS
     | (
-          | '#EXT-X-TARGETDURATION'
-          | '#EXT-X-MEDIA-SEQUENCE'
-          | '#EXT-X-DISCONTINUITY-SEQUENCE'
-          | '#EXT-X-ENDLIST'
-          | '#EXT-X-PLAYLIST-TYPE'
-          | '#EXT-X-I-FRAMES-ONLY'
-      );
+        | '#EXT-X-TARGETDURATION'
+        | '#EXT-X-MEDIA-SEQUENCE'
+        | '#EXT-X-DISCONTINUITY-SEQUENCE'
+        | '#EXT-X-ENDLIST'
+        | '#EXT-X-PLAYLIST-TYPE'
+        | '#EXT-X-I-FRAMES-ONLY'
+    );
 
 export type MULTIVARIANT_PLAYLIST_TAGS =
     | MEDIA_OR_MULTIVARIANT_TAGS
     | (
-          | '#EXT-X-MEDIA'
-          | '#EXT-X-STREAM-INF'
-          | '#EXT-X-I-FRAME-STREAM-INF'
-          | '#EXT-X-SESSION-DATA'
-          | '#EXT-X-SESSION-KEY'
-      );
+        | '#EXT-X-MEDIA'
+        | '#EXT-X-STREAM-INF'
+        | '#EXT-X-I-FRAME-STREAM-INF'
+        | '#EXT-X-SESSION-DATA'
+        | '#EXT-X-SESSION-KEY'
+    );
 
 export type PLAYLIST_TAGS =
     | BASIC_TAGS
@@ -77,11 +78,11 @@ export type PLAYLIST_TAGS_TO_STRING_TYPES = {
     '#EXT-X-DATERANGE': EXT_X_DATERANGE_STRING;
     '#EXT-X-INDEPENDENT-SEGMENTS': EXT_X_INDEPENDENT_SEGMENTS_STRING;
     '#EXT-X-START': EXT_X_START_STRING;
-    '#EXT-X-TARGETDURATION': EXT_X_TARGETDURATION_STRING;
-    '#EXT-X-MEDIA-SEQUENCE': EXT_X_MEDIA_SEQUENCE_STRING;
-    '#EXT-X-DISCONTINUITY-SEQUENCE': EXT_X_DISCONTINUITY_SEQUENCE_STRING;
+    '#EXT-X-TARGETDURATION': EXT_X_TARGETDURATION_STRING<number>;
+    '#EXT-X-MEDIA-SEQUENCE': EXT_X_MEDIA_SEQUENCE_STRING<number>;
+    '#EXT-X-DISCONTINUITY-SEQUENCE': EXT_X_DISCONTINUITY_SEQUENCE_STRING<number>;
     '#EXT-X-ENDLIST': EXT_X_ENDLIST_STRING;
-    '#EXT-X-PLAYLIST-TYPE': EXT_X_PLAYLIST_TYPE_STRING;
+    '#EXT-X-PLAYLIST-TYPE': EXT_X_PLAYLIST_TYPE_STRING<'EVENT' | 'VOD'>;
     '#EXT-X-I-FRAMES-ONLY': EXT_X_I_FRAMES_ONLY_STRING;
     '#EXT-X-MEDIA': EXT_X_MEDIA_STRING;
     '#EXT-X-STREAM-INF': EXT_X_STREAM_INF_STRING;

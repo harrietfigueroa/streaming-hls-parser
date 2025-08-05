@@ -1,8 +1,14 @@
-import { EXT_X_START_PARSED, EXT_X_START_STRING } from './types';
+import { EXT_X_START_PARSED, EXT_X_START_STRING, PreciseValue } from './types';
 
-export default function (value: EXT_X_START_PARSED) {
+export function extXStartStringifier<timeOffset extends number, precise extends PreciseValue | undefined = undefined>(
+    value: EXT_X_START_PARSED<timeOffset, precise>
+): EXT_X_START_STRING<timeOffset, precise> {
     const TIME_OFFSET = value['TIME-OFFSET'];
     const PRECISE = value['PRECISE'];
-    const preciseString = PRECISE ? `:${PRECISE}` : '';
-    return `#EXT-X-START:${TIME_OFFSET}${preciseString}` as const satisfies EXT_X_START_STRING;
+
+    if (PRECISE) {
+        return `#EXT-X-START:TIME-OFFSET=${TIME_OFFSET},PRECISE=${PRECISE}` as EXT_X_START_STRING<timeOffset, precise>;
+    } else {
+        return `#EXT-X-START:TIME-OFFSET=${TIME_OFFSET}` as EXT_X_START_STRING<timeOffset, precise>;
+    }
 }

@@ -25,3 +25,26 @@
  */
 export type EXT_X_I_FRAMES_ONLY_PARSED = boolean;
 export type EXT_X_I_FRAMES_ONLY_STRING = '#EXT-X-I-FRAMES-ONLY';
+
+import { AbstractValidationError, ValidationErrorType } from '../../../validation-helpers/validator.types';
+
+
+
+// Abstract validation error class for this tag
+export abstract class ExtXIFramesOnlyValidationError extends AbstractValidationError {
+    abstract readonly tagName: '#EXT-X-I-FRAMES-ONLY';
+}
+
+// Concrete validation error classes
+export class EXTXIFRAMESONLYNotABooleanError extends ExtXIFramesOnlyValidationError {
+    readonly type: ValidationErrorType = 'not-a-boolean';
+    readonly tagName = '#EXT-X-I-FRAMES-ONLY';
+    readonly description = 'EXT-X-I-FRAMES-ONLY value must be a boolean indicating presence of the tag (RFC 8216 Section 4.3.3.6: https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.3.6)';
+
+    constructor(public readonly invalidValue: any) {
+        super();
+    }
+}
+
+export type ExtXIFramesOnlyValidationErrorUnion =
+    | EXTXIFRAMESONLYNotABooleanError;

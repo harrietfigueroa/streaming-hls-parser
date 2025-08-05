@@ -1,5 +1,5 @@
-import { EXT_X_TARGETDURATION_PARSED, EXT_X_TARGETDURATION_STRING } from './types';
+import { EXT_X_TARGETDURATION_STRING } from './types';
 
-export default function (val: EXT_X_TARGETDURATION_PARSED) {
-    return `#EXT-X-TARGETDURATION:${val}` as const satisfies EXT_X_TARGETDURATION_STRING;
-}
+export function extXTargetDurationStringifier<targetDuration extends number>(val: targetDuration): EXT_X_TARGETDURATION_STRING<targetDuration> {
+    return `#EXT-X-TARGETDURATION:${val}` as const;
+} 

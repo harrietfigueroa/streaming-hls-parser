@@ -6,6 +6,7 @@
     "scripts": {
         "test": "vitest run",
         "test:watch": "vitest watch",
+        "test:typecheck": "vitest run --typecheck",
         "compile": "tsc"
     },
     "author": "harriet.f.figueroa@gmail.com",
@@ -20,7 +21,7 @@
         "npm": "^11.3.0",
         "prettier": "^3.0.3",
         "ts-node": "^10.9.1",
-        "typescript": "^5.2.2",
+        "typescript": "^5.9.2",
         "vitest": "^3.1.1"
     }
 }

@@ -20,18 +20,52 @@
    (Section 6.2.2) MAY be updated to remove Media Segments in the order
    that they appeared.
  */
-export type EXT_X_PLAYLIST_TYPE_PARSED = PlaylistTypeValues;
-export type EXT_X_PLAYLIST_TYPE_STRING = `#EXT-X-PLAYLIST-TYPE:${PlaylistTypeValues}`;
+export type EXT_X_PLAYLIST_TYPE_PARSED = PlaylistTypeValues | undefined;
+export type EXT_X_PLAYLIST_TYPE_STRING<playlistType extends PlaylistTypeValues> = `#EXT-X-PLAYLIST-TYPE:${playlistType}`;
 
 export const PlaylistTypes = {
-    /**
-     * If the EXT-X-PLAYLIST-TYPE value is EVENT, Media Segments can only be added to the end of the Media Playlist.
-     */
-    EVENT: 'EVENT',
-    /**
-     * If the EXT-X-PLAYLIST-TYPE value is Video On Demand (VOD), the Media Playlist cannot change.
-     */
-    VOD: 'VOD',
+  /**
+   * If the EXT-X-PLAYLIST-TYPE value is EVENT, Media Segments can only be added to the end of the Media Playlist.
+   */
+  EVENT: 'EVENT',
+  /**
+   * If the EXT-X-PLAYLIST-TYPE value is Video On Demand (VOD), the Media Playlist cannot change.
+   */
+  VOD: 'VOD',
 } as const;
 
 export type PlaylistTypeValues = (typeof PlaylistTypes)[keyof typeof PlaylistTypes];
+
+import { AbstractValidationError, ValidationErrorType } from '../../../validation-helpers/validator.types';
+
+
+
+// Abstract validation error class for this tag
+export abstract class ExtXPlaylistTypeValidationError extends AbstractValidationError {
+  abstract readonly tagName: '#EXT-X-PLAYLIST-TYPE';
+}
+
+// Concrete validation error classes
+export class EXTXPLAYLISTTYPENotStringOrNullError extends ExtXPlaylistTypeValidationError {
+  readonly type: ValidationErrorType = 'not-string-or-null';
+  readonly tagName = '#EXT-X-PLAYLIST-TYPE';
+  readonly description = 'EXT-X-PLAYLIST-TYPE value must be a string or undefined (RFC 8216 Section 4.3.3.5: https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.3.5)';
+
+  constructor(public readonly invalidValue: any) {
+    super();
+  }
+}
+
+export class EXTXPLAYLISTTYPEInvalidEnumValueError extends ExtXPlaylistTypeValidationError {
+  readonly type: ValidationErrorType = 'invalid-enum-value';
+  readonly tagName = '#EXT-X-PLAYLIST-TYPE';
+  readonly description = 'EXT-X-PLAYLIST-TYPE value must be one of: EVENT, VOD (RFC 8216 Section 4.3.3.5: https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.3.5)';
+
+  constructor(public readonly invalidValue: any) {
+    super();
+  }
+}
+
+export type ExtXPlaylistTypeValidationErrorUnion =
+  | EXTXPLAYLISTTYPENotStringOrNullError
+  | EXTXPLAYLISTTYPEInvalidEnumValueError;

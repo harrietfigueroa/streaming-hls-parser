@@ -1,5 +1,5 @@
 import { EXT_X_INDEPENDENT_SEGMENTS_STRING } from './types';
 
-export default function () {
-    return '#EXT-X-INDEPENDENT-SEGMENTS' as const satisfies EXT_X_INDEPENDENT_SEGMENTS_STRING;
+export function extXIndependentSegmentsStringifier(): EXT_X_INDEPENDENT_SEGMENTS_STRING {
+    return '#EXT-X-INDEPENDENT-SEGMENTS' as const;
 }

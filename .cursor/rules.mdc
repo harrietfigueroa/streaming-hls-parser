@@ -1,0 +1,411 @@
+---
+alwaysApply: true
+---
+
+
+// Use concrete error classes instead of plain objects
+errors.push(new ExtXTagSpecificError(value));
+
+// Collect all errors before returning
+if (typeof value !== 'number') {
+    errors.push(new ExtXTagNotANumberError(value));
+}
+// Continue with additional checks...
+```
+
+### 3. Error Collection Pattern
+- Don't return early on first error
+- Collect all possible validation errors
+- Use conditional checks to avoid unnecessary validations
+- Return comprehensive error list
+- Use concrete error classes, not plain objects
+
+### 4. Testing Requirements
+- Unit tests for each parser, stringifier, and validator
+- Integration tests between parsers and stringifiers
+- Integration tests between parsers and validators
+- Generic type inference tests
+- Comprehensive test suites
+- Test both valid and invalid cases
+- Verify error message formats
+- Test concrete error class instantiation
+
+## RFC 8216 Compliance
+
+### 1. Section References
+All validators must reference specific RFC 8216 sections:
+- EXT-X-TARGETDURATION: Section 4.3.3.1
+- EXT-X-MEDIA-SEQUENCE: Section 4.3.3.2
+- EXT-X-DISCONTINUITY-SEQUENCE: Section 4.3.3.3
+- EXT-X-ENDLIST: Section 4.3.3.4
+- EXT-X-PLAYLIST-TYPE: Section 4.3.3.5
+- EXT-X-I-FRAMES-ONLY: Section 4.3.3.6
+
+### 2. Validation Rules
+- Integer validators: Check number type, integer, non-negative, range (0 to 2^32-1)
+- Boolean validators: Check boolean type only
+- Enum validators: Check string/null type, then validate enum values
+- All validators: Include RFC links in error messages
+
+## File Organization
+
+### 1. Index Files
+Always export:
+- Parser function
+- Stringifier function
+- Validator function
+- Error interfaces
+- Validation result interfaces
+- Concrete error classes
+- Type definitions
+- Default tag object with kind, parser, stringifier, and validator
+
+### 2. Import Patterns
+- Import types from `./types`
+- Import functions from their respective files
+- Import validators from `./validator`
+- Use default imports for tag objects
+- No segment-tag.ts files exist or are used
+
+### 3. Directory Organization
+
+**Category Structure**:
+```
+src/hls/playlist-tags/
+├── basic-tags/                    # Fundamental tags for all playlists
+├── media-playlist-tags/           # Media playlist specific tags
+├── multivariant-playlist-tags/    # Multivariant playlist specific tags
+├── media-or-multivariant-playlist-tags/  # Tags for both playlist types
+└── media-segment-tags/            # Tags within media segments
+```
+
+**Tag Directory Structure**:
+```
+[category]/EXT-X-TAGNAME/
+├── types.ts                       # All type definitions and error classes
+├── parser.ts                      # Generic parser function
+├── stringifier.ts                 # Generic stringifier function
+├── validator.ts                   # Validator function with error collection
+├── index.ts                       # Exports and default tag object
+├── parser.spec.ts                 # Parser unit tests
+├── stringifier.spec.ts            # Stringifier unit tests
+├── validator.spec.ts              # Validator unit tests
+├── integration.spec.ts            # Parser-stringifier integration
+├── generic.spec.ts                # Generic type inference tests
+└── validator.integration.spec.ts  # Parser-validator integration
+```
+
+**Import Hierarchy**:
+- Tag components import from `./types`, `./parser`, `./stringifier`, `./validator`
+- Playlist files import tag objects from `../playlist-tags/[category]/EXT-X-TAGNAME/`
+- Test files import from the same directory structure
+- No circular dependencies between tag components
+
+### 4. Test Files
+- Parser tests: `parser.spec.ts`
+- Stringifier tests: `stringifier.spec.ts`
+- Validator tests: `validator.spec.ts`
+- Integration tests: `integration.spec.ts`
+- Generic tests: `generic.spec.ts`
+- Validator integration tests: `validator.integration.spec.ts`
+
+## Error Handling Patterns
+
+### 1. Integer Validators
+```typescript
+// Check type first
+if (typeof value !== 'number') {
+    errors.push(new ExtXTagNotANumberError(value));
+}
+
+// Then check constraints if it's a number
+if (typeof value === 'number') {
+    if (!Number.isInteger(value)) {
+        errors.push(new ExtXTagNotAnIntegerError(value));
+    }
+    if (value < 0) {
+        errors.push(new ExtXTagNegativeValueError(value));
+    }
+    if (value > 4294967295) {
+        errors.push(new ExtXTagExceedsMaximumError(value));
+    }
+}
+```
+
+### 2. Boolean Validators
+```typescript
+if (typeof value !== 'boolean') {
+    errors.push(new ExtXTagNotABooleanError(value));
+}
+```
+
+### 3. Enum Validators
+```typescript
+if (value !== null && typeof value !== 'string') {
+    errors.push(new ExtXTagNotStringOrNullError(value));
+}
+
+if (typeof value === 'string') {
+    if (!validValues.includes(value)) {
+        errors.push(new ExtXTagInvalidEnumValueError(value));
+    }
+}
+```
+
+## Development Guidelines
+
+### 1. When Adding New Parsers
+1. Use generic type parameters `T extends string`
+2. Implement conditional return types based on input patterns
+3. Use simple extraction logic without validation
+4. Return `undefined` for unparseable inputs
+5. Add comprehensive unit tests
+6. Add integration tests with stringifiers
+7. Add generic type inference tests
+8. For complex tags, implement conditional types for optional attributes
+9. Use modular structure - no segment-tag.ts files
+10. **For boolean tags**: Use simple `return true;` with no logic
+
+### 1.1. Boolean Tag Parser Pattern
+Boolean tags (EXT-X-ENDLIST, EXT-X-I-FRAMES-ONLY, EXT-X-DISCONTINUITY, EXT-X-INDEPENDENT-SEGMENTS) follow a special pattern:
+
+```typescript
+// Simple boolean tag parser - no logic needed
+export function extXBooleanTagParser(str: string | undefined): boolean {
+    return true;
+}
+```
+
+Boolean tag characteristics:
+- Always return `true` when called
+- No conditionals or logic
+- Only called when tag is present in playlist
+- Return type is `boolean` (not `boolean | undefined`)
+- Include: EXT-X-ENDLIST, EXT-X-I-FRAMES-ONLY, EXT-X-DISCONTINUITY, EXT-X-INDEPENDENT-SEGMENTS
+
+### 2. When Adding New Validators
+1. Create concrete error classes extending `AbstractValidationError`
+2. Implement comprehensive error collection
+3. Include RFC section references
+4. Add unit and integration tests
+5. Update index files with exports
+6. Follow existing patterns exactly
+7. Use concrete error classes, not plain objects
+8. Export validator through index.ts
+9. Use modular structure - no segment-tag.ts files
+
+### 3. When Modifying Existing Components
+1. Maintain backward compatibility
+2. Update all related test files
+3. Ensure comprehensive error collection
+4. Verify RFC section references
+5. Test with existing test suites
+6. Use concrete error classes consistently
+7. Maintain generic type safety
+8. Use modular structure - no segment-tag.ts files
+9. Update imports to use new modular structure
+
+### 4. Testing Requirements
+1. Test valid cases thoroughly
+2. Test all invalid cases
+3. Test multiple error conditions
+4. Verify error message formats
+5. Check RFC link accuracy
+6. Test concrete error class instantiation
+7. Test generic type inference
+8. Test parser-stringifier round-trips
+9. Test complex generic types for multi-attribute tags
+10. Test conditional types for optional attributes
+
+## Current Implementation Status
+
+### ✅ Completed
+- Abstract ValidationError class with toJSON() method
+- Concrete error classes for all validators
+- Generic ValidationResult with type safety
+- Specific error interfaces for all validators
+- Comprehensive error collection (no early returns)
+- RFC section references in all error messages
+- Direct links to RFC 8216 specification
+- Complete test coverage for all validators
+- All media playlist tag validators implemented
+- Concrete error class instantiation in all validators
+- Generic parser implementations with type inference
+- Parser-stringifier integration tests
+- Generic type inference tests
+- All parsers use generic types without validation
+- Modular structure for all tag categories (basic, media, multivariant, media-or-multivariant)
+- No segment-tag.ts files - all functionality modularized
+- Complex generic types for tags with multiple attributes (EXT-X-START)
+- Conditional types for optional attributes
+- Boolean tag parsers with simple `return true;` pattern
+
+### 🔄 In Progress
+- Maintaining consistency across all components
+- Ensuring comprehensive error collection
+- Verifying RFC compliance
+- Using concrete error classes consistently
+- Optimizing generic type inference
+- Extending complex generic types to other multi-attribute tags
+
+### 📋 Future Considerations
+- Extend to multivariant playlist tags
+- Add more comprehensive validation rules
+- Implement cross-tag validation dependencies
+- Add performance optimizations
+- Enhance generic type inference capabilities
+- Apply complex generic patterns to other multi-attribute tags
+- Consider additional tag categories as needed
+
+## Quality Standards
+
+### 1. Code Quality
+- TypeScript strict mode
+- Comprehensive error handling
+- Clear and descriptive error messages
+- Consistent naming conventions
+- Proper documentation
+- Use concrete error classes, not plain objects
+- Generic type safety throughout
+
+### 2. Test Quality
+- 100% test coverage for all components
+- Both positive and negative test cases
+- Integration tests between components
+- Comprehensive error scenario testing
+- Test concrete error class instantiation
+- Test generic type inference
+- Test parser-stringifier round-trips
+
+### 3. RFC Compliance
+- All validators follow RFC 8216 exactly
+- Error messages reference specific sections
+- Direct links to online RFC specification
+- Comprehensive validation of all constraints
+
+## Common Patterns
+
+### 1. Parser Class Structure
+```typescript
+export function extXTagParser<T extends string>(str: T): ExtXTagParser<T> {
+    const value = colonSeparated(str);
+    
+    // Simple extraction - no validation
+    if (canExtractValue(value)) {
+        return extractedValue as ExtXTagParser<T>;
+    }
+    
+    return undefined as ExtXTagParser<T>;
+}
+```
+
+### 1.1. Complex Parser Structure (Multi-Attribute Tags)
+```typescript
+// Helper types for type inference
+type ExtractAttribute1<T extends string> = T extends `#EXT-X-TAG:ATTR1=${infer Value}` ? Value : never;
+type ExtractAttribute2<T extends string> = T extends `#EXT-X-TAG:ATTR1=${string},ATTR2=${infer Value}` ? Value : never;
+
+// Main parser type
+type ExtXTagParser<T extends string> = T extends `#EXT-X-TAG:${string}` ? {
+    ATTR1: ExtractAttribute1<T> extends never ? number : ExtractAttribute1<T>;
+    ATTR2?: ExtractAttribute2<T>;
+} : ExtXTagParsed;
+
+export function extXTagParser<T extends string>(str: T): ExtXTagParser<T> {
+    // Implementation with conditional logic for optional attributes
+    return result as ExtXTagParser<T>;
+}
+```
+
+### 2. Validator Function Structure
+```typescript
+export function extXTagValidator(value: InputType): Error[] {
+    const errors: Error[] = [];
+    
+    // Use concrete error classes
+    if (condition) {
+        errors.push(new SpecificErrorClass(value));
+    }
+    
+    // Return comprehensive result
+    return errors;
+}
+```
+
+### 2.1. Index File Structure
+```typescript
+// Export all components
+export {
+    extXTagParser,
+    extXTagStringifier,
+    extXTagValidator,
+    ExtXTagValidationErrorUnion,
+    ExtXTagValidationResult,
+    SpecificErrorClass,
+    ExtXTagParsed,
+    ExtXTagString,
+};
+
+// Export default tag object
+export const extXTag = {
+    kind: 'Category' as const,
+    parser: extXTagParser,
+    stringifier: extXTagStringifier,
+    validator: extXTagValidator,
+} as const;
+
+export default extXTag;
+```
+
+### 3. Error Interface Structure
+```typescript
+export interface ExtXTagValidationError extends ValidationError {
+    type: 'error-type-1' | 'error-type-2';
+}
+
+export interface ExtXTagValidationResult extends ValidationResult<ExtXTagValidationError> {
+    tagName: '#EXT-X-TAG';
+}
+```
+
+### 4. Concrete Error Class Structure
+```typescript
+export class ExtXTagSpecificError extends AbstractValidationError {
+    readonly type = 'specific-error-type';
+    readonly description = 'Error description with RFC reference';
+    
+    constructor(public readonly invalidValue: any) {
+        super();
+    }
+}
+```
+
+### 5. Test Structure
+```typescript
+describe('EXT-X-TAG parser', () => {
+    it('should parse valid inputs', () => { /* ... */ });
+    it('should return undefined for invalid inputs', () => { /* ... */ });
+    it('should have correct generic type inference', () => { /* ... */ });
+    it('should handle optional attributes correctly', () => { /* ... */ });
+});
+
+describe('EXT-X-TAG validator', () => {
+    it('should validate valid cases', () => { /* ... */ });
+    it('should reject invalid cases', () => { /* ... */ });
+    it('should collect multiple errors', () => { /* ... */ });
+    it('should use concrete error classes', () => { /* ... */ });
+});
+
+describe('EXT-X-TAG integration', () => {
+    it('should parse and stringify round-trip', () => { /* ... */ });
+    it('should maintain type safety through round-trip', () => { /* ... */ });
+    it('should handle complex generic types', () => { /* ... */ });
+});
+```
+
+This rule set ensures consistent, high-quality development of the HLS parser with comprehensive validation, error handling, and generic type inference using concrete error classes that extend an abstract base class. The project uses a modular structure without segment-tag files, with all functionality properly separated into dedicated files for parsers, stringifiers, validators, and types. 
+    it('should handle complex generic types', () => { /* ... */ });
+});
+```
+
+This rule set ensures consistent, high-quality development of the HLS parser with comprehensive validation, error handling, and generic type inference using concrete error classes that extend an abstract base class. The project uses a modular structure without segment-tag files, with all functionality properly separated into dedicated files for parsers, stringifiers, validators, and types. 

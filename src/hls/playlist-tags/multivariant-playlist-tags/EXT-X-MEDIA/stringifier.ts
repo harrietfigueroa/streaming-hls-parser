@@ -1,6 +1,6 @@
 import { EXT_X_MEDIA_PARSED, EXT_X_MEDIA_STRING } from './types';
 
-export default function (value: EXT_X_MEDIA_PARSED): EXT_X_MEDIA_STRING {
+export function extXMediaStringifier(value: EXT_X_MEDIA_PARSED): EXT_X_MEDIA_STRING {
     const attrs = [];
     if (value['TYPE']) {
         attrs.push(`TYPE=${value['TYPE']}`);
@@ -40,3 +40,5 @@ export default function (value: EXT_X_MEDIA_PARSED): EXT_X_MEDIA_STRING {
     }
     return `#EXT-X-MEDIA:${attrs.join(',')}`;
 }
+
+export default extXMediaStringifier;

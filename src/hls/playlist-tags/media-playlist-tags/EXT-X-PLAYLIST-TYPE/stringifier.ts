@@ -1,5 +1,5 @@
-import { EXT_X_PLAYLIST_TYPE_PARSED, EXT_X_PLAYLIST_TYPE_STRING } from './types';
+import { EXT_X_PLAYLIST_TYPE_STRING, PlaylistTypeValues } from './types';
 
-export default function (val: EXT_X_PLAYLIST_TYPE_PARSED) {
-    return `#EXT-X-PLAYLIST-TYPE:${val}` as const satisfies EXT_X_PLAYLIST_TYPE_STRING;
-}
+export function extXPlaylistTypeStringifier<playlistType extends PlaylistTypeValues>(val: playlistType): EXT_X_PLAYLIST_TYPE_STRING<playlistType> {
+    return `#EXT-X-PLAYLIST-TYPE:${val}` as const;
+} 

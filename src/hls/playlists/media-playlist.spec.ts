@@ -28,19 +28,21 @@ describe('Media Playlist', (): void => {
 
         // it('should parse a Live Media Playlist from the web', async (): Promise<void> => {
         //     const url =
-        //         'https://test-streams.mux.dev/x36xhzz/url_0/193039199_mp4_h264_aac_hd_7.m3u8';
+        //         'https://raw.githubusercontent.com/harrietfigueroa/streaming-hls-parser/refs/heads/main/examples/very-large-playlist.m3u8';
         //     const resp = await fetch(url);
         //     if (!resp.body) {
         //         throw new Error('Response body is null');
         //     }
-        //     const mediaPlaylist = await MediaPlaylist.from(resp.body);
+        //     console.time('MediaPlaylist.fromStream');
+        //     const mediaPlaylist = await MediaPlaylist.fromStream(resp.body);
+        //     console.timeEnd('MediaPlaylist.fromStream');
 
         //     expect(mediaPlaylist).toBeInstanceOf(MediaPlaylist);
-        //     expect(mediaPlaylist['#EXT-X-VERSION']).toBe(3);
-        //     expect(mediaPlaylist['#EXT-X-TARGETDURATION']).toBe(11);
-        //     expect(mediaPlaylist['#EXT-X-MEDIA-SEQUENCE']).toBeUndefined();
+        //     expect(mediaPlaylist['#EXT-X-VERSION']).toBe(4);
+        //     expect(mediaPlaylist['#EXT-X-TARGETDURATION']).toBe(6);
+        //     expect(mediaPlaylist['#EXT-X-MEDIA-SEQUENCE']).toBe(1);
         //     expect(mediaPlaylist['#EXT-X-ENDLIST']).toBe(true);
-        //     expect(mediaPlaylist.size).toBe(64);
+        //     // expect(mediaPlaylist.size).toBe(64);
         // });
 
         it('should parse a VOD Media Playlist', async (): Promise<void> => {

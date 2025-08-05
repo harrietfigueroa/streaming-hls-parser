@@ -11,7 +11,7 @@ describe('Attribute List', () => {
 `;
     it.each([withLineBreaks, withoutLineBreaks])(
         'should parse out the keys and values from an attribute list',
-        (testStr) => {
+        (testStr: string) => {
             const parsed = attributeList<Record<string, string>>(testStr);
 
             for (const [key, value] of Object.entries(parsed)) {

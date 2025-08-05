@@ -1,52 +1,79 @@
-import { EXT_X_BYTE_RANGE_STRING_VALUE, EXT_X_BYTERANGE_PARSED } from '../EXT-X-BYTERANGE/types';
+import { AbstractValidationError, ValidationErrorType } from '../../../validation-helpers/validator.types';
 
 /**
  * The EXT-X-MAP tag specifies how to obtain the Media Initialization
-   Section (Section 3) required to parse the applicable Media Segments.
-   It applies to every Media Segment that appears after it in the
-   Playlist until the next EXT-X-MAP tag or until the end of the
-   Playlist.
-
-   Its format is:
+ * Section.  It applies to every Media Segment that appears after it in
+ * the Playlist until the next EXT-X-MAP tag (if any) with the same
+ * URI attribute value.  Its format is:
 
    #EXT-X-MAP:<attribute-list>
 
-   The following attributes are defined:
+   where attribute-list contains one or more of the following
+   attribute/value pairs:
 
-      URI
+   URI=<uri>
+   BYTERANGE=<n>[@<o>]
 
-      The value is a quoted-string containing a URI that identifies a
-      resource that contains the Media Initialization Section.  This
-      attribute is REQUIRED.
-
-      BYTERANGE
-
-      The value is a quoted-string specifying a byte range into the
-      resource identified by the URI attribute.  This range SHOULD
-      contain only the Media Initialization Section.  The format of the
-      byte range is described in Section 4.3.2.2.  This attribute is
-      OPTIONAL; if it is not present, the byte range is the entire
-      resource indicated by the URI.
-
-   An EXT-X-MAP tag SHOULD be supplied for Media Segments in Playlists
-   with the EXT-X-I-FRAMES-ONLY tag when the first Media Segment (i.e.,
-   I-frame) in the Playlist (or the first segment following an EXT-
-   X-DISCONTINUITY tag) does not immediately follow the Media
-   Initialization Section at the beginning of its resource.
-
-   Use of the EXT-X-MAP tag in a Media Playlist that contains the EXT-
-   X-I-FRAMES-ONLY tag REQUIRES a compatibility version number of 5 or
-   greater.  Use of the EXT-X-MAP tag in a Media Playlist that DOES NOT
-   contain the EXT-X-I-FRAMES-ONLY tag REQUIRES a compatibility version
-   number of 6 or greater.
-
-   If the Media Initialization Section declared by an EXT-X-MAP tag is
-   encrypted with a METHOD of AES-128, the IV attribute of the EXT-X-KEY
-   tag that applies to the EXT-X-MAP is REQUIRED.
+   where uri is a quoted-string; n and o are decimal-integers.
  */
 export interface EXT_X_MAP_PARSED {
     URI: string;
-    BYTERANGE?: EXT_X_BYTERANGE_PARSED;
+    BYTERANGE?: {
+        LENGTH: number;
+        OFFSET?: number;
+    };
 }
 
 export type EXT_X_MAP_STRING = `#EXT-X-MAP:${string}`;
+
+// Abstract validation error class for this tag
+export abstract class ExtXMapValidationError extends AbstractValidationError {
+    abstract readonly tagName: '#EXT-X-MAP';
+}
+
+// Concrete validation error classes
+export class ExtXMapNotAnObjectError extends ExtXMapValidationError {
+    readonly type: ValidationErrorType = 'not-an-object';
+    readonly tagName = '#EXT-X-MAP';
+    readonly description = 'EXT-X-MAP value must be an object (RFC 8216 Section 4.3.2.5: https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.2.5)';
+
+    constructor(public readonly invalidValue: any) {
+        super();
+    }
+}
+
+export class ExtXMapMissingUriError extends ExtXMapValidationError {
+    readonly type: ValidationErrorType = 'missing-uri';
+    readonly tagName = '#EXT-X-MAP';
+    readonly description = 'EXT-X-MAP object must have a URI property (RFC 8216 Section 4.3.2.5: https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.2.5)';
+
+    constructor(public readonly invalidValue: any) {
+        super();
+    }
+}
+
+export class ExtXMapInvalidUriError extends ExtXMapValidationError {
+    readonly type: ValidationErrorType = 'not-string-or-null';
+    readonly tagName = '#EXT-X-MAP';
+    readonly description = 'EXT-X-MAP URI must be a valid quoted string (RFC 8216 Section 4.3.2.5: https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.2.5)';
+
+    constructor(public readonly invalidValue: any) {
+        super();
+    }
+}
+
+export class ExtXMapInvalidByteRangeError extends ExtXMapValidationError {
+    readonly type: ValidationErrorType = 'length-not-a-number';
+    readonly tagName = '#EXT-X-MAP';
+    readonly description = 'EXT-X-MAP BYTERANGE must have a valid LENGTH value (RFC 8216 Section 4.3.2.5: https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.2.5)';
+
+    constructor(public readonly invalidValue: any) {
+        super();
+    }
+}
+
+export type ExtXMapValidationErrorUnion =
+    | ExtXMapNotAnObjectError
+    | ExtXMapMissingUriError
+    | ExtXMapInvalidUriError
+    | ExtXMapInvalidByteRangeError; 

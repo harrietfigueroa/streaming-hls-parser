@@ -1,3 +1,4 @@
+import { ValidationError } from '../../../validation-helpers/validator.types';
 import { EXT_X_STREAM_INF_PARSED } from '../EXT-X-STREAM-INF/types';
 
 /**
@@ -28,19 +29,47 @@ import { EXT_X_STREAM_INF_PARSED } from '../EXT-X-STREAM-INF/types';
    A Master Playlist that specifies alternative VIDEO Renditions and
    I-frame Playlists SHOULD include an alternative I-frame VIDEO
    Rendition for each regular VIDEO Rendition, with the same NAME and
+   Rendition for each regular VIDEO Rendition, with the same NAME and
    LANGUAGE attributes.
  */
 export interface EXT_X_I_FRAME_STREAM_INF_PARSED
-    extends Omit<
-        EXT_X_STREAM_INF_PARSED,
-        'FRAME-RATE' | 'AUDIO' | 'SUBTITLES' | 'CLOSED-CAPTIONS'
-    > {
-    /**
-     * The value is a quoted-string containing a URI that identifies the
-      I-frame Media Playlist file.  That Playlist file MUST contain an
-      EXT-X-I-FRAMES-ONLY tag.
-     */
-    URI: string;
+  extends Omit<
+    EXT_X_STREAM_INF_PARSED,
+    'FRAME-RATE' | 'AUDIO' | 'SUBTITLES' | 'CLOSED-CAPTIONS'
+  > {
+  /**
+   * The value is a quoted-string containing a URI that identifies the
+    I-frame Media Playlist file.  That Playlist file MUST contain an
+    EXT-X-I-FRAMES-ONLY tag.
+   */
+  URI: string;
 }
 
 export type EXT_X_I_FRAME_STREAM_INF_STRING = `#EXT-X-I-FRAME-STREAM-INF:${string}`;
+
+// Generic parser type for type inference
+type ExtXIFrameStreamInfParser<T extends string> = T extends EXT_X_I_FRAME_STREAM_INF_STRING ? EXT_X_I_FRAME_STREAM_INF_PARSED : never;
+
+// Error interfaces
+export interface ExtXIFrameStreamInfValidationError extends ValidationError {
+  type: 'ExtXIFrameStreamInfUriRequiredError';
+}
+
+export interface ExtXIFrameStreamInfValidationResult {
+  tagName: '#EXT-X-I-FRAME-STREAM-INF';
+  errors: ExtXIFrameStreamInfValidationError[];
+  isValid: boolean;
+}
+
+export type ExtXIFrameStreamInfValidationErrorUnion = ExtXIFrameStreamInfValidationError;
+
+// Concrete error classes
+export class ExtXIFrameStreamInfUriRequiredError extends Error implements ExtXIFrameStreamInfValidationError {
+  readonly type = 'ExtXIFrameStreamInfUriRequiredError';
+  readonly description = 'URI is required according to RFC 8216 Section 4.3.4.3';
+
+  constructor(public readonly invalidValue: any) {
+    super('URI is required');
+    this.name = 'ExtXIFrameStreamInfUriRequiredError';
+  }
+} 

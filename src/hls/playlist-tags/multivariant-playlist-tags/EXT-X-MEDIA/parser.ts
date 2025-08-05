@@ -1,9 +1,12 @@
 import { quotedStringify } from '../../../../helpers/quoted-stringify';
 import { attributeList } from '../../../parse-helpers/attribute-list';
 import { extractProperties } from '../../../parse-helpers/extract-properties';
-import { EXT_X_MEDIA_PARSED } from './types';
+import { EXT_X_MEDIA_PARSED, EXT_X_MEDIA_STRING } from './types';
 
-export default function (str: string): EXT_X_MEDIA_PARSED {
+// Generic parser type for type inference
+type ExtXMediaParser<T extends string> = T extends EXT_X_MEDIA_STRING ? EXT_X_MEDIA_PARSED : never;
+
+export function extXMediaParser<T extends string>(str: T): ExtXMediaParser<T> {
     const values: EXT_X_MEDIA_PARSED = attributeList<EXT_X_MEDIA_PARSED>(str);
     const extractedProperties = extractProperties(values, [
         'TYPE',
@@ -20,6 +23,7 @@ export default function (str: string): EXT_X_MEDIA_PARSED {
         'CHANNELS',
     ]);
 
+    // Simple extraction - no validation
     return {
         TYPE: extractedProperties['TYPE'] as EXT_X_MEDIA_PARSED['TYPE'],
         URI: extractedProperties['URI'],
@@ -33,5 +37,7 @@ export default function (str: string): EXT_X_MEDIA_PARSED {
         'INSTREAM-ID': extractedProperties['INSTREAM-ID'] as EXT_X_MEDIA_PARSED['INSTREAM-ID'],
         CHARACTERISTICS: quotedStringify(extractedProperties['CHARACTERISTICS']),
         CHANNELS: quotedStringify(extractedProperties['CHANNELS']),
-    };
+    } as ExtXMediaParser<T>;
 }
+
+export default extXMediaParser;

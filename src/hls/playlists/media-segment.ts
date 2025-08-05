@@ -1,21 +1,27 @@
-import stringifyEXTXByterange from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE/stringifier';
-import { EXT_X_BYTERANGE_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE/types';
-import stringifyEXTXDaterange from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/stringifier';
-import { EXT_X_DATERANGE_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/type';
-import validateEXTXDaterange from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/validator';
-import stringifyEXTXDiscontinuity from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/stringifier';
+import byterangeTag, {
+    extXByteRangeValidator,
+    EXT_X_BYTERANGE_PARSED,
+} from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE';
+import dateRangeTag, {
+    extXDateRangeValidator,
+    EXT_X_DATERANGE_PARSED,
+} from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE';
+import { extXDiscontinuityParser } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/parser';
+import { extXDiscontinuityStringifier } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/stringifier';
 import { EXT_X_DISCONTINUITY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/types';
-import stringifyEXTXKey from '../playlist-tags/media-segment-tags/EXT-X-KEY/stringifier';
-import { EXT_X_KEY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-KEY/types';
-import validateEXTXKey from '../playlist-tags/media-segment-tags/EXT-X-KEY/validator';
-import stringifyEXTXMap from '../playlist-tags/media-segment-tags/EXT-X-MAP/stringifier';
-import { EXT_X_MAP_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-MAP/types';
-import validateEXTXMap from '../playlist-tags/media-segment-tags/EXT-X-MAP/validator';
-import stringifyEXTXProgramDateTime from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/stringifier';
-import { EXT_X_PROGRAM_DATE_TIME_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/types';
-import validateEXTXProgramDateTime from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/validator';
-import stringifyEXTINF from '../playlist-tags/media-segment-tags/EXTINF/stringifier';
-import { EXTINF_PARSED } from '../playlist-tags/media-segment-tags/EXTINF/types';
+import keyTag, {
+    extXKeyValidator,
+    EXT_X_KEY_PARSED,
+} from '../playlist-tags/media-segment-tags/EXT-X-KEY';
+import mapTag, {
+    extXMapValidator,
+    EXT_X_MAP_PARSED,
+} from '../playlist-tags/media-segment-tags/EXT-X-MAP';
+import programDateTimeTag, {
+    extXProgramDateTimeValidator,
+    EXT_X_PROGRAM_DATE_TIME_PARSED,
+} from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME';
+import infTag, { EXTINF_PARSED } from '../playlist-tags/media-segment-tags/EXTINF';
 import { HLSObject } from './hls-object';
 
 export interface MediaSegmentOptions {
@@ -359,28 +365,30 @@ export class MediaSegment extends HLSObject<MediaSegmentOptions> implements Medi
         const errors: Error[] = [];
 
         // Validate each property and collect errors
-        const keyErrors = validateEXTXKey(mediaSegmentOptions['#EXT-X-KEY']);
-        if (keyErrors.length > 0) {
-            errors.push(new Error('#EXT-X-KEY validation failed', { cause: keyErrors }));
+        const keyErrors = extXKeyValidator.validate(mediaSegmentOptions['#EXT-X-KEY']);
+        if (keyErrors.errors.length > 0) {
+            errors.push(new Error('#EXT-X-KEY validation failed', { cause: keyErrors.errors }));
         }
-        const mapErrors = validateEXTXMap(mediaSegmentOptions['#EXT-X-MAP']);
-        if (mapErrors.length > 0) {
-            errors.push(new Error('#EXT-X-MAP validation failed', { cause: mapErrors }));
+        const mapErrors = extXMapValidator.validate(mediaSegmentOptions['#EXT-X-MAP']);
+        if (mapErrors.errors.length > 0) {
+            errors.push(new Error('#EXT-X-MAP validation failed', { cause: mapErrors.errors }));
         }
-        const programDateTimeErrors = validateEXTXProgramDateTime(
+        const programDateTimeErrors = extXProgramDateTimeValidator.validate(
             mediaSegmentOptions['#EXT-X-PROGRAM-DATE-TIME'],
         );
-        if (programDateTimeErrors.length > 0) {
+        if (programDateTimeErrors.errors.length > 0) {
             errors.push(
                 new Error('#EXT-X-PROGRAM-DATE-TIME validation failed', {
-                    cause: programDateTimeErrors,
+                    cause: programDateTimeErrors.errors,
                 }),
             );
         }
-        const daterangeErrors = validateEXTXDaterange(mediaSegmentOptions['#EXT-X-DATERANGE']);
-        if (daterangeErrors.length > 0) {
+        const daterangeErrors = extXDateRangeValidator.validate(mediaSegmentOptions['#EXT-X-DATERANGE']);
+        if (daterangeErrors.errors.length > 0) {
             errors.push(
-                new Error('#EXT-X-DATERANGE validation failed', { cause: daterangeErrors }),
+                new Error('#EXT-X-DATERANGE validation failed', {
+                    cause: daterangeErrors.errors,
+                }),
             );
         }
 
@@ -400,24 +408,24 @@ export class MediaSegment extends HLSObject<MediaSegmentOptions> implements Medi
 
     public *toHLSLines() {
         if (this['#EXT-X-BYTERANGE']) {
-            yield stringifyEXTXByterange(this['#EXT-X-BYTERANGE']);
+            yield byterangeTag.stringifier(this['#EXT-X-BYTERANGE']);
         }
         if (this['#EXT-X-DISCONTINUITY']) {
-            yield stringifyEXTXDiscontinuity();
+            yield extXDiscontinuityStringifier();
         }
         if (this['#EXT-X-KEY']) {
-            yield stringifyEXTXKey(this['#EXT-X-KEY']);
+            yield keyTag.stringifier(this['#EXT-X-KEY']);
         }
         if (this['#EXT-X-MAP']) {
-            yield stringifyEXTXMap(this['#EXT-X-MAP']);
+            yield mapTag.stringifier(this['#EXT-X-MAP']);
         }
         if (this['#EXT-X-PROGRAM-DATE-TIME']) {
-            yield stringifyEXTXProgramDateTime(this['#EXT-X-PROGRAM-DATE-TIME']);
+            yield programDateTimeTag.stringifier(this['#EXT-X-PROGRAM-DATE-TIME']);
         }
         if (this['#EXT-X-DATERANGE']) {
-            yield stringifyEXTXDaterange(this['#EXT-X-DATERANGE']);
+            yield dateRangeTag.stringifier(this['#EXT-X-DATERANGE']);
         }
-        yield stringifyEXTINF(this['#EXTINF']);
+        yield infTag.stringifier(this['#EXTINF']);
         yield this['URI'];
     }
 

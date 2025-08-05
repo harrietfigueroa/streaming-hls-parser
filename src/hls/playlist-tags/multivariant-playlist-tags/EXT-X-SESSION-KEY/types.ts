@@ -1,3 +1,4 @@
+import { ValidationError } from '../../../validation-helpers/validator.types';
 import { EXT_X_KEY_PARSED } from '../../media-segment-tags/EXT-X-KEY/types';
 
 /**
@@ -26,6 +27,33 @@ import { EXT_X_KEY_PARSED } from '../../media-segment-tags/EXT-X-KEY/types';
 
    The EXT-X-SESSION-KEY tag is optional.
  */
-export interface EXT_X_SESSION_KEY_PARSED extends EXT_X_KEY_PARSED {}
+export interface EXT_X_SESSION_KEY_PARSED extends EXT_X_KEY_PARSED { }
 
 export type EXT_X_SESSION_KEY_STRING = `#EXT-X-SESSION-KEY:${string}`;
+
+// Generic parser type for type inference
+type ExtXSessionKeyParser<T extends string> = T extends EXT_X_SESSION_KEY_STRING ? EXT_X_SESSION_KEY_PARSED : never;
+
+// Error interfaces
+export interface ExtXSessionKeyValidationError extends ValidationError {
+  type: 'ExtXSessionKeyMethodNoneError';
+}
+
+export interface ExtXSessionKeyValidationResult {
+  tagName: '#EXT-X-SESSION-KEY';
+  errors: ExtXSessionKeyValidationError[];
+  isValid: boolean;
+}
+
+export type ExtXSessionKeyValidationErrorUnion = ExtXSessionKeyValidationError;
+
+// Concrete error classes
+export class ExtXSessionKeyMethodNoneError extends Error implements ExtXSessionKeyValidationError {
+  readonly type = 'ExtXSessionKeyMethodNoneError';
+  readonly description = 'METHOD attribute MUST NOT be NONE according to RFC 8216 Section 4.3.4.2.3';
+
+  constructor(public readonly invalidValue: any) {
+    super('METHOD attribute MUST NOT be NONE');
+    this.name = 'ExtXSessionKeyMethodNoneError';
+  }
+}

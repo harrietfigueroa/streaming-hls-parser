@@ -2,25 +2,31 @@ import { parseTokenizedLine } from '../../parser/parse-tokenized-line';
 import { LexicalToken } from '../../parser/parser.interfaces';
 import { tokenizeLine } from '../../parser/tokenize-line';
 import { PLAYLIST_TAGS } from '../hls.types';
-import stringifyVersion from '../playlist-tags/basic-tags/EXT-X-VERSION/stringifier';
+import versionTag from '../playlist-tags/basic-tags/EXT-X-VERSION/index';
 import { EXT_X_VERSION_PARSED } from '../playlist-tags/basic-tags/EXT-X-VERSION/types';
-import stringifyEXTM3U from '../playlist-tags/basic-tags/EXTM3U/stringifier';
+import m3uTag from '../playlist-tags/basic-tags/EXTM3U/index';
 import { EXTM3U_PARSED } from '../playlist-tags/basic-tags/EXTM3U/types';
-import stringifyIndependentSegments from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/stringifier';
+import independentSegmentsTag from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/index';
 import { EXT_X_INDEPENDENT_SEGMENTS_PARSED } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/types';
-import stringifyStart from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/stringifier';
+import startTag from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/index';
 import { EXT_X_START_PARSED } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/types';
-import stringifyDiscontinuitySequence from '../playlist-tags/media-playlist-tags/EXT-X-DISCONTINUITY-SEQUENCE/stringifier';
+import { extXDiscontinuitySequenceParser } from '../playlist-tags/media-playlist-tags/EXT-X-DISCONTINUITY-SEQUENCE/parser';
+import { extXDiscontinuitySequenceStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-DISCONTINUITY-SEQUENCE/stringifier';
+import { extXEndListParser } from '../playlist-tags/media-playlist-tags/EXT-X-ENDLIST/parser';
+import { extXEndListStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-ENDLIST/stringifier';
+import { extXIFramesOnlyParser } from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/parser';
+import { extXIFramesOnlyStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/stringifier';
+import { extXMediaSequenceParser } from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/parser';
+import { extXMediaSequenceStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/stringifier';
+import { extXPlaylistTypeParser } from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/parser';
+import { extXPlaylistTypeStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/stringifier';
+import { extXTargetDurationParser } from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/parser';
+import { extXTargetDurationStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/stringifier';
 import { EXT_X_DISCONTINUITY_SEQUENCE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-DISCONTINUITY-SEQUENCE/types';
-import stringifyEndlist from '../playlist-tags/media-playlist-tags/EXT-X-ENDLIST/stringifier';
 import { EXT_X_ENDLIST_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-ENDLIST/types';
-import stringifyIFramesOnly from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/stringifier';
 import { EXT_X_I_FRAMES_ONLY_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/types';
-import stringifyMediaSequence from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/stringifier';
 import { EXT_X_MEDIA_SEQUENCE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/types';
-import stringifyPlaylistType from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/stringifier';
 import { EXT_X_PLAYLIST_TYPE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/types';
-import stringifyTargetDuration from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/stringifier';
 import { EXT_X_TARGETDURATION_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/types';
 import { HLSPlaylist } from './hls-playlist';
 import { MediaSegment, MediaSegmentOptions } from './media-segment';
@@ -260,11 +266,12 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
         }
 
         /**
-         * Use of the EXT-X-I-FRAMES-ONLY REQUIRES a compatibility version
+         * The EXT-X-I-FRAMES-ONLY tag requires an #EXT-X-VERSION
          * number of 4 or greater.
          */
         if (
             mediaPlaylistOptions['#EXT-X-I-FRAMES-ONLY'] &&
+            mediaPlaylistOptions['#EXT-X-VERSION'] !== undefined &&
             mediaPlaylistOptions['#EXT-X-VERSION'] < 4
         ) {
             errors.push(
@@ -459,33 +466,33 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
 
     public *toHLSLines() {
         yield* [
-            stringifyEXTM3U(),
-            stringifyVersion(this['#EXT-X-VERSION']),
-            stringifyTargetDuration(this['#EXT-X-TARGETDURATION']),
+            m3uTag.stringifier(),
+            versionTag.stringifier(this['#EXT-X-VERSION']),
+            extXTargetDurationStringifier(this['#EXT-X-TARGETDURATION']),
         ];
         if (this['#EXT-X-MEDIA-SEQUENCE'] && this['#EXT-X-MEDIA-SEQUENCE'] > 0) {
-            yield stringifyMediaSequence(this['#EXT-X-MEDIA-SEQUENCE']);
+            yield extXMediaSequenceStringifier(this['#EXT-X-MEDIA-SEQUENCE']);
         }
         if (this['#EXT-X-DISCONTINUITY-SEQUENCE'] && this['#EXT-X-DISCONTINUITY-SEQUENCE'] > 0) {
-            yield stringifyDiscontinuitySequence(this['#EXT-X-DISCONTINUITY-SEQUENCE']);
+            yield extXDiscontinuitySequenceStringifier(this['#EXT-X-DISCONTINUITY-SEQUENCE']);
         }
         if (this['#EXT-X-PLAYLIST-TYPE']) {
-            yield stringifyPlaylistType(this['#EXT-X-PLAYLIST-TYPE']);
+            yield extXPlaylistTypeStringifier(this['#EXT-X-PLAYLIST-TYPE']);
         }
         if (this['#EXT-X-I-FRAMES-ONLY']) {
-            yield stringifyIFramesOnly();
+            yield extXIFramesOnlyStringifier();
         }
         if (this['#EXT-X-INDEPENDENT-SEGMENTS']) {
-            yield stringifyIndependentSegments();
+            yield independentSegmentsTag.stringifier();
         }
         if (this['#EXT-X-START']) {
-            yield stringifyStart(this['#EXT-X-START']);
+            yield startTag.stringifier(this['#EXT-X-START']);
         }
 
         yield* this.childHLSValues();
 
         if (this['#EXT-X-ENDLIST']) {
-            yield stringifyEndlist();
+            yield extXEndListStringifier();
         }
     }
 

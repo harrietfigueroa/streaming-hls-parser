@@ -1,5 +1,5 @@
 import { EXTM3U_STRING } from './types';
 
-export default function () {
-    return '#EXTM3U' as const satisfies EXTM3U_STRING;
-}
+export function extM3uStringifier(): EXTM3U_STRING {
+    return '#EXTM3U' as const;
+} 

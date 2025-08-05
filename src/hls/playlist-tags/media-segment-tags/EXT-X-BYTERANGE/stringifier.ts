@@ -1,9 +1,9 @@
 import { EXT_X_BYTERANGE_PARSED, EXT_X_BYTERANGE_STRING } from './types';
 
-export default function (val: EXT_X_BYTERANGE_PARSED) {
+export function extXByteRangeStringifier(val: EXT_X_BYTERANGE_PARSED): EXT_X_BYTERANGE_STRING {
     const LENGTH = val.LENGTH;
     const OFFSET = val.OFFSET;
-    return OFFSET
+    return OFFSET !== undefined
         ? `#EXT-X-BYTERANGE:${LENGTH}@${OFFSET}`
-        : (`#EXT-X-BYTERANGE:${LENGTH}` as const satisfies EXT_X_BYTERANGE_STRING);
-}
+        : `#EXT-X-BYTERANGE:${LENGTH}` as EXT_X_BYTERANGE_STRING;
+} 
