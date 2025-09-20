@@ -8,7 +8,7 @@ import dateRangeTag, {
 } from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE';
 import { extXDiscontinuityParser } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/parser';
 import { extXDiscontinuityStringifier } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/stringifier';
-import { EXT_X_DISCONTINUITY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/types';
+import { EXT_X_DISCONTINUITY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/schema';
 import keyTag, {
     extXKeyValidator,
     EXT_X_KEY_PARSED,
@@ -383,7 +383,9 @@ export class MediaSegment extends HLSObject<MediaSegmentOptions> implements Medi
                 }),
             );
         }
-        const daterangeErrors = extXDateRangeValidator.validate(mediaSegmentOptions['#EXT-X-DATERANGE']);
+        const daterangeErrors = extXDateRangeValidator.validate(
+            mediaSegmentOptions['#EXT-X-DATERANGE'],
+        );
         if (daterangeErrors.errors.length > 0) {
             errors.push(
                 new Error('#EXT-X-DATERANGE validation failed', {

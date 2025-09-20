@@ -1,10 +1,10 @@
-import { EXT_X_BYTERANGE_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE/types';
-import { EXT_X_DATERANGE_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/types';
-import { EXT_X_DISCONTINUITY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/types';
-import { EXT_X_KEY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-KEY/types';
-import { EXT_X_MAP_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-MAP/types';
-import { EXT_X_PROGRAM_DATE_TIME_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/types';
-import { EXTINF_PARSED } from '../playlist-tags/media-segment-tags/EXTINF/types';
+import { EXT_X_BYTERANGE_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE/schema';
+import { EXT_X_DATERANGE_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/schema';
+import { EXT_X_DISCONTINUITY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/schema';
+import { EXT_X_KEY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-KEY/schema';
+import { EXT_X_MAP_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-MAP/schema';
+import { EXT_X_PROGRAM_DATE_TIME_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/schema';
+import { EXTINF_PARSED } from '../playlist-tags/media-segment-tags/EXTINF/schema';
 import { MediaSegment, MediaSegmentOptions } from './media-segment';
 
 export class MediaSegmentArrayBuilder extends Map<string, MediaSegment> {

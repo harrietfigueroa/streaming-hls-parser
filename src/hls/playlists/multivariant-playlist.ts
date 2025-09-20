@@ -2,10 +2,10 @@ import { EXT_X_VERSION_PARSED } from '../playlist-tags/basic-tags/EXT-X-VERSION/
 import { EXTM3U_PARSED } from '../playlist-tags/basic-tags/EXTM3U/types';
 import { EXT_X_INDEPENDENT_SEGMENTS_PARSED } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/types';
 import { EXT_X_START_PARSED } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/types';
-import { EXT_X_MEDIA_PARSED } from '../playlist-tags/multivariant-playlist-tags/EXT-X-MEDIA/types';
+import { EXT_X_MEDIA_PARSED } from '../playlist-tags/multivariant-playlist-tags/EXT-X-MEDIA/schema';
 import validateEXTXMedia from '../playlist-tags/multivariant-playlist-tags/EXT-X-MEDIA/validator';
-import { EXT_X_SESSION_DATA_PARSED } from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-DATA/types';
-import { EXT_X_SESSION_KEY_PARSED } from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-KEY/types';
+import { EXT_X_SESSION_DATA_PARSED } from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-DATA/schema';
+import { EXT_X_SESSION_KEY_PARSED } from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-KEY/schema';
 import validateEXTXSessionKey from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-KEY/validator';
 import { HLSPlaylist } from './hls-playlist';
 import { StreamInf, VariantStreamOptions } from './stream-inf';
@@ -21,6 +21,7 @@ import startTag from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X
 import stringifyEXTXMedia from '../playlist-tags/multivariant-playlist-tags/EXT-X-MEDIA/stringifier';
 import stringifyEXTXSessionData from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-DATA/stringifier';
 import stringifyEXTXSessionKey from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-KEY/stringifier';
+import { createStream } from '../../helpers/create-stream';
 
 export interface MultivariantPlaylistOptions {
     '#EXTM3U': EXTM3U_PARSED;
@@ -34,7 +35,8 @@ export interface MultivariantPlaylistOptions {
 
 export class MultivariantPlaylist
     extends HLSPlaylist<VariantStreamOptions>
-    implements MultivariantPlaylistOptions {
+    implements MultivariantPlaylistOptions
+{
     /**
      * The EXTM3U tag indicates that the file is an Extended M3U [M3U]
      Playlist file.  It MUST be the first line of every Media Playlist and
@@ -182,7 +184,9 @@ export class MultivariantPlaylist
         );
         if (sessionKeyErrors.errors.length > 0) {
             errors.push(
-                new Error('#EXT-X-SESSION-KEY validation failed', { cause: sessionKeyErrors.errors }),
+                new Error('#EXT-X-SESSION-KEY validation failed', {
+                    cause: sessionKeyErrors.errors,
+                }),
             );
         }
 
@@ -237,6 +241,7 @@ export class MultivariantPlaylist
         }
         return multivariantPlaylistOptions;
     }
+
     private static buildVariantStreams(
         token: LexicalToken,
         variantStreamsArrayBuilder: StreamInfArrayBuilder,
@@ -260,7 +265,7 @@ export class MultivariantPlaylist
 
         let parsingStreamVariants: boolean = false;
 
-        input.split('\n').map((line) => {
+        for (const line of input.split('\n')) {
             let token = parseTokenizedLine(tokenizeLine(line));
 
             if (reviver) {
@@ -277,7 +282,7 @@ export class MultivariantPlaylist
             if (parsingStreamVariants) {
                 MultivariantPlaylist.buildVariantStreams(token, variantStreamsArrayBuilder);
             }
-        });
+        }
 
         return new MultivariantPlaylist(
             multivariantPlaylistOptions as MultivariantPlaylistOptions,
@@ -289,7 +294,7 @@ export class MultivariantPlaylist
         source: Input,
         reviver?: Reviver,
     ): Promise<MultivariantPlaylist> {
-        const tokenizedStream: AsyncIterable<LexicalToken> = super.createStream(source);
+        const tokenizedStream: AsyncIterable<LexicalToken> = createStream(source);
 
         const multivariantPlaylistOptions: Partial<MultivariantPlaylistOptions> = {};
         const variantStreamsArrayBuilder = new StreamInfArrayBuilder();
@@ -315,6 +320,10 @@ export class MultivariantPlaylist
             multivariantPlaylistOptions as MultivariantPlaylistOptions,
             variantStreamsArrayBuilder,
         );
+    }
+
+    public static clone(playlist: MultivariantPlaylist): MultivariantPlaylist {
+        return MultivariantPlaylist.fromString(playlist.toHLS());
     }
 
     public static isMultivariantPlaylist(input: string): boolean {
@@ -354,7 +363,7 @@ export class MultivariantPlaylist
         return Array.from(this.toHLSLines()).join('\n');
     }
 
-    public toJSON(): any {
+    public toJSON() {
         return {
             '#EXTM3U': this['#EXTM3U'],
             '#EXT-X-VERSION': this['#EXT-X-VERSION'],
@@ -364,6 +373,6 @@ export class MultivariantPlaylist
             '#EXT-X-INDEPENDENT-SEGMENTS': this['#EXT-X-INDEPENDENT-SEGMENTS'],
             '#EXT-X-START': this['#EXT-X-START'],
             'STREAM-INF-VALUES': Array.from(this.values(), (streamInf) => streamInf.toJSON()),
-        };
+        } as const;
     }
 }

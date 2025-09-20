@@ -1,0 +1,69 @@
+import * as z from 'zod';
+import { stripTag } from '../../../parse-helpers/strip-tag';
+
+export const TAG = '#EXT-X-PLAYLIST-TYPE' as const;
+export const EXT_X_PLAYLIST_TYPE_STRING = z.templateLiteral([TAG, ':', z.enum(['EVENT', 'VOD'])]);
+
+/**
+ * The EXT-X-PLAYLIST-TYPE tag provides mutability information about the
+ * Media Playlist file. It applies to the entire Media Playlist file.
+ * It is OPTIONAL.
+ *
+ * Its format is:
+ *
+ * #EXT-X-PLAYLIST-TYPE:<type-enum>
+ *
+ * where type-enum is either EVENT or VOD.
+ *
+ * Section 6.2.1 defines the implications of the EXT-X-PLAYLIST-TYPE
+ * tag.
+ *
+ * If the EXT-X-PLAYLIST-TYPE value is EVENT, Media Segments can only be
+ * added to the end of the Media Playlist. If the EXT-X-PLAYLIST-TYPE
+ * value is Video On Demand (VOD), the Media Playlist cannot change.
+ *
+ * If the EXT-X-PLAYLIST-TYPE tag is omitted from a Media Playlist, the
+ * Playlist can be updated according to the rules in Section 6.2.1 with
+ * no additional restrictions. For example, a live Playlist
+ * (Section 6.2.2) MAY be updated to remove Media Segments in the order
+ * that they appeared.
+ */
+export const EXT_X_PLAYLIST_TYPE_OBJECT = z.enum(['EVENT', 'VOD']).describe(`
+    The EXT-X-PLAYLIST-TYPE tag provides mutability information about the
+    Media Playlist file. It applies to the entire Media Playlist file.
+    It is OPTIONAL.
+
+    Its format is:
+
+    #EXT-X-PLAYLIST-TYPE:<type-enum>
+
+    where type-enum is either EVENT or VOD.
+
+    Section 6.2.1 defines the implications of the EXT-X-PLAYLIST-TYPE
+    tag.
+
+    If the EXT-X-PLAYLIST-TYPE value is EVENT, Media Segments can only be
+    added to the end of the Media Playlist. If the EXT-X-PLAYLIST-TYPE
+    value is Video On Demand (VOD), the Media Playlist cannot change.
+
+    If the EXT-X-PLAYLIST-TYPE tag is omitted from a Media Playlist, the
+    Playlist can be updated according to the rules in Section 6.2.1 with
+    no additional restrictions. For example, a live Playlist
+    (Section 6.2.2) MAY be updated to remove Media Segments in the order
+    that they appeared.
+`);
+
+export const EXT_X_PLAYLIST_TYPE_CODEC = z.codec(
+    EXT_X_PLAYLIST_TYPE_STRING,
+    EXT_X_PLAYLIST_TYPE_OBJECT,
+    {
+        decode: (value) => {
+            return stripTag(value) as any;
+        },
+        encode: (type) => {
+            return `${TAG}:${type}` as any;
+        },
+    },
+);
+
+export type EXT_X_PLAYLIST_TYPE_STRING_TYPE = `#EXT-X-PLAYLIST-TYPE:${'EVENT' | 'VOD'}`;

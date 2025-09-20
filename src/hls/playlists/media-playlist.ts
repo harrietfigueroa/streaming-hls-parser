@@ -1,3 +1,4 @@
+import { createStream } from '../../helpers/create-stream';
 import { parseTokenizedLine } from '../../parser/parse-tokenized-line';
 import { LexicalToken } from '../../parser/parser.interfaces';
 import { tokenizeLine } from '../../parser/tokenize-line';
@@ -10,27 +11,40 @@ import independentSegmentsTag from '../playlist-tags/media-or-multivariant-playl
 import { EXT_X_INDEPENDENT_SEGMENTS_PARSED } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/types';
 import startTag from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/index';
 import { EXT_X_START_PARSED } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/types';
-import { extXDiscontinuitySequenceParser } from '../playlist-tags/media-playlist-tags/EXT-X-DISCONTINUITY-SEQUENCE/parser';
 import { extXDiscontinuitySequenceStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-DISCONTINUITY-SEQUENCE/stringifier';
-import { extXEndListParser } from '../playlist-tags/media-playlist-tags/EXT-X-ENDLIST/parser';
-import { extXEndListStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-ENDLIST/stringifier';
-import { extXIFramesOnlyParser } from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/parser';
-import { extXIFramesOnlyStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/stringifier';
-import { extXMediaSequenceParser } from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/parser';
-import { extXMediaSequenceStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/stringifier';
-import { extXPlaylistTypeParser } from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/parser';
-import { extXPlaylistTypeStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/stringifier';
-import { extXTargetDurationParser } from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/parser';
-import { extXTargetDurationStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/stringifier';
 import { EXT_X_DISCONTINUITY_SEQUENCE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-DISCONTINUITY-SEQUENCE/types';
+import { extXEndListStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-ENDLIST/stringifier';
 import { EXT_X_ENDLIST_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-ENDLIST/types';
+import { extXIFramesOnlyStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/stringifier';
 import { EXT_X_I_FRAMES_ONLY_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/types';
+import { extXMediaSequenceStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/stringifier';
 import { EXT_X_MEDIA_SEQUENCE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-MEDIA-SEQUENCE/types';
-import { EXT_X_PLAYLIST_TYPE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/types';
-import { EXT_X_TARGETDURATION_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/types';
-import { HLSPlaylist } from './hls-playlist';
-import { MediaSegment, MediaSegmentOptions } from './media-segment';
+import { extXPlaylistTypeStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/stringifier';
+import { EXT_X_PLAYLIST_TYPE_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-PLAYLIST-TYPE/schema';
+import { extXTargetDurationStringifier } from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/stringifier';
+import { EXT_X_TARGETDURATION_PARSED } from '../playlist-tags/media-playlist-tags/EXT-X-TARGETDURATION/schema';
+import { MediaSegment } from './media-segment';
 import { MediaSegmentArrayBuilder } from './media-segment-array-builder';
+import { Playlist } from './playlists.interfaces';
+
+// Type mapping for parsed token values
+type ParsedTokenValue = {
+    '#EXTM3U': EXTM3U_PARSED;
+    '#EXT-X-VERSION': EXT_X_VERSION_PARSED;
+    '#EXT-X-TARGETDURATION': EXT_X_TARGETDURATION_PARSED;
+    '#EXT-X-MEDIA-SEQUENCE': EXT_X_MEDIA_SEQUENCE_PARSED;
+    '#EXT-X-DISCONTINUITY-SEQUENCE': EXT_X_DISCONTINUITY_SEQUENCE_PARSED;
+    '#EXT-X-ENDLIST': EXT_X_ENDLIST_PARSED;
+    '#EXT-X-PLAYLIST-TYPE': EXT_X_PLAYLIST_TYPE_PARSED;
+    '#EXT-X-I-FRAMES-ONLY': EXT_X_I_FRAMES_ONLY_PARSED;
+    '#EXT-X-INDEPENDENT-SEGMENTS': EXT_X_INDEPENDENT_SEGMENTS_PARSED;
+    '#EXT-X-START': EXT_X_START_PARSED;
+};
+
+// Type for a token with properly typed value
+type TypedLexicalToken<T extends keyof ParsedTokenValue> = LexicalToken<T> & {
+    value: ParsedTokenValue[T];
+};
 
 export interface MediaPlaylistOptions {
     '#EXTM3U': EXTM3U_PARSED;
@@ -45,7 +59,7 @@ export interface MediaPlaylistOptions {
     '#EXT-X-START': EXT_X_START_PARSED;
 }
 
-export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
+export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist {
     /**
      * The EXTM3U tag indicates that the file is an Extended M3U [M3U]
      Playlist file.  It MUST be the first line of every Media Playlist and
@@ -241,11 +255,14 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
     */
     public readonly '#EXT-X-START': MediaPlaylistOptions['#EXT-X-START'];
 
+    public readonly errors: Error[] = [];
+    public readonly isValid: boolean = true;
+
     private constructor(
         mediaPlaylistOptions: MediaPlaylistOptions,
         mediaSegments: Map<string, MediaSegment>,
     ) {
-        super(mediaSegments);
+        super(Array.from(mediaSegments.entries()));
 
         const errors: Error[] = [];
 
@@ -282,9 +299,7 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
         }
 
         if (errors.length > 0) {
-            this.error = new Error(`MediaPlaylist validation failed`, {
-                cause: errors,
-            });
+            this.errors = errors;
         }
 
         this['#EXTM3U'] = mediaPlaylistOptions['#EXTM3U'];
@@ -319,43 +334,49 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
     ): Partial<MediaPlaylistOptions> {
         switch (token.type) {
             case '#EXTM3U': {
-                mediaPlaylistOptions['#EXTM3U'] = token.value as any;
+                mediaPlaylistOptions['#EXTM3U'] = token.value as EXTM3U_PARSED;
                 break;
             }
             case '#EXT-X-VERSION': {
-                mediaPlaylistOptions['#EXT-X-VERSION'] = token.value as any;
+                mediaPlaylistOptions['#EXT-X-VERSION'] = token.value as EXT_X_VERSION_PARSED;
                 break;
             }
             case '#EXT-X-TARGETDURATION': {
-                mediaPlaylistOptions['#EXT-X-TARGETDURATION'] = token.value as any;
+                mediaPlaylistOptions['#EXT-X-TARGETDURATION'] =
+                    token.value as EXT_X_TARGETDURATION_PARSED;
                 break;
             }
             case '#EXT-X-MEDIA-SEQUENCE': {
-                mediaPlaylistOptions['#EXT-X-MEDIA-SEQUENCE'] = token.value as any;
+                mediaPlaylistOptions['#EXT-X-MEDIA-SEQUENCE'] =
+                    token.value as EXT_X_MEDIA_SEQUENCE_PARSED;
                 break;
             }
             case '#EXT-X-DISCONTINUITY-SEQUENCE': {
-                mediaPlaylistOptions['#EXT-X-DISCONTINUITY-SEQUENCE'] = token.value as any;
+                mediaPlaylistOptions['#EXT-X-DISCONTINUITY-SEQUENCE'] =
+                    token.value as EXT_X_DISCONTINUITY_SEQUENCE_PARSED;
                 break;
             }
             case '#EXT-X-ENDLIST': {
-                mediaPlaylistOptions['#EXT-X-ENDLIST'] = token.value as any;
+                mediaPlaylistOptions['#EXT-X-ENDLIST'] = token.value as EXT_X_ENDLIST_PARSED;
                 break;
             }
             case '#EXT-X-PLAYLIST-TYPE': {
-                mediaPlaylistOptions['#EXT-X-PLAYLIST-TYPE'] = token.value as any;
+                mediaPlaylistOptions['#EXT-X-PLAYLIST-TYPE'] =
+                    token.value as EXT_X_PLAYLIST_TYPE_PARSED;
                 break;
             }
             case '#EXT-X-I-FRAMES-ONLY': {
-                mediaPlaylistOptions['#EXT-X-I-FRAMES-ONLY'] = token.value as any;
+                mediaPlaylistOptions['#EXT-X-I-FRAMES-ONLY'] =
+                    token.value as EXT_X_I_FRAMES_ONLY_PARSED;
                 break;
             }
             case '#EXT-X-INDEPENDENT-SEGMENTS': {
-                mediaPlaylistOptions['#EXT-X-INDEPENDENT-SEGMENTS'] = token.value as any;
+                mediaPlaylistOptions['#EXT-X-INDEPENDENT-SEGMENTS'] =
+                    token.value as EXT_X_INDEPENDENT_SEGMENTS_PARSED;
                 break;
             }
             case '#EXT-X-START': {
-                mediaPlaylistOptions['#EXT-X-START'] = token.value as any;
+                mediaPlaylistOptions['#EXT-X-START'] = token.value as EXT_X_START_PARSED;
                 break;
             }
         }
@@ -434,7 +455,7 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
     public static async fromStream<
         Input extends Iterable<string> | AsyncIterable<string | Uint8Array>,
     >(source: Input): Promise<MediaPlaylist> {
-        const tokenizedStream = super.createStream(source);
+        const tokenizedStream: AsyncIterable<LexicalToken> = createStream(source);
 
         const mediaPlaylistOptions: Partial<MediaPlaylistOptions> = {};
         const mediaSegmentsArrayBuilder = new MediaSegmentArrayBuilder();
@@ -489,7 +510,9 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
             yield startTag.stringifier(this['#EXT-X-START']);
         }
 
-        yield* this.childHLSValues();
+        for (const segment of this.values()) {
+            yield* segment.toHLSLines();
+        }
 
         if (this['#EXT-X-ENDLIST']) {
             yield extXEndListStringifier();
@@ -511,7 +534,7 @@ export class MediaPlaylist extends HLSPlaylist<MediaSegmentOptions> {
             '#EXT-X-I-FRAMES-ONLY': this['#EXT-X-I-FRAMES-ONLY'],
             '#EXT-X-INDEPENDENT-SEGMENTS': this['#EXT-X-INDEPENDENT-SEGMENTS'],
             '#EXT-X-START': this['#EXT-X-START'],
-            mediaSegments: Array.from(this.childJSONValues()),
+            mediaSegments: Array.from(this.values(), (segment) => segment.toJSON()),
             '#EXT-X-ENDLIST': this['#EXT-X-ENDLIST'],
         };
     }

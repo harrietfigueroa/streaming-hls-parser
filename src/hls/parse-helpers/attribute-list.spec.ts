@@ -1,23 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { attributeList } from './attribute-list';
+import { attributeListStringSchema, attributeListObjectSchema } from './attribute-list';
 
 describe('Attribute List', () => {
-    const withoutLineBreaks = `
- #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="English",DEFAULT=YES,AUTOSELECT=YES,LANGUAGE="en",URI="main/english-audio.m3u8"`;
-    const withLineBreaks = `
- #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="English", \
-   DEFAULT=YES,AUTOSELECT=YES,LANGUAGE="en", \
-   URI="main/english-audio.m3u8"
-`;
+    const withoutLineBreaks =
+        `TYPE=AUDIO,GROUP-ID="aac",NAME="English",DEFAULT=YES,AUTOSELECT=YES,LANGUAGE="en",URI="main/english-audio.m3u8"`.trim();
+    const withLineBreaks =
+        `TYPE=AUDIO,GROUP-ID="aac",NAME="English",DEFAULT=YES,AUTOSELECT=YES,LANGUAGE="en,URI="main/english-audio.m3u8"
+`.trim();
     it.each([withLineBreaks, withoutLineBreaks])(
-        'should parse out the keys and values from an attribute list',
+        'should parse in both directions',
         (testStr: string) => {
-            const parsed = attributeList<Record<string, string>>(testStr);
+            const parsed = attributeListStringSchema.parse(testStr);
 
             for (const [key, value] of Object.entries(parsed)) {
                 expect(typeof key).toBe('string');
                 expect(typeof value).toBe('string');
             }
+
+            const stringified = attributeListObjectSchema.parse(parsed);
+
+            expect(stringified).toBe(testStr);
         },
     );
 });

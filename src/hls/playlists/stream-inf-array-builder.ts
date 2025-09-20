@@ -1,4 +1,4 @@
-import { EXT_X_STREAM_INF_PARSED } from '../playlist-tags/multivariant-playlist-tags/EXT-X-STREAM-INF/types';
+import { EXT_X_STREAM_INF_PARSED } from '../playlist-tags/multivariant-playlist-tags/EXT-X-STREAM-INF/schema';
 import { StreamInf, VariantStreamOptions } from './stream-inf';
 
 export class StreamInfArrayBuilder extends Map<string, StreamInf> {
