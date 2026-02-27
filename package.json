@@ -47,7 +47,7 @@
     "license": "ISC",
     "repository": {
         "type": "git",
-        "url": "https://github.com/harrietfigueroa/streaming-hls-parser.git"
+        "url": "git+https://github.com/harrietfigueroa/streaming-hls-parser.git"
     },
     "bugs": {
         "url": "https://github.com/harrietfigueroa/streaming-hls-parser/issues"
