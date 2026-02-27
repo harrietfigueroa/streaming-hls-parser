@@ -18,9 +18,18 @@ import { EXT_X_SPLICEPOINT_SCTE35_CODEC } from '../playlist-tags/media-segment-t
 
 export class MediaSegmentArrayBuilder extends Map<string, MediaSegment> {
     private inProgress: Partial<MediaSegmentOptions> = {};
+    private inProgressErrors: Array<{
+        tag: string;
+        errors: ReadonlyArray<z.ZodError['issues'][number]>;
+        line: string;
+    }> = [];
 
     public addStreamInf(extInf: z.infer<typeof EXTINF_CODEC>): void {
         this.inProgress['#EXTINF'] = extInf;
+    }
+
+    public addError(tag: string, errors: ReadonlyArray<z.ZodError['issues'][number]>, line: string): void {
+        this.inProgressErrors.push({ tag, errors, line });
     }
 
     public addByteRange(byteRange: z.infer<typeof EXT_X_BYTERANGE_CODEC>): void {
@@ -84,10 +93,12 @@ export class MediaSegmentArrayBuilder extends Map<string, MediaSegment> {
     public addURI(uri: string): void {
         // When we get a URI then we're done with this segment and we can start a new one
         this.inProgress['URI'] = uri;
-        this.set(uri, new MediaSegment(this.inProgress as MediaSegmentOptions));
+        const errors = this.inProgressErrors.length > 0 ? this.inProgressErrors : undefined;
+        this.set(uri, new MediaSegment(this.inProgress as MediaSegmentOptions, errors));
 
         this.inProgress = {
             URI: undefined,
         };
+        this.inProgressErrors = [];
     }
 }

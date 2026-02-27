@@ -189,6 +189,46 @@ export class MultivariantPlaylist extends Map<string, StreamInf> implements Play
      */
     public readonly '#EXT-X-CONTENT-STEERING': MultivariantPlaylistOptions['#EXT-X-CONTENT-STEERING'];
 
+    /**
+     * Collection of RFC 8216 validation errors found during parsing.
+     * Empty array means no violations detected.
+     *
+     * Errors from child StreamInf objects are automatically collected
+     * and included in this array.
+     */
+    public get errors() {
+        const errors: Array<{
+            tag: string;
+            path?: (string | number)[];
+            message: string;
+            code?: string;
+            line?: string;
+            index?: number;
+        }> = [];
+
+        // Collect errors from each stream
+        let index = 0;
+        for (const stream of this.values()) {
+            if (stream.errors && stream.errors.length > 0) {
+                for (const errorGroup of stream.errors) {
+                    for (const issue of errorGroup.errors) {
+                        errors.push({
+                            tag: errorGroup.tag,
+                            path: issue.path.filter((p): p is string | number => typeof p !== 'symbol'),
+                            message: issue.message,
+                            code: issue.code,
+                            line: errorGroup.line,
+                            index,
+                        });
+                    }
+                }
+            }
+            index++;
+        }
+
+        return errors;
+    }
+
     private constructor(
         multivariantPlaylistOptions: MultivariantPlaylistOptions,
         variantStreams: Map<string, StreamInf>,
@@ -256,13 +296,22 @@ export class MultivariantPlaylist extends Map<string, StreamInf> implements Play
         token: LexicalToken,
         variantStreamsArrayBuilder: StreamInfArrayBuilder,
     ): StreamInfArrayBuilder {
+        // Collect errors if present
+        if (token.errors) {
+            variantStreamsArrayBuilder.addError(token.type, token.errors, token.source);
+        }
+
         switch (token.type) {
             case '#EXT-X-STREAM-INF': {
-                variantStreamsArrayBuilder.addStreamInf(token.value as any);
+                if (token.value !== undefined) {
+                    variantStreamsArrayBuilder.addStreamInf(token.value as any);
+                }
                 break;
             }
             case 'URI': {
-                variantStreamsArrayBuilder.addURI(token.value as any);
+                if (token.value !== undefined) {
+                    variantStreamsArrayBuilder.addURI(token.value as any);
+                }
                 break;
             }
         }
@@ -346,7 +395,9 @@ export class MultivariantPlaylist extends Map<string, StreamInf> implements Play
 
     public *toHLSLines(): Iterable<string> {
         yield EXTM3U_CODEC.encode(this['#EXTM3U']);
-        yield EXT_X_VERSION_CODEC.encode(this['#EXT-X-VERSION']);
+        if (this['#EXT-X-VERSION'] !== undefined) {
+            yield EXT_X_VERSION_CODEC.encode(this['#EXT-X-VERSION']);
+        }
         if (this['#EXT-X-MEDIA']) {
             yield EXT_X_MEDIA_CODEC.encode(this['#EXT-X-MEDIA']);
         }

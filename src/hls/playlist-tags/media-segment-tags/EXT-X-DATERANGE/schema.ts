@@ -47,6 +47,57 @@ const EXT_X_DATERANGE_OBJECT = z
          */
         'END-ON-NEXT': z.literal('YES').optional(),
     })
+    .refine(
+        (data) => {
+            if (data['END-DATE'] && data['START-DATE']) {
+                return new Date(data['END-DATE']) >= new Date(data['START-DATE']);
+            }
+            return true;
+        },
+        {
+            message: 'END-DATE must be equal to or later than START-DATE',
+            path: ['END-DATE'],
+        },
+    )
+    .refine(
+        (data) => {
+            if (data['END-DATE'] && data['START-DATE'] && data.DURATION) {
+                const startDate = new Date(data['START-DATE']);
+                const expectedEndDate = new Date(startDate.getTime() + data.DURATION * 1000);
+                const actualEndDate = new Date(data['END-DATE']);
+                return Math.abs(actualEndDate.getTime() - expectedEndDate.getTime()) < 1;
+            }
+            return true;
+        },
+        {
+            message: 'END-DATE must equal START-DATE plus DURATION',
+            path: ['END-DATE'],
+        },
+    )
+    .refine(
+        (data) => {
+            if (data['END-ON-NEXT'] === 'YES' && !data.CLASS) {
+                return false;
+            }
+            return true;
+        },
+        {
+            message: 'CLASS attribute is REQUIRED when END-ON-NEXT=YES',
+            path: ['CLASS'],
+        },
+    )
+    .refine(
+        (data) => {
+            if (data['END-ON-NEXT'] === 'YES' && (data.DURATION || data['END-DATE'])) {
+                return false;
+            }
+            return true;
+        },
+        {
+            message: 'DURATION and END-DATE attributes MUST NOT be present when END-ON-NEXT=YES',
+            path: ['END-ON-NEXT'],
+        },
+    )
     .readonly();
 
 /**

@@ -329,6 +329,46 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
      */
     public readonly '#EXT-X-RENDITION-REPORT': MediaPlaylistOptions['#EXT-X-RENDITION-REPORT'];
 
+    /**
+     * Collection of RFC 8216 validation errors found during parsing.
+     * Empty array means no violations detected.
+     *
+     * Errors from child MediaSegments are automatically collected
+     * and included in this array.
+     */
+    public get errors() {
+        const errors: Array<{
+            tag: string;
+            path?: (string | number)[];
+            message: string;
+            code?: string;
+            line?: string;
+            index?: number;
+        }> = [];
+
+        // Collect errors from each media segment
+        let index = 0;
+        for (const segment of this.values()) {
+            if (segment.errors && segment.errors.length > 0) {
+                for (const errorGroup of segment.errors) {
+                    for (const issue of errorGroup.errors) {
+                        errors.push({
+                            tag: errorGroup.tag,
+                            path: issue.path.filter((p): p is string | number => typeof p !== 'symbol'),
+                            message: issue.message,
+                            code: issue.code,
+                            line: errorGroup.line,
+                            index,
+                        });
+                    }
+                }
+            }
+            index++;
+        }
+
+        return errors;
+    }
+
     private constructor(
         mediaPlaylistOptions: MediaPlaylistOptions,
         mediaSegments: Map<string, MediaSegment>,
@@ -388,9 +428,16 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
         token: LexicalToken,
         mediaSegmentsArrayBuilder: MediaSegmentArrayBuilder,
     ): MediaSegmentArrayBuilder {
+        // Collect errors if present
+        if (token.errors) {
+            mediaSegmentsArrayBuilder.addError(token.type, token.errors, token.source);
+        }
+
         switch (token.type as string) {
             case '#EXTINF': {
-                mediaSegmentsArrayBuilder.addStreamInf(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addStreamInf(token.value as any);
+                }
                 break;
             }
             case 'URI': {
@@ -398,59 +445,87 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
                 break;
             }
             case '#EXT-X-BYTERANGE': {
-                mediaSegmentsArrayBuilder.addByteRange(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addByteRange(token.value as any);
+                }
                 break;
             }
             case '#EXT-X-DISCONTINUITY': {
-                mediaSegmentsArrayBuilder.addDiscontinuity(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addDiscontinuity(token.value as any);
+                }
                 break;
             }
             case '#EXT-X-KEY': {
-                mediaSegmentsArrayBuilder.addKey(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addKey(token.value as any);
+                }
                 break;
             }
             case '#EXT-X-MAP': {
-                mediaSegmentsArrayBuilder.addMap(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addMap(token.value as any);
+                }
                 break;
             }
             case '#EXT-X-PROGRAM-DATE-TIME': {
-                mediaSegmentsArrayBuilder.addProgramDateTime(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addProgramDateTime(token.value as any);
+                }
                 break;
             }
             case '#EXT-X-DATERANGE': {
-                mediaSegmentsArrayBuilder.addDateRange(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addDateRange(token.value as any);
+                }
                 break;
             }
             case '#EXT-X-GAP': {
-                mediaSegmentsArrayBuilder.addGap(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addGap(token.value as any);
+                }
                 break;
             }
             case '#EXT-X-BITRATE': {
-                mediaSegmentsArrayBuilder.addBitrate(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addBitrate(token.value as any);
+                }
                 break;
             }
             case '#EXT-X-PART': {
-                mediaSegmentsArrayBuilder.addPart(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addPart(token.value as any);
+                }
                 break;
             }
             case '#EXT-X-CUE-OUT': {
-                mediaSegmentsArrayBuilder.addCueOut(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addCueOut(token.value as any);
+                }
                 break;
             }
             case '#EXT-X-CUE-IN': {
-                mediaSegmentsArrayBuilder.addCueIn(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addCueIn(token.value as any);
+                }
                 break;
             }
             case '#EXT-X-CUE-OUT-CONT': {
-                mediaSegmentsArrayBuilder.addCueOutCont(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addCueOutCont(token.value as any);
+                }
                 break;
             }
             case '#EXT-X-ASSET': {
-                mediaSegmentsArrayBuilder.addAsset(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addAsset(token.value as any);
+                }
                 break;
             }
             case '#EXT-X-SPLICEPOINT-SCTE35': {
-                mediaSegmentsArrayBuilder.addSplicepointScte35(token.value as any);
+                if (token.value !== undefined) {
+                    mediaSegmentsArrayBuilder.addSplicepointScte35(token.value as any);
+                }
                 break;
             }
         }

@@ -1,3 +1,4 @@
+import * as z from 'zod';
 import { playlistTagRegistry } from '../hls/playlist-tags/playlist-tag.registry';
 
 // Extract playlist tag types from the registry
@@ -22,6 +23,7 @@ export type LexicalToken<Tag extends AllPlaylistTags = AllPlaylistTags> = {
     type: Tag;
     source: string; // Keep as string since we don't know the exact format at tokenization time
     value: unknown;
+    errors?: ReadonlyArray<z.ZodError['issues'][number]>;
 };
 
 export type Reviver = (context: LexicalToken) => LexicalToken;

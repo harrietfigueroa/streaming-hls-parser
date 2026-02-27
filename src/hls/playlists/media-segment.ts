@@ -35,6 +35,17 @@ export interface MediaSegmentOptions {
 }
 export class MediaSegment implements MediaSegmentOptions {
     public error?: Error;
+
+    /**
+     * Validation errors collected during parsing of this segment.
+     * These get bubbled up to MediaPlaylist.errors
+     */
+    public readonly errors: ReadonlyArray<{
+        tag: string;
+        errors: ReadonlyArray<z.ZodError['issues'][number]>;
+        line: string;
+    }> = [];
+
     /**
    * The EXTINF tag specifies the duration of a Media Segment.  It applies
    only to the next Media Segment.  This tag is REQUIRED for each Media
@@ -484,7 +495,10 @@ export class MediaSegment implements MediaSegmentOptions {
 
     public readonly 'URI': MediaSegmentOptions['URI'];
 
-    constructor(mediaSegmentOptions: MediaSegmentOptions) {
+    constructor(
+        mediaSegmentOptions: MediaSegmentOptions,
+        errors?: ReadonlyArray<{ tag: string; errors: ReadonlyArray<z.ZodError['issues'][number]>; line: string }>,
+    ) {
         this['#EXTINF'] = mediaSegmentOptions['#EXTINF'];
         this['#EXT-X-BYTERANGE'] = mediaSegmentOptions['#EXT-X-BYTERANGE'];
         this['#EXT-X-DISCONTINUITY'] = mediaSegmentOptions['#EXT-X-DISCONTINUITY'];
@@ -501,6 +515,11 @@ export class MediaSegment implements MediaSegmentOptions {
         this['#EXT-X-ASSET'] = mediaSegmentOptions['#EXT-X-ASSET'];
         this['#EXT-X-SPLICEPOINT-SCTE35'] = mediaSegmentOptions['#EXT-X-SPLICEPOINT-SCTE35'];
         this['URI'] = mediaSegmentOptions['URI'];
+
+        // Set errors if provided
+        if (errors && errors.length > 0) {
+            (this as any).errors = errors;
+        }
     }
 
     public *toHLSLines() {

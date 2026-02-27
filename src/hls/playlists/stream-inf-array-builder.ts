@@ -16,6 +16,16 @@ export class StreamInfArrayBuilder extends Map<string, StreamInf> {
         VIDEO: undefined,
         URI: undefined,
     };
+    private inProgressErrors: Array<{
+        tag: string;
+        errors: ReadonlyArray<z.ZodError['issues'][number]>;
+        line: string;
+    }> = [];
+
+    public addError(tag: string, errors: ReadonlyArray<z.ZodError['issues'][number]>, line: string): void {
+        this.inProgressErrors.push({ tag, errors, line });
+    }
+
     public addStreamInf(streamInf: z.infer<typeof EXT_X_STREAM_INF_CODEC>): StreamInfArrayBuilder {
         this.inProgress['BANDWIDTH'] = streamInf['BANDWIDTH'];
         this.inProgress['AVERAGE-BANDWIDTH'] = streamInf['AVERAGE-BANDWIDTH'];
@@ -30,7 +40,8 @@ export class StreamInfArrayBuilder extends Map<string, StreamInf> {
     public addURI(uri: string): void {
         // When we get a URI then we're done with this segment and we can start a new one
         this.inProgress['URI'] = uri;
-        this.set(uri, StreamInf.fromOptions(this.inProgress as VariantStreamOptions));
+        const errors = this.inProgressErrors.length > 0 ? this.inProgressErrors : undefined;
+        this.set(uri, StreamInf.fromOptions(this.inProgress as VariantStreamOptions, errors));
 
         this.inProgress = {
             BANDWIDTH: undefined,
@@ -43,5 +54,6 @@ export class StreamInfArrayBuilder extends Map<string, StreamInf> {
             VIDEO: undefined,
             URI: undefined,
         };
+        this.inProgressErrors = [];
     }
 }

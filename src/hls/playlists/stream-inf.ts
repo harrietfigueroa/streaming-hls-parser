@@ -5,6 +5,17 @@ export type VariantStreamOptions = z.infer<typeof EXT_X_STREAM_INF_CODEC> & { UR
 
 export class StreamInf implements z.infer<typeof EXT_X_STREAM_INF_CODEC> {
     public error?: Error;
+
+    /**
+     * Validation errors collected during parsing of this stream.
+     * These get bubbled up to MultivariantPlaylist.errors
+     */
+    public readonly errors: ReadonlyArray<{
+        tag: string;
+        errors: ReadonlyArray<z.ZodError['issues'][number]>;
+        line: string;
+    }> = [];
+
     /** The value is a decimal-integer of bits per second.  It represents
       the peak segment bit rate of the Variant Stream.
 
@@ -121,7 +132,14 @@ export class StreamInf implements z.infer<typeof EXT_X_STREAM_INF_CODEC> {
 
     public readonly ['URI']: string;
 
-    private constructor(variantStreamOptions: VariantStreamOptions) {
+    private constructor(
+        variantStreamOptions: VariantStreamOptions,
+        errors?: ReadonlyArray<{
+            tag: string;
+            errors: ReadonlyArray<z.ZodError['issues'][number]>;
+            line: string;
+        }>,
+    ) {
         this['BANDWIDTH'] = variantStreamOptions['BANDWIDTH'];
         this['AVERAGE-BANDWIDTH'] = variantStreamOptions['AVERAGE-BANDWIDTH'];
         this['CODECS'] = variantStreamOptions['CODECS'];
@@ -131,10 +149,21 @@ export class StreamInf implements z.infer<typeof EXT_X_STREAM_INF_CODEC> {
         this['AUDIO'] = variantStreamOptions['AUDIO'];
         this['VIDEO'] = variantStreamOptions['VIDEO'];
         this['URI'] = variantStreamOptions['URI'];
+
+        if (errors && errors.length > 0) {
+            (this as any).errors = errors;
+        }
     }
 
-    public static fromOptions(variantStreamOptions: VariantStreamOptions): StreamInf {
-        return new StreamInf(variantStreamOptions);
+    public static fromOptions(
+        variantStreamOptions: VariantStreamOptions,
+        errors?: ReadonlyArray<{
+            tag: string;
+            errors: ReadonlyArray<z.ZodError['issues'][number]>;
+            line: string;
+        }>,
+    ): StreamInf {
+        return new StreamInf(variantStreamOptions, errors);
     }
 
     public *toHLSLines(): Iterable<string> {

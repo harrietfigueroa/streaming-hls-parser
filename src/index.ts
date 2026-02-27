@@ -226,6 +226,105 @@ export class HLS {
         }
     }
 
+    /**
+     * Parse an HLS playlist and collect any RFC 8216 validation errors.
+     * Unlike parse(), this will not throw on validation errors - instead,
+     * errors are collected and returned alongside the parsed playlist.
+     *
+     * @param input - HLS playlist string
+     * @param reviver - Optional function to transform parsed tokens
+     * @returns Object containing the playlist and any validation errors
+     *
+     * @example
+     * ```typescript
+     * const { playlist, errors } = HLS.validate(hlsString);
+     *
+     * if (errors.length > 0) {
+     *   console.log('Found validation errors:');
+     *   errors.forEach(err => {
+     *     console.log(`  ${err.tag}: ${err.message}`);
+     *   });
+     * }
+     *
+     * // Playlist is still usable even with errors
+     * console.log(playlist.toHLS());
+     * ```
+     */
+    public static validate(
+        input: string,
+        reviver?: Reviver,
+    ): {
+        playlist: MediaPlaylist | MultivariantPlaylist;
+        errors: Array<{
+            tag: string;
+            path?: (string | number)[];
+            message: string;
+            code?: string;
+            line?: string;
+            index?: number;
+        }>;
+    } {
+        const playlist = HLS.parse(input, reviver);
+        return {
+            playlist,
+            errors: playlist.errors,
+        };
+    }
+
+    /**
+     * Check if a playlist has any RFC 8216 validation errors without examining the errors themselves.
+     * This is a convenience method that parses the playlist and checks the errors array.
+     *
+     * @param input - HLS playlist string or parsed playlist instance
+     * @param reviver - Optional function to transform parsed tokens (only used if input is string)
+     * @returns true if the playlist has validation errors, false otherwise
+     *
+     * @example
+     * ```typescript
+     * if (HLS.hasErrors(hlsString)) {
+     *   console.log('This playlist has RFC 8216 violations');
+     * }
+     * ```
+     */
+    public static hasErrors(
+        input: string | MediaPlaylist | MultivariantPlaylist,
+        reviver?: Reviver,
+    ): boolean {
+        const playlist = typeof input === 'string' ? HLS.parse(input, reviver) : input;
+        return playlist.errors.length > 0;
+    }
+
+    /**
+     * Get all validation errors from a playlist.
+     * This is a convenience method that parses the playlist and returns its errors array.
+     *
+     * @param input - HLS playlist string or parsed playlist instance
+     * @param reviver - Optional function to transform parsed tokens (only used if input is string)
+     * @returns Array of validation errors
+     *
+     * @example
+     * ```typescript
+     * const errors = HLS.getErrors(hlsString);
+     * errors.forEach(err => {
+     *   console.log(`${err.tag} at segment ${err.index}: ${err.message}`);
+     * });
+     * ```
+     */
+    public static getErrors(
+        input: string | MediaPlaylist | MultivariantPlaylist,
+        reviver?: Reviver,
+    ): Array<{
+        tag: string;
+        path?: (string | number)[];
+        message: string;
+        code?: string;
+        line?: string;
+        index?: number;
+    }> {
+        const playlist = typeof input === 'string' ? HLS.parse(input, reviver) : input;
+        return playlist.errors;
+    }
+
     // ============ Schema Introspection Methods ============
 
     /**
@@ -270,7 +369,7 @@ export class HLS {
 // Playlist classes
 export { MediaPlaylist } from './hls/playlists/media-playlist';
 export { MultivariantPlaylist } from './hls/playlists/multivariant-playlist';
-export type { Playlist } from './hls/playlists/playlists.interfaces';
+export type { Playlist, ValidationError } from './hls/playlists/playlists.interfaces';
 
 // Replacer types and utilities
 export type {

@@ -2,169 +2,142 @@ import { playlistTagRegistry } from '../hls/playlist-tags/playlist-tag.registry'
 import { EXTINF_CODEC } from '../hls/playlist-tags/media-segment-tags/EXTINF/schema';
 import { LexicalToken } from './parser.interfaces';
 
+/**
+ * Helper function to safely decode a tag and attach errors to the token if decoding fails
+ */
+function safeDecodeTag(
+    codec: { safeDecode: (input: any) => any },
+    source: string,
+    line: LexicalToken,
+): void {
+    const result = codec.safeDecode(source);
+    if (result.success) {
+        line.value = result.data;
+    } else {
+        line.errors = result.error.issues;
+        line.value = undefined;
+    }
+}
+
 export function parseTokenizedLine(line: LexicalToken) {
     switch (line.type) {
         // Media Segment Tags
-        case '#EXTINF': {
-            line.value = EXTINF_CODEC.decode(line.source as any);
+        case '#EXTINF':
+            safeDecodeTag(EXTINF_CODEC, line.source as any, line);
             break;
-        }
-        case 'URI': {
+        case 'URI':
             line.value = line.source;
             break;
-        }
-        case '#EXT-X-BYTERANGE': {
-            line.value = playlistTagRegistry['#EXT-X-BYTERANGE'].decode(line.source as any);
+        case '#EXT-X-BYTERANGE':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-BYTERANGE'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-DISCONTINUITY': {
-            line.value = playlistTagRegistry['#EXT-X-DISCONTINUITY'].decode(line.source as any);
+        case '#EXT-X-DISCONTINUITY':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-DISCONTINUITY'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-KEY': {
-            line.value = playlistTagRegistry['#EXT-X-KEY'].decode(line.source as any);
+        case '#EXT-X-KEY':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-KEY'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-MAP': {
-            line.value = playlistTagRegistry['#EXT-X-MAP'].decode(line.source as any);
+        case '#EXT-X-MAP':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-MAP'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-PROGRAM-DATE-TIME': {
-            line.value = playlistTagRegistry['#EXT-X-PROGRAM-DATE-TIME'].decode(line.source as any);
+        case '#EXT-X-PROGRAM-DATE-TIME':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-PROGRAM-DATE-TIME'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-DATERANGE': {
-            line.value = playlistTagRegistry['#EXT-X-DATERANGE'].decode(line.source as any);
+        case '#EXT-X-DATERANGE':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-DATERANGE'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-GAP': {
-            line.value = playlistTagRegistry['#EXT-X-GAP'].decode(line.source as any);
+        case '#EXT-X-GAP':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-GAP'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-BITRATE': {
-            line.value = playlistTagRegistry['#EXT-X-BITRATE'].decode(line.source as any);
+        case '#EXT-X-BITRATE':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-BITRATE'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-PART': {
-            line.value = playlistTagRegistry['#EXT-X-PART'].decode(line.source as any);
+        case '#EXT-X-PART':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-PART'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-CUE-OUT': {
-            line.value = playlistTagRegistry['#EXT-X-CUE-OUT'].decode(line.source as any);
+        case '#EXT-X-CUE-OUT':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-CUE-OUT'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-CUE-IN': {
-            line.value = playlistTagRegistry['#EXT-X-CUE-IN'].decode(line.source as any);
+        case '#EXT-X-CUE-IN':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-CUE-IN'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-CUE-OUT-CONT': {
-            line.value = playlistTagRegistry['#EXT-X-CUE-OUT-CONT'].decode(line.source as any);
+        case '#EXT-X-CUE-OUT-CONT':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-CUE-OUT-CONT'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-ASSET': {
-            line.value = playlistTagRegistry['#EXT-X-ASSET'].decode(line.source as any);
+        case '#EXT-X-ASSET':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-ASSET'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-SPLICEPOINT-SCTE35': {
-            line.value = playlistTagRegistry['#EXT-X-SPLICEPOINT-SCTE35'].decode(line.source as any);
+        case '#EXT-X-SPLICEPOINT-SCTE35':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-SPLICEPOINT-SCTE35'], line.source as any, line);
             break;
-        }
 
         // Media or Multivariant Playlist Tags
-        case '#EXTM3U': {
-            line.value = playlistTagRegistry['#EXTM3U'].decode(line.source as any);
+        case '#EXTM3U':
+            safeDecodeTag(playlistTagRegistry['#EXTM3U'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-VERSION': {
-            line.value = playlistTagRegistry['#EXT-X-VERSION'].decode(line.source as any);
+        case '#EXT-X-VERSION':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-VERSION'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-TARGETDURATION': {
-            line.value = playlistTagRegistry['#EXT-X-TARGETDURATION'].decode(line.source as any);
+        case '#EXT-X-TARGETDURATION':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-TARGETDURATION'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-MEDIA-SEQUENCE': {
-            line.value = playlistTagRegistry['#EXT-X-MEDIA-SEQUENCE'].decode(line.source as any);
+        case '#EXT-X-MEDIA-SEQUENCE':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-MEDIA-SEQUENCE'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-DISCONTINUITY-SEQUENCE': {
-            line.value = playlistTagRegistry['#EXT-X-DISCONTINUITY-SEQUENCE'].decode(
-                line.source as any,
-            );
+        case '#EXT-X-DISCONTINUITY-SEQUENCE':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-DISCONTINUITY-SEQUENCE'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-ENDLIST': {
-            line.value = playlistTagRegistry['#EXT-X-ENDLIST'].decode(line.source as any);
+        case '#EXT-X-ENDLIST':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-ENDLIST'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-PLAYLIST-TYPE': {
-            line.value = playlistTagRegistry['#EXT-X-PLAYLIST-TYPE'].decode(line.source as any);
+        case '#EXT-X-PLAYLIST-TYPE':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-PLAYLIST-TYPE'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-I-FRAMES-ONLY': {
-            line.value = playlistTagRegistry['#EXT-X-I-FRAMES-ONLY'].decode(line.source as any);
+        case '#EXT-X-I-FRAMES-ONLY':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-I-FRAMES-ONLY'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-INDEPENDENT-SEGMENTS': {
-            line.value = playlistTagRegistry['#EXT-X-INDEPENDENT-SEGMENTS'].decode(
-                line.source as any,
-            );
+        case '#EXT-X-INDEPENDENT-SEGMENTS':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-INDEPENDENT-SEGMENTS'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-START': {
-            line.value = playlistTagRegistry['#EXT-X-START'].decode(line.source as any);
+        case '#EXT-X-START':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-START'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-MEDIA': {
-            line.value = playlistTagRegistry['#EXT-X-MEDIA'].decode(line.source as any);
+        case '#EXT-X-MEDIA':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-MEDIA'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-STREAM-INF': {
-            line.value = playlistTagRegistry['#EXT-X-STREAM-INF'].decode(line.source as any);
+        case '#EXT-X-STREAM-INF':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-STREAM-INF'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-I-FRAME-STREAM-INF': {
-            line.value = playlistTagRegistry['#EXT-X-I-FRAME-STREAM-INF'].decode(
-                line.source as any,
-            );
+        case '#EXT-X-I-FRAME-STREAM-INF':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-I-FRAME-STREAM-INF'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-SESSION-DATA': {
-            line.value = playlistTagRegistry['#EXT-X-SESSION-DATA'].decode(line.source as any);
+        case '#EXT-X-SESSION-DATA':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-SESSION-DATA'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-SESSION-KEY': {
-            line.value = playlistTagRegistry['#EXT-X-SESSION-KEY'].decode(line.source as any);
+        case '#EXT-X-SESSION-KEY':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-SESSION-KEY'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-DEFINE': {
-            line.value = playlistTagRegistry['#EXT-X-DEFINE'].decode(line.source as any);
+        case '#EXT-X-DEFINE':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-DEFINE'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-SERVER-CONTROL': {
-            line.value = playlistTagRegistry['#EXT-X-SERVER-CONTROL'].decode(line.source as any);
+        case '#EXT-X-SERVER-CONTROL':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-SERVER-CONTROL'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-PART-INF': {
-            line.value = playlistTagRegistry['#EXT-X-PART-INF'].decode(line.source as any);
+        case '#EXT-X-PART-INF':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-PART-INF'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-PRELOAD-HINT': {
-            line.value = playlistTagRegistry['#EXT-X-PRELOAD-HINT'].decode(line.source as any);
+        case '#EXT-X-PRELOAD-HINT':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-PRELOAD-HINT'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-SKIP': {
-            line.value = playlistTagRegistry['#EXT-X-SKIP'].decode(line.source as any);
+        case '#EXT-X-SKIP':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-SKIP'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-RENDITION-REPORT': {
-            line.value = playlistTagRegistry['#EXT-X-RENDITION-REPORT'].decode(line.source as any);
+        case '#EXT-X-RENDITION-REPORT':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-RENDITION-REPORT'], line.source as any, line);
             break;
-        }
-        case '#EXT-X-CONTENT-STEERING': {
-            line.value = playlistTagRegistry['#EXT-X-CONTENT-STEERING'].decode(line.source as any);
+        case '#EXT-X-CONTENT-STEERING':
+            safeDecodeTag(playlistTagRegistry['#EXT-X-CONTENT-STEERING'], line.source as any, line);
             break;
-        }
     }
     return line;
 }
