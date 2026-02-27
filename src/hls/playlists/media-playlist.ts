@@ -1,8 +1,14 @@
 import * as z from 'zod';
 import { createStream } from '../../helpers/create-stream';
 import { parseTokenizedLine } from '../../parser/parse-tokenized-line';
-import { LexicalToken } from '../../parser/parser.interfaces';
+import { LexicalToken, Reviver } from '../../parser/parser.interfaces';
 import { tokenizeLine } from '../../parser/tokenize-line';
+import {
+    Replacer,
+    FormatOptions,
+    isValueReplacer,
+    isStringReplacer,
+} from '../hlsifier/hlsifier.interfaces';
 import { playlistTagRegistry } from '../playlist-tags/playlist-tag.registry';
 import { MediaSegment } from './media-segment';
 import { MediaSegmentArrayBuilder } from './media-segment-array-builder';
@@ -451,14 +457,19 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
         return mediaSegmentsArrayBuilder;
     }
 
-    public static fromString(input: string): MediaPlaylist {
+    public static fromString(input: string, reviver?: Reviver): MediaPlaylist {
         const mediaPlaylistOptions: Partial<MediaPlaylistOptions> = {};
         const mediaSegmentsArrayBuilder = new MediaSegmentArrayBuilder();
 
         let parsingSegments: boolean = false;
 
         for (const line of input.split('\n')) {
-            const token = parseTokenizedLine(tokenizeLine(line));
+            let token = parseTokenizedLine(tokenizeLine(line));
+
+            if (reviver) {
+                token = reviver(token);
+            }
+
             if (token.type === '#EXT-X-ENDLIST') {
                 mediaPlaylistOptions['#EXT-X-ENDLIST'] = token.value as any;
                 continue;
@@ -481,14 +492,18 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
 
     public static async fromStream<
         Input extends Iterable<string> | AsyncIterable<string | Uint8Array>,
-    >(source: Input): Promise<MediaPlaylist> {
+    >(source: Input, reviver?: Reviver): Promise<MediaPlaylist> {
         const tokenizedStream: AsyncIterable<LexicalToken> = createStream(source);
 
         const mediaPlaylistOptions: Partial<MediaPlaylistOptions> = {};
         const mediaSegmentsArrayBuilder = new MediaSegmentArrayBuilder();
 
         let parsingSegments: boolean = false;
-        for await (const token of tokenizedStream) {
+        for await (let token of tokenizedStream) {
+            if (reviver) {
+                token = reviver(token);
+            }
+
             if (token.type === '#EXT-X-ENDLIST') {
                 mediaPlaylistOptions['#EXT-X-ENDLIST'] = token.value as any;
                 continue;
@@ -577,8 +592,46 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
         }
     }
 
-    public toHLS() {
-        return Array.from(this.toHLSLines()).join('\n');
+    public toHLS(replacer?: Replacer, options?: FormatOptions): string {
+        const lineEnding = options?.lineEndings ?? '\n';
+
+        // If value replacer, apply to properties before encoding
+        if (replacer && isValueReplacer(replacer)) {
+            // Create a modified copy with replacer applied to values
+            const modifiedOptions: Partial<MediaPlaylistOptions> = {};
+
+            // Apply replacer to each playlist-level property
+            for (const key of Object.keys(this) as Array<keyof MediaPlaylistOptions>) {
+                if (key.startsWith('#')) {
+                    const value = this[key];
+                    const replaced = replacer(key, value);
+                    if (replaced !== undefined) {
+                        (modifiedOptions as any)[key] = replaced;
+                    }
+                }
+            }
+
+            // Reconstruct playlist with modified values
+            const mediaSegments = new Map<string, MediaSegment>();
+            for (const [uri, segment] of this.entries()) {
+                mediaSegments.set(uri, segment);
+            }
+
+            const tempPlaylist = new MediaPlaylist(
+                modifiedOptions as MediaPlaylistOptions,
+                mediaSegments,
+            );
+
+            return Array.from(tempPlaylist.toHLSLines()).join(lineEnding);
+        }
+
+        // If string replacer, apply to each output line
+        if (replacer && isStringReplacer(replacer)) {
+            return Array.from(this.toHLSLines(), replacer).join(lineEnding);
+        }
+
+        // No replacer
+        return Array.from(this.toHLSLines()).join(lineEnding);
     }
 
     public toJSON() {

@@ -3,7 +3,12 @@ import { createStream } from '../../helpers/create-stream';
 import { parseTokenizedLine } from '../../parser/parse-tokenized-line';
 import { LexicalToken, Reviver } from '../../parser/parser.interfaces';
 import { tokenizeLine } from '../../parser/tokenize-line';
-import { Replacer } from '../hlsifier/hlsifier.interfaces';
+import {
+    Replacer,
+    FormatOptions,
+    isValueReplacer,
+    isStringReplacer,
+} from '../hlsifier/hlsifier.interfaces';
 import { EXTM3U_CODEC } from '../playlist-tags/basic-tags/EXTM3U/schema';
 import { EXT_X_VERSION_CODEC } from '../playlist-tags/basic-tags/EXT-X-VERSION/schema';
 import { EXT_X_INDEPENDENT_SEGMENTS_CODEC } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/schema';
@@ -369,11 +374,46 @@ export class MultivariantPlaylist extends Map<string, StreamInf> implements Play
         }
     }
 
-    public toHLS(replacer?: Replacer): string {
-        if (replacer) {
-            return Array.from(this.toHLSLines(), replacer).join('\n');
+    public toHLS(replacer?: Replacer, options?: FormatOptions): string {
+        const lineEnding = options?.lineEndings ?? '\n';
+
+        // If value replacer, apply to properties before encoding
+        if (replacer && isValueReplacer(replacer)) {
+            // Create a modified copy with replacer applied to values
+            const modifiedOptions: Partial<MultivariantPlaylistOptions> = {};
+
+            // Apply replacer to each playlist-level property
+            for (const key of Object.keys(this) as Array<keyof MultivariantPlaylistOptions>) {
+                if (key.startsWith('#')) {
+                    const value = this[key];
+                    const replaced = replacer(key, value);
+                    if (replaced !== undefined) {
+                        (modifiedOptions as any)[key] = replaced;
+                    }
+                }
+            }
+
+            // Reconstruct playlist with modified values
+            const variantStreams = new Map<string, StreamInf>();
+            for (const [uri, streamInf] of this.entries()) {
+                variantStreams.set(uri, streamInf);
+            }
+
+            const tempPlaylist = new MultivariantPlaylist(
+                modifiedOptions as MultivariantPlaylistOptions,
+                variantStreams,
+            );
+
+            return Array.from(tempPlaylist.toHLSLines()).join(lineEnding);
         }
-        return Array.from(this.toHLSLines()).join('\n');
+
+        // If string replacer, apply to each output line
+        if (replacer && isStringReplacer(replacer)) {
+            return Array.from(this.toHLSLines(), replacer).join(lineEnding);
+        }
+
+        // No replacer
+        return Array.from(this.toHLSLines()).join(lineEnding);
     }
 
     public toJSON() {
