@@ -1,5 +1,4 @@
 import * as z from 'zod';
-import { fromAttributeList } from '../../../parse-helpers/attribute-list';
 import { stripTag } from '../../../parse-helpers/strip-tag';
 
 export const TAG = '#EXT-X-KEY' as const;
@@ -174,8 +173,55 @@ export const EXT_X_KEY_OBJECT = z.object({
    and 6.3.6 for additional information on Media Segment encryption.
  */
 export const EXT_X_KEY_CODEC = z.codec(EXT_X_KEY_STRING, EXT_X_KEY_OBJECT, {
-    decode: (value) =>
-        fromAttributeList(stripTag(value)) as unknown as z.infer<typeof EXT_X_KEY_OBJECT>,
+    decode: (value) => {
+        // Parse attribute list from the tag
+        const attributeListString = stripTag(value);
+        const result: Record<string, string> = {};
+        let currentKey = '';
+        let currentValue = '';
+        let inQuotes = false;
+        let i = 0;
+        let parsingValue = false;
+
+        while (i < attributeListString.length) {
+            const char = attributeListString[i];
+
+            if (char === '"' && (i === 0 || attributeListString[i - 1] !== '\\')) {
+                inQuotes = !inQuotes;
+                if (parsingValue) {
+                    currentValue += char;
+                }
+            } else if (char === '=' && !inQuotes && !parsingValue) {
+                parsingValue = true;
+            } else if (char === ',' && !inQuotes) {
+                if (currentKey && currentValue !== undefined) {
+                    const cleanValue =
+                        currentValue.startsWith('"') && currentValue.endsWith('"')
+                            ? currentValue.slice(1, -1)
+                            : currentValue;
+                    result[currentKey] = cleanValue;
+                }
+                currentKey = '';
+                currentValue = '';
+                parsingValue = false;
+            } else if (parsingValue) {
+                currentValue += char;
+            } else {
+                currentKey += char;
+            }
+            i++;
+        }
+
+        if (currentKey && currentValue !== undefined) {
+            const cleanValue =
+                currentValue.startsWith('"') && currentValue.endsWith('"')
+                    ? currentValue.slice(1, -1)
+                    : currentValue;
+            result[currentKey] = cleanValue;
+        }
+
+        return result as unknown as z.infer<typeof EXT_X_KEY_OBJECT>;
+    },
     encode: (obj) => {
         const parts: string[] = [];
 

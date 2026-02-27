@@ -1,5 +1,4 @@
 import * as z from 'zod';
-import { fromAttributeList } from '../../../parse-helpers/attribute-list';
 import { stripTag } from '../../../parse-helpers/strip-tag';
 
 export const TAG = '#EXT-X-I-FRAME-STREAM-INF' as const;
@@ -66,7 +65,53 @@ export const EXT_X_I_FRAME_STREAM_INF_CODEC = z.codec(
                 z.infer<typeof EXT_X_I_FRAME_STREAM_INF_STRING>,
                 string,
             ];
-            const obj: any = fromAttributeList(stripTag(tag));
+            // Parse attribute list from the tag
+            const attributeListString = stripTag(tag);
+            const result: Record<string, string> = {};
+            let currentKey = '';
+            let currentValue = '';
+            let inQuotes = false;
+            let i = 0;
+            let parsingValue = false;
+
+            while (i < attributeListString.length) {
+                const char = attributeListString[i];
+
+                if (char === '"' && (i === 0 || attributeListString[i - 1] !== '\\')) {
+                    inQuotes = !inQuotes;
+                    if (parsingValue) {
+                        currentValue += char;
+                    }
+                } else if (char === '=' && !inQuotes && !parsingValue) {
+                    parsingValue = true;
+                } else if (char === ',' && !inQuotes) {
+                    if (currentKey && currentValue !== undefined) {
+                        const cleanValue =
+                            currentValue.startsWith('"') && currentValue.endsWith('"')
+                                ? currentValue.slice(1, -1)
+                                : currentValue;
+                        result[currentKey] = cleanValue;
+                    }
+                    currentKey = '';
+                    currentValue = '';
+                    parsingValue = false;
+                } else if (parsingValue) {
+                    currentValue += char;
+                } else {
+                    currentKey += char;
+                }
+                i++;
+            }
+
+            if (currentKey && currentValue !== undefined) {
+                const cleanValue =
+                    currentValue.startsWith('"') && currentValue.endsWith('"')
+                        ? currentValue.slice(1, -1)
+                        : currentValue;
+                result[currentKey] = cleanValue;
+            }
+
+            const obj: any = result;
 
             obj['URI'] = uri;
 
@@ -79,8 +124,7 @@ export const EXT_X_I_FRAME_STREAM_INF_CODEC = z.codec(
             }
 
             if (obj['CODECS']) {
-                const codecs = obj['CODECS'].replace(/^"|"$/g, '').split(',');
-                obj['CODECS'] = codecs;
+                obj['CODECS'] = obj['CODECS'].split(',');
             }
 
             if (obj['RESOLUTION']) {
@@ -89,10 +133,6 @@ export const EXT_X_I_FRAME_STREAM_INF_CODEC = z.codec(
                     height: +h,
                     width: +w,
                 };
-            }
-
-            if (obj['VIDEO']) {
-                obj['VIDEO'] = obj['VIDEO'].replace(/^"|"$/g, '');
             }
 
             return obj;

@@ -1,5 +1,4 @@
 import * as z from 'zod';
-import { fromAttributeList } from '../../../parse-helpers/attribute-list';
 import { EXT_X_BYTERANGE } from '../EXT-X-BYTERANGE/schema';
 import { stripTag } from '../../../parse-helpers/strip-tag';
 
@@ -62,7 +61,53 @@ export const EXT_X_MAP_OBJECT = z.object({
 
 export const EXT_X_MAP_CODEC = z.codec(EXT_X_MAP_STRING, EXT_X_MAP_OBJECT, {
     decode: (value) => {
-        const obj: any = fromAttributeList(stripTag(value));
+        // Parse attribute list from the tag
+        const attributeListString = stripTag(value);
+        const result: Record<string, string> = {};
+        let currentKey = '';
+        let currentValue = '';
+        let inQuotes = false;
+        let i = 0;
+        let parsingValue = false;
+
+        while (i < attributeListString.length) {
+            const char = attributeListString[i];
+
+            if (char === '"' && (i === 0 || attributeListString[i - 1] !== '\\')) {
+                inQuotes = !inQuotes;
+                if (parsingValue) {
+                    currentValue += char;
+                }
+            } else if (char === '=' && !inQuotes && !parsingValue) {
+                parsingValue = true;
+            } else if (char === ',' && !inQuotes) {
+                if (currentKey && currentValue !== undefined) {
+                    const cleanValue =
+                        currentValue.startsWith('"') && currentValue.endsWith('"')
+                            ? currentValue.slice(1, -1)
+                            : currentValue;
+                    result[currentKey] = cleanValue;
+                }
+                currentKey = '';
+                currentValue = '';
+                parsingValue = false;
+            } else if (parsingValue) {
+                currentValue += char;
+            } else {
+                currentKey += char;
+            }
+            i++;
+        }
+
+        if (currentKey && currentValue !== undefined) {
+            const cleanValue =
+                currentValue.startsWith('"') && currentValue.endsWith('"')
+                    ? currentValue.slice(1, -1)
+                    : currentValue;
+            result[currentKey] = cleanValue;
+        }
+
+        const obj: any = result;
         if (typeof obj.BYTERANGE === 'string') {
             let byterange: z.infer<typeof EXT_X_BYTERANGE>;
             if (obj.BYTERANGE.includes('@')) {

@@ -1,5 +1,4 @@
 import * as z from 'zod';
-import { fromAttributeList } from '../../../parse-helpers/attribute-list';
 
 export const PreciseValues = {
     /**
@@ -120,8 +119,53 @@ export const EXT_X_START_OBJECT = z
 
 export const EXT_X_START_CODEC = z.codec(EXT_X_START_STRING, EXT_X_START_OBJECT, {
     decode: (str) => {
-        const obj: any = fromAttributeList(str.slice(TAG.length + 1));
-        return obj;
+        // Parse attribute list from the tag
+        const attributeListString = str.slice(TAG.length + 1);
+        const result: Record<string, string> = {};
+        let currentKey = '';
+        let currentValue = '';
+        let inQuotes = false;
+        let i = 0;
+        let parsingValue = false;
+
+        while (i < attributeListString.length) {
+            const char = attributeListString[i];
+
+            if (char === '"' && (i === 0 || attributeListString[i - 1] !== '\\')) {
+                inQuotes = !inQuotes;
+                if (parsingValue) {
+                    currentValue += char;
+                }
+            } else if (char === '=' && !inQuotes && !parsingValue) {
+                parsingValue = true;
+            } else if (char === ',' && !inQuotes) {
+                if (currentKey && currentValue !== undefined) {
+                    const cleanValue =
+                        currentValue.startsWith('"') && currentValue.endsWith('"')
+                            ? currentValue.slice(1, -1)
+                            : currentValue;
+                    result[currentKey] = cleanValue;
+                }
+                currentKey = '';
+                currentValue = '';
+                parsingValue = false;
+            } else if (parsingValue) {
+                currentValue += char;
+            } else {
+                currentKey += char;
+            }
+            i++;
+        }
+
+        if (currentKey && currentValue !== undefined) {
+            const cleanValue =
+                currentValue.startsWith('"') && currentValue.endsWith('"')
+                    ? currentValue.slice(1, -1)
+                    : currentValue;
+            result[currentKey] = cleanValue;
+        }
+
+        return result as any;
     },
     encode: (obj) => {
         const parts: string[] = [];

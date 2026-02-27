@@ -1,5 +1,4 @@
 import * as z from 'zod';
-import { fromAttributeList } from '../../../parse-helpers/attribute-list';
 import { stripTag } from '../../../parse-helpers/strip-tag';
 
 export const TAG = '#EXT-X-STREAM-INF' as const;
@@ -175,7 +174,53 @@ export const EXT_X_STREAM_INF_OBJECT = z
 
 export const EXT_X_STREAM_INF_CODEC = z.codec(EXT_X_STREAM_INF_STRING, EXT_X_STREAM_INF_OBJECT, {
     decode: (value) => {
-        const obj: any = fromAttributeList(stripTag(value));
+        // Parse attribute list from the tag
+        const attributeListString = stripTag(value);
+        const result: Record<string, string> = {};
+        let currentKey = '';
+        let currentValue = '';
+        let inQuotes = false;
+        let i = 0;
+        let parsingValue = false;
+
+        while (i < attributeListString.length) {
+            const char = attributeListString[i];
+
+            if (char === '"' && (i === 0 || attributeListString[i - 1] !== '\\')) {
+                inQuotes = !inQuotes;
+                if (parsingValue) {
+                    currentValue += char;
+                }
+            } else if (char === '=' && !inQuotes && !parsingValue) {
+                parsingValue = true;
+            } else if (char === ',' && !inQuotes) {
+                if (currentKey && currentValue !== undefined) {
+                    const cleanValue =
+                        currentValue.startsWith('"') && currentValue.endsWith('"')
+                            ? currentValue.slice(1, -1)
+                            : currentValue;
+                    result[currentKey] = cleanValue;
+                }
+                currentKey = '';
+                currentValue = '';
+                parsingValue = false;
+            } else if (parsingValue) {
+                currentValue += char;
+            } else {
+                currentKey += char;
+            }
+            i++;
+        }
+
+        if (currentKey && currentValue !== undefined) {
+            const cleanValue =
+                currentValue.startsWith('"') && currentValue.endsWith('"')
+                    ? currentValue.slice(1, -1)
+                    : currentValue;
+            result[currentKey] = cleanValue;
+        }
+
+        const obj: any = result;
 
         // Convert string values to appropriate types
         if (obj.BANDWIDTH) {
@@ -185,9 +230,7 @@ export const EXT_X_STREAM_INF_CODEC = z.codec(EXT_X_STREAM_INF_STRING, EXT_X_STR
             obj['AVERAGE-BANDWIDTH'] = parseFloat(obj['AVERAGE-BANDWIDTH']);
         }
         if (obj.CODECS) {
-            // Remove quotes and split by comma
-            const codecsString = obj.CODECS.replace(/^"|"$/g, '');
-            obj.CODECS = codecsString.split(',');
+            obj.CODECS = obj.CODECS.split(',');
         }
         if (obj.RESOLUTION) {
             // Parse resolution format like "1920x1080"
@@ -199,12 +242,6 @@ export const EXT_X_STREAM_INF_CODEC = z.codec(EXT_X_STREAM_INF_STRING, EXT_X_STR
         }
         if (obj['FRAME-RATE']) {
             obj['FRAME-RATE'] = parseFloat(obj['FRAME-RATE']);
-        }
-        if (obj.AUDIO) {
-            obj.AUDIO = obj.AUDIO.replace(/^"|"$/g, '');
-        }
-        if (obj.VIDEO) {
-            obj.VIDEO = obj.VIDEO.replace(/^"|"$/g, '');
         }
 
         return obj;
