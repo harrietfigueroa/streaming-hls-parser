@@ -193,23 +193,106 @@ tokens.forEach((token) => {
 
 ### MediaPlaylist
 
-Extends `Map<string, MediaSegment>` and represents a Media Playlist.
+Implements `ReadonlyArray<MediaSegment>` - an immutable array of media segments.
 
 ```typescript
 const playlist = HLS.parseMediaPlaylist(input);
 
-// Access tags using full tag names
-console.log(playlist['#EXT-X-VERSION']);
-console.log(playlist['#EXT-X-TARGETDURATION']);
-console.log(playlist['#EXT-X-MEDIA-SEQUENCE']);
+// Access playlist-level tags
+console.log(playlist['#EXT-X-VERSION']);        // 7
+console.log(playlist['#EXT-X-TARGETDURATION']); // 10
+console.log(playlist['#EXT-X-MEDIA-SEQUENCE']); // 0
 
-// Iterate over segments (Map entries)
-playlist.forEach((segment, uri) => {
-    console.log(`Segment: ${uri}`);
+// Access segments by index (ReadonlyArray interface)
+const firstSegment = playlist[0];
+const lastSegment = playlist.at(-1);
+
+// Number of segments
+console.log(playlist.size);   // or playlist.length
+
+// Iterate over segments (array-like)
+playlist.forEach((segment, index) => {
+    console.log(`Segment ${index}: ${segment.URI}`);
+    console.log(`  Duration: ${segment['#EXTINF'].DURATION}`);
 });
 
-// Get number of segments
-console.log(playlist.size);
+// Use array methods
+const uris = playlist.map(segment => segment.URI);
+const longSegments = playlist.filter(seg => seg['#EXTINF'].DURATION > 10);
+
+// For...of iteration
+for (const segment of playlist) {
+    console.log(segment.URI);
+}
+```
+
+#### Segment Tags
+
+Segments contain all HLS media segment tags:
+
+```typescript
+const segment = playlist[0];
+
+// Required tags
+segment['#EXTINF'];           // Duration and optional title
+segment['URI'];               // Segment URI
+
+// Optional tags
+segment['#EXT-X-BYTERANGE'];  // Byte range
+segment['#EXT-X-DISCONTINUITY']; // Discontinuity marker
+segment['#EXT-X-KEY'];        // Encryption key (persists across segments)
+segment['#EXT-X-MAP'];        // Media initialization section (persists)
+segment['#EXT-X-PROGRAM-DATE-TIME']; // Absolute date/time
+segment['#EXT-X-DATERANGE'];  // Metadata range
+segment['#EXT-X-BITRATE'];    // Bitrate hint (persists)
+segment['#EXT-X-GAP'];        // Gap indicator
+
+// Ad insertion tags
+segment['#EXT-X-CUE-OUT'];    // Ad break start
+segment['#EXT-X-CUE-IN'];     // Ad break end
+segment['#EXT-X-CUE-OUT-CONT']; // Ad break continuation
+
+// Low-latency tags
+segment['#EXT-X-PART'];       // Partial segment
+```
+
+**Note on Persistent Tags:** Some tags like `#EXT-X-MAP`, `#EXT-X-KEY`, and `#EXT-X-BITRATE` persist across multiple segments. Once set, they apply to all subsequent segments until changed.
+
+#### Example: Byte-Range Segments with Media Initialization
+
+```typescript
+// Parse a playlist with byte-range segments (fMP4)
+const playlist = HLS.parse(`#EXTM3U
+#EXT-X-VERSION:7
+#EXT-X-TARGETDURATION:6
+#EXT-X-MAP:URI="main.mp4",BYTERANGE="719@0"
+#EXTINF:6.00000,
+#EXT-X-BYTERANGE:1508000@719
+main.mp4
+#EXTINF:6.00000,
+#EXT-X-BYTERANGE:1510244@1508719
+main.mp4
+#EXT-X-ENDLIST`);
+
+console.log(`Parsed ${playlist.size} segments`); // 2 segments
+
+// All segments share the same URI but have different byte ranges
+playlist.forEach((segment, i) => {
+    console.log(`Segment ${i}:`);
+    console.log(`  URI: ${segment.URI}`);
+    console.log(`  Byte range: ${segment['#EXT-X-BYTERANGE'].n}@${segment['#EXT-X-BYTERANGE'].o}`);
+    console.log(`  Media init: ${segment['#EXT-X-MAP'].URI} (${segment['#EXT-X-MAP'].BYTERANGE.n}@${segment['#EXT-X-MAP'].BYTERANGE.o})`);
+});
+
+// Output:
+// Segment 0:
+//   URI: main.mp4
+//   Byte range: 1508000@719
+//   Media init: main.mp4 (719@0)
+// Segment 1:
+//   URI: main.mp4
+//   Byte range: 1510244@1508719
+//   Media init: main.mp4 (719@0)
 ```
 
 ### MultivariantPlaylist
@@ -335,10 +418,14 @@ async function handleFileUpload(file) {
 | Chrome/Edge | 89+          | ✅ Full                       |
 | Firefox     | 102+         | ✅ Full                       |
 | Safari      | 14.1+        | ✅ Full                       |
-| Node.js     | 16.5+        | ✅ Full (Web Streams)         |
-| Node.js     | 20+          | ✅ Full (ReadableStream.from) |
+| Node.js     | 20+          | ✅ Full                       |
 | Deno        | All versions | ✅ Full                       |
 | Bun         | All versions | ✅ Full                       |
+
+**Minimum Requirements:**
+- Node.js 20.0.0 or higher
+- Modern browsers with Web Streams API support
+- ES2022+ features (Top-level await, ReadableStream)
 
 ## Examples
 
