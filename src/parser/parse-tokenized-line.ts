@@ -1,6 +1,7 @@
 import { playlistTagRegistry } from '../hls/playlist-tags/playlist-tag.registry';
 import { EXTINF_CODEC } from '../hls/playlist-tags/media-segment-tags/EXTINF/schema';
 import { LexicalToken } from './parser.interfaces';
+import { log } from '../helpers/logger';
 
 /**
  * Helper function to safely decode a tag and attach errors to the token if decoding fails
@@ -13,9 +14,11 @@ function safeDecodeTag(
     const result = codec.safeDecode(source);
     if (result.success) {
         line.value = result.data;
+        log.parse('Decoded %s: %o', line.type, result.data);
     } else {
         line.errors = result.error.issues;
         line.value = undefined;
+        log.parse('Failed to decode %s: %o', line.type, result.error.issues);
     }
 }
 

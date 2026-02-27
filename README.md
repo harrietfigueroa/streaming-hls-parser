@@ -401,7 +401,7 @@ async function handleFileUpload(file) {
 
 ```html
 <script type="module">
-    import { HLS } from './node_modules/streaming-hls-parser/dist/src/index.js';
+    import { HLS } from 'https://cdn.jsdelivr.net/npm/streaming-hls-parser/dist/index.browser.js';
 
     const response = await fetch('playlist.m3u8');
     const text = await response.text();
@@ -466,6 +466,72 @@ Validation errors are collected rather than thrown, allowing you to:
 -   Parse non-compliant playlists
 -   Collect all errors at once
 -   Decide how to handle violations
+
+## Debugging and Logging
+
+The parser includes optional debug logging using the [`debug`](https://www.npmjs.com/package/debug) package. Since `debug` is an optional peer dependency, you can choose to install it for detailed logging during development.
+
+### Installation
+
+```bash
+npm install debug
+```
+
+### Usage
+
+Enable logging by setting the `DEBUG` environment variable:
+
+```bash
+# Enable all HLS logs
+DEBUG=hls:* node app.js
+
+# Enable specific namespaces
+DEBUG=hls:parse node app.js           # Tokenization and parsing
+DEBUG=hls:segment node app.js         # Media segment building
+DEBUG=hls:playlist node app.js        # Playlist construction
+DEBUG=hls:validate node app.js        # Validation errors
+DEBUG=hls:encode node app.js          # Stringification
+DEBUG=hls:stream node app.js          # Stream processing
+
+# Enable multiple namespaces
+DEBUG=hls:parse,hls:validate node app.js
+```
+
+### Available Namespaces
+
+- **`hls:parse`** - Tokenization and line parsing (tokenizeLine, parseTokenizedLine)
+- **`hls:segment`** - Media segment building, tag persistence
+- **`hls:playlist`** - Playlist construction (MediaPlaylist, MultivariantPlaylist)
+- **`hls:validate`** - Validation errors and RFC 8216 compliance issues
+- **`hls:encode`** - Stringification and encoding to HLS format
+- **`hls:stream`** - Stream processing and transformers
+
+### Example Output
+
+```bash
+DEBUG=hls:* node app.js
+```
+
+```
+hls:parse Tokenized tag: #EXTM3U from line: #EXTM3U +0ms
+hls:parse Decoded #EXTM3U: {} +1ms
+hls:parse Tokenized tag: #EXT-X-VERSION from line: #EXT-X-VERSION:3 +0ms
+hls:parse Decoded #EXT-X-VERSION: 3 +0ms
+hls:segment Added segment 0: URI=segment1.ts, duration=10 +2ms
+hls:playlist Built MediaPlaylist: version=3, segments=5, targetDuration=10, type=VOD +0ms
+```
+
+### Browser Usage
+
+In browsers, enable debug logging via localStorage:
+
+```javascript
+localStorage.debug = 'hls:*';
+```
+
+### No Overhead When Disabled
+
+When the `debug` package is not installed or logging is not enabled, all log calls are no-ops with zero overhead.
 
 ## Performance
 

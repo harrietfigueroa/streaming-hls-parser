@@ -15,6 +15,7 @@ import { EXT_X_CUE_IN_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-CU
 import { EXT_X_CUE_OUT_CONT_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-CUE-OUT-CONT/schema';
 import { EXT_X_ASSET_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-ASSET/schema';
 import { EXT_X_SPLICEPOINT_SCTE35_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-SPLICEPOINT-SCTE35/schema';
+import { log } from '../../helpers/logger';
 
 export class MediaSegmentArrayBuilder extends Array<MediaSegment> {
     private inProgress: Partial<MediaSegmentOptions> = {};
@@ -42,10 +43,12 @@ export class MediaSegmentArrayBuilder extends Array<MediaSegment> {
 
     public addKey(key: z.infer<typeof EXT_X_KEY_CODEC>): void {
         this.inProgress['#EXT-X-KEY'] = key;
+        log.segment('Updated persistent #EXT-X-KEY (applies to all following segments)');
     }
 
     public addMap(map: z.infer<typeof EXT_X_MAP_CODEC>): void {
         this.inProgress['#EXT-X-MAP'] = map;
+        log.segment('Updated persistent #EXT-X-MAP (applies to all following segments)');
     }
 
     public addProgramDateTime(
@@ -64,6 +67,7 @@ export class MediaSegmentArrayBuilder extends Array<MediaSegment> {
 
     public addBitrate(bitrate: z.infer<typeof EXT_X_BITRATE_CODEC>): void {
         this.inProgress['#EXT-X-BITRATE'] = bitrate;
+        log.segment('Updated persistent #EXT-X-BITRATE (applies to all following segments)');
     }
 
     public addPart(part: z.infer<typeof EXT_X_PART_CODEC>): void {
@@ -94,7 +98,18 @@ export class MediaSegmentArrayBuilder extends Array<MediaSegment> {
         // When we get a URI then we're done with this segment and we can start a new one
         this.inProgress['URI'] = uri;
         const errors = this.inProgressErrors.length > 0 ? this.inProgressErrors : undefined;
-        this.push(new MediaSegment(this.inProgress as MediaSegmentOptions, errors));
+        const segment = new MediaSegment(this.inProgress as MediaSegmentOptions, errors);
+        this.push(segment);
+
+        log.segment('Added segment %d: URI=%s, duration=%s',
+            this.length - 1,
+            uri,
+            this.inProgress['#EXTINF']?.DURATION
+        );
+
+        if (errors) {
+            log.segment('Segment %d has %d validation errors', this.length - 1, errors.length);
+        }
 
         // Reset segment-specific tags but preserve tags that apply to multiple segments
         // Tags that persist: EXT-X-MAP, EXT-X-KEY, EXT-X-BITRATE

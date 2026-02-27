@@ -13,6 +13,7 @@ import { playlistTagRegistry } from '../playlist-tags/playlist-tag.registry';
 import { MediaSegment } from './media-segment';
 import { MediaSegmentArrayBuilder } from './media-segment-array-builder';
 import { Playlist } from './playlists.interfaces';
+import { log } from '../../helpers/logger';
 
 // Import schema types for MediaPlaylistOptions
 import { EXTM3U_OBJECT } from '../playlist-tags/basic-tags/EXTM3U/schema';
@@ -516,10 +517,15 @@ export class MediaPlaylist implements Playlist, ReadonlyArray<MediaSegment> {
                             line: errorGroup.line,
                             index,
                         });
+                        log.validate('Validation error in segment %d tag %s: %s', index, errorGroup.tag, issue.message);
                     }
                 }
             }
             index++;
+        }
+
+        if (errors.length > 0) {
+            log.validate('Found %d total validation errors in MediaPlaylist', errors.length);
         }
 
         return errors;
@@ -548,6 +554,13 @@ export class MediaPlaylist implements Playlist, ReadonlyArray<MediaSegment> {
         this['#EXT-X-PRELOAD-HINT'] = mediaPlaylistOptions['#EXT-X-PRELOAD-HINT'];
         this['#EXT-X-SKIP'] = mediaPlaylistOptions['#EXT-X-SKIP'];
         this['#EXT-X-RENDITION-REPORT'] = mediaPlaylistOptions['#EXT-X-RENDITION-REPORT'];
+
+        log.playlist('Built MediaPlaylist: version=%s, segments=%d, targetDuration=%s, type=%s',
+            mediaPlaylistOptions['#EXT-X-VERSION'],
+            mediaSegments.length,
+            mediaPlaylistOptions['#EXT-X-TARGETDURATION'],
+            mediaPlaylistOptions['#EXT-X-PLAYLIST-TYPE']
+        );
     }
 
     private static isMediaSegmentTag(tag: string) {
@@ -762,6 +775,8 @@ export class MediaPlaylist implements Playlist, ReadonlyArray<MediaSegment> {
     }
 
     public *toHLSLines() {
+        log.encode('Encoding MediaPlaylist to HLS lines (%d segments)', this.segments.length);
+
         // Use schema encoders for stringifying
         if (this['#EXTM3U']) {
             yield playlistTagRegistry['#EXTM3U'].encode(this['#EXTM3U']);
