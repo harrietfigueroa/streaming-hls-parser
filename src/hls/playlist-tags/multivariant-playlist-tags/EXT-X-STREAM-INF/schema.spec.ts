@@ -208,7 +208,7 @@ describe('EXT-X-STREAM-INF schema', () => {
             const validLevels = ['TYPE-0', 'NONE'];
 
             validLevels.forEach((level) => {
-                const tag = `#EXT-X-STREAM-INF:BANDWIDTH=1280000,HDCP-LEVEL=${level}`;
+                const tag = `#EXT-X-STREAM-INF:BANDWIDTH=1280000,HDCP-LEVEL=${level}` as const;
                 expect(() => EXT_X_STREAM_INF_CODEC.decode(tag)).not.toThrow();
             });
         });
@@ -217,7 +217,7 @@ describe('EXT-X-STREAM-INF schema', () => {
             const validResolutions = ['1920x1080', '1280x720', '3840x2160', '640x480'];
 
             validResolutions.forEach((resolution) => {
-                const tag = `#EXT-X-STREAM-INF:BANDWIDTH=1280000,RESOLUTION=${resolution}`;
+                const tag = `#EXT-X-STREAM-INF:BANDWIDTH=1280000,RESOLUTION=${resolution}` as const;
                 expect(() => EXT_X_STREAM_INF_CODEC.decode(tag)).not.toThrow();
             });
         });
@@ -226,7 +226,7 @@ describe('EXT-X-STREAM-INF schema', () => {
             const validFrameRates = ['24.0', '25.0', '29.97', '30.0', '50.0', '59.94', '60.0'];
 
             validFrameRates.forEach((frameRate) => {
-                const tag = `#EXT-X-STREAM-INF:BANDWIDTH=1280000,FRAME-RATE=${frameRate}`;
+                const tag = `#EXT-X-STREAM-INF:BANDWIDTH=1280000,FRAME-RATE=${frameRate}` as const;
                 expect(() => EXT_X_STREAM_INF_CODEC.decode(tag)).not.toThrow();
             });
         });
@@ -241,7 +241,7 @@ describe('EXT-X-STREAM-INF schema', () => {
             ];
 
             validCodecs.forEach((codecs) => {
-                const tag = `#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=${codecs}`;
+                const tag = `#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS=${codecs}` as const;
                 expect(() => EXT_X_STREAM_INF_CODEC.decode(tag)).not.toThrow();
             });
         });

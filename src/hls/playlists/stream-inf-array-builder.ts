@@ -1,8 +1,11 @@
-import { EXT_X_STREAM_INF_PARSED } from '../playlist-tags/multivariant-playlist-tags/EXT-X-STREAM-INF/schema';
+import * as z from 'zod';
 import { StreamInf, VariantStreamOptions } from './stream-inf';
+import { EXT_X_STREAM_INF_CODEC } from '../playlist-tags/multivariant-playlist-tags/EXT-X-STREAM-INF/schema';
 
 export class StreamInfArrayBuilder extends Map<string, StreamInf> {
-    private inProgress: Partial<VariantStreamOptions> = {
+    private inProgress: Partial<
+        Record<keyof VariantStreamOptions, VariantStreamOptions[keyof VariantStreamOptions]>
+    > = {
         BANDWIDTH: undefined,
         'AVERAGE-BANDWIDTH': undefined,
         CODECS: undefined,
@@ -13,7 +16,7 @@ export class StreamInfArrayBuilder extends Map<string, StreamInf> {
         VIDEO: undefined,
         URI: undefined,
     };
-    public addStreamInf(streamInf: EXT_X_STREAM_INF_PARSED): StreamInfArrayBuilder {
+    public addStreamInf(streamInf: z.infer<typeof EXT_X_STREAM_INF_CODEC>): StreamInfArrayBuilder {
         this.inProgress['BANDWIDTH'] = streamInf['BANDWIDTH'];
         this.inProgress['AVERAGE-BANDWIDTH'] = streamInf['AVERAGE-BANDWIDTH'];
         this.inProgress['CODECS'] = streamInf['CODECS'];

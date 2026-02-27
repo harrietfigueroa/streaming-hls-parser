@@ -1,40 +1,24 @@
-import byterangeTag, {
-    extXByteRangeValidator,
-    EXT_X_BYTERANGE_PARSED,
-} from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE';
-import dateRangeTag, {
-    extXDateRangeValidator,
-    EXT_X_DATERANGE_PARSED,
-} from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE';
-import { extXDiscontinuityParser } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/parser';
-import { extXDiscontinuityStringifier } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/stringifier';
-import { EXT_X_DISCONTINUITY_PARSED } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/schema';
-import keyTag, {
-    extXKeyValidator,
-    EXT_X_KEY_PARSED,
-} from '../playlist-tags/media-segment-tags/EXT-X-KEY';
-import mapTag, {
-    extXMapValidator,
-    EXT_X_MAP_PARSED,
-} from '../playlist-tags/media-segment-tags/EXT-X-MAP';
-import programDateTimeTag, {
-    extXProgramDateTimeValidator,
-    EXT_X_PROGRAM_DATE_TIME_PARSED,
-} from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME';
-import infTag, { EXTINF_PARSED } from '../playlist-tags/media-segment-tags/EXTINF';
-import { HLSObject } from './hls-object';
+import * as z from 'zod';
+import { EXTINF_CODEC } from '../playlist-tags/media-segment-tags/EXTINF/schema';
+import { EXT_X_BYTERANGE_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE/schema';
+import { EXT_X_DISCONTINUITY_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/schema';
+import { EXT_X_KEY_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-KEY/schema';
+import { EXT_X_MAP_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-MAP/schema';
+import { EXT_X_PROGRAM_DATE_TIME_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/schema';
+import { EXT_X_DATERANGE_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/schema';
 
 export interface MediaSegmentOptions {
-    '#EXTINF': EXTINF_PARSED;
-    '#EXT-X-BYTERANGE': EXT_X_BYTERANGE_PARSED;
-    '#EXT-X-DISCONTINUITY': EXT_X_DISCONTINUITY_PARSED;
-    '#EXT-X-KEY': EXT_X_KEY_PARSED;
-    '#EXT-X-MAP': EXT_X_MAP_PARSED;
-    '#EXT-X-PROGRAM-DATE-TIME': EXT_X_PROGRAM_DATE_TIME_PARSED;
-    '#EXT-X-DATERANGE': EXT_X_DATERANGE_PARSED;
+    '#EXTINF': z.infer<typeof EXTINF_CODEC>;
+    '#EXT-X-BYTERANGE': z.infer<typeof EXT_X_BYTERANGE_CODEC>;
+    '#EXT-X-DISCONTINUITY': z.infer<typeof EXT_X_DISCONTINUITY_CODEC>;
+    '#EXT-X-KEY': z.infer<typeof EXT_X_KEY_CODEC>;
+    '#EXT-X-MAP': z.infer<typeof EXT_X_MAP_CODEC>;
+    '#EXT-X-PROGRAM-DATE-TIME': z.infer<typeof EXT_X_PROGRAM_DATE_TIME_CODEC>;
+    '#EXT-X-DATERANGE': z.infer<typeof EXT_X_DATERANGE_CODEC>;
     URI: string;
 }
-export class MediaSegment extends HLSObject<MediaSegmentOptions> implements MediaSegmentOptions {
+export class MediaSegment implements MediaSegmentOptions {
+    public error?: Error;
     /**
    * The EXTINF tag specifies the duration of a Media Segment.  It applies
    only to the next Media Segment.  This tag is REQUIRED for each Media
@@ -361,43 +345,6 @@ export class MediaSegment extends HLSObject<MediaSegmentOptions> implements Medi
     public readonly 'URI': MediaSegmentOptions['URI'];
 
     constructor(mediaSegmentOptions: MediaSegmentOptions) {
-        super();
-        const errors: Error[] = [];
-
-        // Validate each property and collect errors
-        const keyErrors = extXKeyValidator.validate(mediaSegmentOptions['#EXT-X-KEY']);
-        if (keyErrors.errors.length > 0) {
-            errors.push(new Error('#EXT-X-KEY validation failed', { cause: keyErrors.errors }));
-        }
-        const mapErrors = extXMapValidator.validate(mediaSegmentOptions['#EXT-X-MAP']);
-        if (mapErrors.errors.length > 0) {
-            errors.push(new Error('#EXT-X-MAP validation failed', { cause: mapErrors.errors }));
-        }
-        const programDateTimeErrors = extXProgramDateTimeValidator.validate(
-            mediaSegmentOptions['#EXT-X-PROGRAM-DATE-TIME'],
-        );
-        if (programDateTimeErrors.errors.length > 0) {
-            errors.push(
-                new Error('#EXT-X-PROGRAM-DATE-TIME validation failed', {
-                    cause: programDateTimeErrors.errors,
-                }),
-            );
-        }
-        const daterangeErrors = extXDateRangeValidator.validate(
-            mediaSegmentOptions['#EXT-X-DATERANGE'],
-        );
-        if (daterangeErrors.errors.length > 0) {
-            errors.push(
-                new Error('#EXT-X-DATERANGE validation failed', {
-                    cause: daterangeErrors.errors,
-                }),
-            );
-        }
-
-        if (errors.length > 0) {
-            this.error = new Error('MediaSegment validation failed', { cause: errors });
-        }
-
         this['#EXTINF'] = mediaSegmentOptions['#EXTINF'];
         this['#EXT-X-BYTERANGE'] = mediaSegmentOptions['#EXT-X-BYTERANGE'];
         this['#EXT-X-DISCONTINUITY'] = mediaSegmentOptions['#EXT-X-DISCONTINUITY'];
@@ -410,24 +357,24 @@ export class MediaSegment extends HLSObject<MediaSegmentOptions> implements Medi
 
     public *toHLSLines() {
         if (this['#EXT-X-BYTERANGE']) {
-            yield byterangeTag.stringifier(this['#EXT-X-BYTERANGE']);
+            yield EXT_X_BYTERANGE_CODEC.encode(this['#EXT-X-BYTERANGE']);
         }
         if (this['#EXT-X-DISCONTINUITY']) {
-            yield extXDiscontinuityStringifier();
+            yield EXT_X_DISCONTINUITY_CODEC.encode(this['#EXT-X-DISCONTINUITY']);
         }
         if (this['#EXT-X-KEY']) {
-            yield keyTag.stringifier(this['#EXT-X-KEY']);
+            yield EXT_X_KEY_CODEC.encode(this['#EXT-X-KEY']);
         }
         if (this['#EXT-X-MAP']) {
-            yield mapTag.stringifier(this['#EXT-X-MAP']);
+            yield EXT_X_MAP_CODEC.encode(this['#EXT-X-MAP']);
         }
         if (this['#EXT-X-PROGRAM-DATE-TIME']) {
-            yield programDateTimeTag.stringifier(this['#EXT-X-PROGRAM-DATE-TIME']);
+            yield EXT_X_PROGRAM_DATE_TIME_CODEC.encode(this['#EXT-X-PROGRAM-DATE-TIME']);
         }
         if (this['#EXT-X-DATERANGE']) {
-            yield dateRangeTag.stringifier(this['#EXT-X-DATERANGE']);
+            yield EXT_X_DATERANGE_CODEC.encode(this['#EXT-X-DATERANGE']);
         }
-        yield infTag.stringifier(this['#EXTINF']);
+        yield EXTINF_CODEC.encode(this['#EXTINF']);
         yield this['URI'];
     }
 

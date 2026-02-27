@@ -1,9 +1,10 @@
-import { EXT_X_STREAM_INF_PARSED } from '../playlist-tags/multivariant-playlist-tags/EXT-X-STREAM-INF/schema';
-import { HLSObject } from './hls-object';
+import * as z from 'zod';
+import { EXT_X_STREAM_INF_CODEC } from '../playlist-tags/multivariant-playlist-tags/EXT-X-STREAM-INF/schema';
 
-export type VariantStreamOptions = EXT_X_STREAM_INF_PARSED & { URI: string };
+export type VariantStreamOptions = z.infer<typeof EXT_X_STREAM_INF_CODEC> & { URI: string };
 
-export class StreamInf extends HLSObject<VariantStreamOptions> implements EXT_X_STREAM_INF_PARSED {
+export class StreamInf implements z.infer<typeof EXT_X_STREAM_INF_CODEC> {
+    public error?: Error;
     /** The value is a decimal-integer of bits per second.  It represents
       the peak segment bit rate of the Variant Stream.
 
@@ -53,7 +54,7 @@ export class StreamInf extends HLSObject<VariantStreamOptions> implements EXT_X_
       of "mp4a.40.2,avc1.4d401e".
 
       Every EXT-X-STREAM-INF tag SHOULD include a CODECS attribute. */
-    public readonly ['CODECS']?: `"${string}"`[] | undefined;
+    public readonly ['CODECS']?: string[] | undefined;
 
     /**
      * The value is a decimal-resolution describing the optimal pixel
@@ -63,7 +64,7 @@ export class StreamInf extends HLSObject<VariantStreamOptions> implements EXT_X_
       The RESOLUTION attribute is OPTIONAL but is recommended if the
       Variant Stream includes video.
      */
-    public readonly ['RESOLUTION']?: number | undefined;
+    public readonly ['RESOLUTION']?: { width: number; height: number } | undefined;
 
     /**
      * The value is a decimal-floating-point describing the maximum frame
@@ -93,7 +94,7 @@ export class StreamInf extends HLSObject<VariantStreamOptions> implements EXT_X_
       Clients without output copy protection SHOULD NOT load a Variant
       Stream with an HDCP-LEVEL attribute unless its value is NONE.
      */
-    public readonly 'HDCP-LEVEL': 'TYPE-0' | 'NONE';
+    public readonly 'HDCP-LEVEL'?: 'TYPE-0' | 'NONE' | undefined;
 
     /**
      * The value is a quoted-string.  It MUST match the value of the
@@ -104,7 +105,7 @@ export class StreamInf extends HLSObject<VariantStreamOptions> implements EXT_X_
 
       The AUDIO attribute is OPTIONAL.
      */
-    public readonly ['AUDIO']?: `"${string}"` | undefined;
+    public readonly ['AUDIO']?: string | undefined;
 
     /** 
      * The value is a quoted-string.  It MUST match the value of the
@@ -116,12 +117,11 @@ export class StreamInf extends HLSObject<VariantStreamOptions> implements EXT_X_
       The VIDEO attribute is OPTIONAL.
 
      */
-    public readonly ['VIDEO']?: `"${string}"` | undefined;
+    public readonly ['VIDEO']?: string | undefined;
 
     public readonly ['URI']: string;
 
     private constructor(variantStreamOptions: VariantStreamOptions) {
-        super();
         this['BANDWIDTH'] = variantStreamOptions['BANDWIDTH'];
         this['AVERAGE-BANDWIDTH'] = variantStreamOptions['AVERAGE-BANDWIDTH'];
         this['CODECS'] = variantStreamOptions['CODECS'];
@@ -138,31 +138,19 @@ export class StreamInf extends HLSObject<VariantStreamOptions> implements EXT_X_
     }
 
     public *toHLSLines(): Iterable<string> {
-        const attrs: string[] = [];
-        if (this['BANDWIDTH']) {
-            attrs.push(`BANDWIDTH=${this['BANDWIDTH']}`);
-        }
-        if (this['AVERAGE-BANDWIDTH']) {
-            attrs.push(`AVERAGE-BANDWIDTH=${this['AVERAGE-BANDWIDTH']}`);
-        }
-        if (this['CODECS']) {
-            attrs.push(`CODECS=${this['CODECS'].map((codec) => codec).join(',')}`);
-        }
-        if (this['RESOLUTION']) {
-            attrs.push(`RESOLUTION=${this['RESOLUTION']}`);
-        }
-        if (this['FRAME-RATE']) {
-            attrs.push(`FRAME-RATE=${this['FRAME-RATE']}`);
-        }
-        if (this['HDCP-LEVEL']) {
-            attrs.push(`HDCP-LEVEL=${this['HDCP-LEVEL']}`);
-        }
-        if (this['AUDIO']) {
-            attrs.push(`AUDIO=${this['AUDIO']}`);
-        }
-        if (this['VIDEO']) {
-            attrs.push(`VIDEO=${this['VIDEO']}`);
-        }
+        // Create the stream inf object without URI for encoding
+        const streamInfData = {
+            BANDWIDTH: this['BANDWIDTH'],
+            'AVERAGE-BANDWIDTH': this['AVERAGE-BANDWIDTH'],
+            CODECS: this['CODECS'],
+            RESOLUTION: this['RESOLUTION'],
+            'FRAME-RATE': this['FRAME-RATE'],
+            'HDCP-LEVEL': this['HDCP-LEVEL'],
+            AUDIO: this['AUDIO'],
+            VIDEO: this['VIDEO'],
+        };
+
+        yield EXT_X_STREAM_INF_CODEC.encode(streamInfData);
         yield this['URI'];
     }
 

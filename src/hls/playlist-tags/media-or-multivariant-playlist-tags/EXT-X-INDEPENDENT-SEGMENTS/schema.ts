@@ -20,7 +20,7 @@ export const EXT_X_INDEPENDENT_SEGMENTS_STRING = z.templateLiteral([TAG]);
  * The EXT-X-INDEPENDENT-SEGMENTS tag MUST NOT appear more than once
  * in a Playlist file.
  */
-export const EXT_X_INDEPENDENT_SEGMENTS_OBJECT = z.literal(true).describe(`
+export const EXT_X_INDEPENDENT_SEGMENTS_OBJECT = z.literal(true).readonly().describe(`
     The EXT-X-INDEPENDENT-SEGMENTS tag indicates that all media samples
     in a Media Segment can be decoded without information from other
     segments. It applies to every Media Segment in the Playlist.

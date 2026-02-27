@@ -17,7 +17,7 @@ export const EXTM3U_STRING = z.templateLiteral([TAG]);
  * with #EXTM3U, then the client MUST treat the file as a basic M3U
  * Playlist file.
  */
-export const EXTM3U_OBJECT = z.literal(true).describe(`
+export const EXTM3U_OBJECT = z.literal(true).readonly().describe(`
     The EXTM3U tag indicates that the Playlist file is an Extended M3U
     Playlist file. This tag MUST be the first line of every Extended M3U
     Playlist file.

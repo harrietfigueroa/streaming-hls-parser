@@ -34,7 +34,7 @@ export const EXT_X_DISCONTINUITY_SEQUENCE_STRING = z.templateLiteral([
  *
  * The EXT-X-DISCONTINUITY-SEQUENCE tag is optional.
  */
-export const EXT_X_DISCONTINUITY_SEQUENCE_OBJECT = z.number().int().min(0).describe(`
+export const EXT_X_DISCONTINUITY_SEQUENCE_OBJECT = z.number().int().min(0).readonly().describe(`
     The EXT-X-DISCONTINUITY-SEQUENCE tag allows synchronization between
     different Renditions of the same Variant Stream or different Variant
     Streams that have EXT-X-DISCONTINUITY tags in their Media Playlists.

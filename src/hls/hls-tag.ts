@@ -1,4 +1,4 @@
-import { PLAYLIST_TAGS } from './hls.types';
+import { AllPlaylistTags } from '../parser/parser.interfaces';
 
 /**
  * A wrapper for matching HLS tags to their global symbol registry entry. Any tag not already
@@ -6,7 +6,7 @@ import { PLAYLIST_TAGS } from './hls.types';
  * @param tag An HLS tag to be retrieved from the global symbol registry
  * @returns
  */
-export function parseHLSTag<T extends PLAYLIST_TAGS>(tag: T): PLAYLIST_TAGS {
+export function parseHLSTag<T extends AllPlaylistTags>(tag: T): AllPlaylistTags {
     if (typeof tag !== 'string') {
         throw new TypeError(`HLSTag expected a string, but received ${typeof tag}`);
     }
@@ -14,7 +14,7 @@ export function parseHLSTag<T extends PLAYLIST_TAGS>(tag: T): PLAYLIST_TAGS {
     const firstColon = tag.indexOf(':');
     if (firstColon && tag.slice(firstColon + 1)) {
         const stripped = tag.split(':')[0];
-        return stripped as PLAYLIST_TAGS;
+        return stripped as AllPlaylistTags;
     }
     return tag;
 }

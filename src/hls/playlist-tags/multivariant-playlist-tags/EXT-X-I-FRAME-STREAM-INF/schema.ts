@@ -42,18 +42,20 @@ export const EXT_X_I_FRAME_STREAM_INF_STRING = z.templateLiteral([
    Rendition for each regular VIDEO Rendition, with the same NAME and
    LANGUAGE attributes.
  */
-export const EXT_X_I_FRAME_STREAM_INF_OBJECT = z.object({
-    URI: z.string(),
-    BANDWIDTH: z.number(),
-    'AVERAGE-BANDWIDTH': z.number(),
-    CODECS: z.array(z.string()),
-    RESOLUTION: z.object({
-        height: z.number(),
-        width: z.number(),
-    }),
-    'HDCP-LEVEL': z.enum(['TYPE-0', 'NONE']),
-    VIDEO: z.string(),
-});
+export const EXT_X_I_FRAME_STREAM_INF_OBJECT = z
+    .object({
+        URI: z.string(),
+        BANDWIDTH: z.number(),
+        'AVERAGE-BANDWIDTH': z.number(),
+        CODECS: z.array(z.string()),
+        RESOLUTION: z.object({
+            height: z.number(),
+            width: z.number(),
+        }),
+        'HDCP-LEVEL': z.enum(['TYPE-0', 'NONE']),
+        VIDEO: z.string(),
+    })
+    .readonly();
 
 export const EXT_X_I_FRAME_STREAM_INF_CODEC = z.codec(
     EXT_X_I_FRAME_STREAM_INF_STRING,

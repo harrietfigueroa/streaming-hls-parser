@@ -1,6 +1,5 @@
 import * as z from 'zod';
 import { fromAttributeList, toAttributeList } from '../../../parse-helpers/attribute-list';
-import { byterangeCodec } from '../../../parse-helpers/byterange';
 import { EXT_X_BYTERANGE } from '../EXT-X-BYTERANGE/schema';
 import { stripTag } from '../../../parse-helpers/strip-tag';
 

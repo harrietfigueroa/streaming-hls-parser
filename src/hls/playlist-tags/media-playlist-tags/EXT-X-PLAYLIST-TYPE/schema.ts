@@ -28,7 +28,7 @@ export const EXT_X_PLAYLIST_TYPE_STRING = z.templateLiteral([TAG, ':', z.enum(['
  * (Section 6.2.2) MAY be updated to remove Media Segments in the order
  * that they appeared.
  */
-export const EXT_X_PLAYLIST_TYPE_OBJECT = z.enum(['EVENT', 'VOD']).describe(`
+export const EXT_X_PLAYLIST_TYPE_OBJECT = z.enum(['EVENT', 'VOD']).readonly().describe(`
     The EXT-X-PLAYLIST-TYPE tag provides mutability information about the
     Media Playlist file. It applies to the entire Media Playlist file.
     It is OPTIONAL.

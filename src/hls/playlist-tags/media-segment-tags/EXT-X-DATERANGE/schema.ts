@@ -232,7 +232,8 @@ const EXT_X_DATERANGE_OBJECT = z
 */
 
 export const EXT_X_DATERANGE_CODEC = z.codec(EXT_X_DATERANGE_STRING, EXT_X_DATERANGE_OBJECT, {
-    decode: (value) => fromAttributeList(stripTag(value)),
+    decode: (value) =>
+        fromAttributeList(stripTag(value)) as unknown as z.infer<typeof EXT_X_DATERANGE_OBJECT>,
     encode: (obj) => {
         const preEncoded: Record<string, unknown> = {
             ...obj,

@@ -16,7 +16,7 @@ export const EXT_X_ENDLIST_STRING = z.templateLiteral([TAG]);
  * Segments will be added to the Media Playlist file. It MAY occur
  * anywhere in the Media Playlist file.
  */
-export const EXT_X_ENDLIST_OBJECT = z.literal(true).describe(`
+export const EXT_X_ENDLIST_OBJECT = z.literal(true).readonly().describe(`
     The EXT-X-ENDLIST tag indicates that no more Media Segments will be
     added to the Media Playlist file. It MAY occur anywhere in the Media
     Playlist file.

@@ -177,7 +177,8 @@ export const EXT_X_MEDIA_OBJECT = z
             message: 'AUTOSELECT value MUST be YES if DEFAULT value is YES',
             path: ['AUTOSELECT'],
         },
-    );
+    )
+    .readonly();
 
 /**
  * The EXT-X-MEDIA tag is used to relate Media Playlists that contain

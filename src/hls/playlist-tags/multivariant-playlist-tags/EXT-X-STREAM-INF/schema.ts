@@ -170,7 +170,8 @@ export const EXT_X_STREAM_INF_OBJECT = z
             message: 'AVERAGE-BANDWIDTH must not exceed BANDWIDTH',
             path: ['AVERAGE-BANDWIDTH'],
         },
-    );
+    )
+    .readonly();
 
 export const EXT_X_STREAM_INF_CODEC = z.codec(EXT_X_STREAM_INF_STRING, EXT_X_STREAM_INF_OBJECT, {
     decode: (value) => {
@@ -178,18 +179,10 @@ export const EXT_X_STREAM_INF_CODEC = z.codec(EXT_X_STREAM_INF_STRING, EXT_X_STR
 
         // Convert string values to appropriate types
         if (obj.BANDWIDTH) {
-            const bandwidth = parseFloat(obj.BANDWIDTH);
-            if (!Number.isInteger(bandwidth)) {
-                throw new Error('BANDWIDTH must be an integer');
-            }
-            obj.BANDWIDTH = bandwidth;
+            obj.BANDWIDTH = parseFloat(obj.BANDWIDTH);
         }
         if (obj['AVERAGE-BANDWIDTH']) {
-            const avgBandwidth = parseFloat(obj['AVERAGE-BANDWIDTH']);
-            if (!Number.isInteger(avgBandwidth)) {
-                throw new Error('AVERAGE-BANDWIDTH must be an integer');
-            }
-            obj['AVERAGE-BANDWIDTH'] = avgBandwidth;
+            obj['AVERAGE-BANDWIDTH'] = parseFloat(obj['AVERAGE-BANDWIDTH']);
         }
         if (obj.CODECS) {
             // Remove quotes and split by comma

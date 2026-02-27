@@ -24,7 +24,7 @@ export const EXT_X_VERSION_STRING = z.templateLiteral([TAG, ':', z.number().int(
  * The EXT-X-VERSION tag MUST appear before the first media segment
  * in the Playlist.
  */
-export const EXT_X_VERSION_OBJECT = z.number().int().min(1).max(7).describe(`
+export const EXT_X_VERSION_OBJECT = z.number().int().min(1).max(7).readonly().describe(`
     The EXT-X-VERSION tag indicates the compatibility version of the
     Playlist file, its associated media, and its server.
 

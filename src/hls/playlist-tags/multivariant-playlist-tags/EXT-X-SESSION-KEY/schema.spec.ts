@@ -158,7 +158,8 @@ describe('EXT-X-SESSION-KEY schema', () => {
             const validMethods = ['AES-128', 'SAMPLE-AES'];
 
             validMethods.forEach((method) => {
-                const tag = `#EXT-X-SESSION-KEY:METHOD=${method},URI="https://example.com/key.bin"`;
+                const tag =
+                    `#EXT-X-SESSION-KEY:METHOD=${method},URI="https://example.com/key.bin"` as const;
                 expect(() => EXT_X_SESSION_KEY_CODEC.decode(tag)).not.toThrow();
             });
         });
@@ -167,7 +168,8 @@ describe('EXT-X-SESSION-KEY schema', () => {
             const validVersions = ['1', '1/2', '1/2/5', '2/3', '10'];
 
             validVersions.forEach((version) => {
-                const tag = `#EXT-X-SESSION-KEY:METHOD=AES-128,URI="https://example.com/key.bin",KEYFORMATVERSIONS="${version}"`;
+                const tag =
+                    `#EXT-X-SESSION-KEY:METHOD=AES-128,URI="https://example.com/key.bin",KEYFORMATVERSIONS="${version}"` as const;
                 expect(() => EXT_X_SESSION_KEY_CODEC.decode(tag)).not.toThrow();
             });
         });
@@ -180,7 +182,8 @@ describe('EXT-X-SESSION-KEY schema', () => {
             ];
 
             validIVs.forEach((iv) => {
-                const tag = `#EXT-X-SESSION-KEY:METHOD=AES-128,URI="https://example.com/key.bin",IV="${iv}"`;
+                const tag =
+                    `#EXT-X-SESSION-KEY:METHOD=AES-128,URI="https://example.com/key.bin",IV="${iv}"` as const;
                 expect(() => EXT_X_SESSION_KEY_CODEC.decode(tag)).not.toThrow();
             });
         });
@@ -195,7 +198,7 @@ describe('EXT-X-SESSION-KEY schema', () => {
             ];
 
             validUris.forEach((uri) => {
-                const tag = `#EXT-X-SESSION-KEY:METHOD=AES-128,URI="${uri}"`;
+                const tag = `#EXT-X-SESSION-KEY:METHOD=AES-128,URI="${uri}"` as const;
                 expect(() => EXT_X_SESSION_KEY_CODEC.decode(tag)).not.toThrow();
             });
         });
@@ -209,7 +212,8 @@ describe('EXT-X-SESSION-KEY schema', () => {
             ];
 
             validKeyFormats.forEach((keyFormat) => {
-                const tag = `#EXT-X-SESSION-KEY:METHOD=AES-128,URI="https://example.com/key.bin",KEYFORMAT="${keyFormat}"`;
+                const tag =
+                    `#EXT-X-SESSION-KEY:METHOD=AES-128,URI="https://example.com/key.bin",KEYFORMAT="${keyFormat}"` as const;
                 expect(() => EXT_X_SESSION_KEY_CODEC.decode(tag)).not.toThrow();
             });
         });

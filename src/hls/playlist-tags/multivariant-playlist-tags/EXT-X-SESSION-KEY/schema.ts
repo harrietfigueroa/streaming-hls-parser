@@ -41,7 +41,7 @@ export const EXT_X_SESSION_KEY_OBJECT = EXT_X_KEY_OBJECT.refine(
         message: 'METHOD attribute MUST NOT be NONE according to RFC 8216 Section 4.3.4.2.3',
         path: ['METHOD'],
     },
-);
+).readonly();
 
 export const EXT_X_SESSION_KEY_CODEC = z.codec(EXT_X_SESSION_KEY_STRING, EXT_X_SESSION_KEY_OBJECT, {
     decode: (value) => {

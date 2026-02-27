@@ -81,7 +81,8 @@ export const EXT_X_SESSION_DATA_OBJECT = z
             message: 'LANGUAGE attribute can only be used with VALUE attribute, not with URI',
             path: ['LANGUAGE'],
         },
-    );
+    )
+    .readonly();
 
 export const EXT_X_SESSION_DATA_CODEC = z.codec(
     EXT_X_SESSION_DATA_STRING,

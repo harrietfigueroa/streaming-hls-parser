@@ -30,7 +30,7 @@ export const EXT_X_I_FRAMES_ONLY_STRING = z.templateLiteral([TAG]);
  *
  * The EXT-X-I-FRAMES-ONLY tag is optional.
  */
-export const EXT_X_I_FRAMES_ONLY_OBJECT = z.literal(true).describe(`
+export const EXT_X_I_FRAMES_ONLY_OBJECT = z.literal(true).readonly().describe(`
     The EXT-X-I-FRAMES-ONLY tag indicates that each Media Segment in the
     Playlist describes a single I-frame. I-frames are encoded video
     frames whose encoding does not depend on any other frame. I-frame

@@ -1,7 +1,6 @@
 import { parseHLSTag } from '../hls/hls-tag';
-import { PLAYLIST_TAGS } from '../hls/hls.types';
 import { isUri } from '../hls/isUri';
-import { LexicalToken } from './parser.interfaces';
+import { AllPlaylistTags, LexicalToken } from './parser.interfaces';
 
 export function tokenizeLine(line: string): LexicalToken {
     if (isUri(line)) {
@@ -14,7 +13,7 @@ export function tokenizeLine(line: string): LexicalToken {
 
     // Casting is safe here because any unknown tag, custom tags for example,
     // will be added to the global symbol registry
-    const tag = parseHLSTag(line as PLAYLIST_TAGS);
+    const tag = parseHLSTag(line as AllPlaylistTags);
     return {
         type: tag,
         source: line,

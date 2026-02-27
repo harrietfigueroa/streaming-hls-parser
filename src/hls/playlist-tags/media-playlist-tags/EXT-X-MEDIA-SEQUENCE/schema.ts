@@ -22,7 +22,7 @@ export const EXT_X_MEDIA_SEQUENCE_STRING = z.templateLiteral([TAG, ':', z.number
  *
  * The EXT-X-MEDIA-SEQUENCE tag is optional.
  */
-export const EXT_X_MEDIA_SEQUENCE_OBJECT = z.number().int().min(0).describe(`
+export const EXT_X_MEDIA_SEQUENCE_OBJECT = z.number().int().min(0).readonly().describe(`
     The EXT-X-MEDIA-SEQUENCE tag indicates the Media Sequence Number of
     the first Media Segment that appears in a Playlist file.
 

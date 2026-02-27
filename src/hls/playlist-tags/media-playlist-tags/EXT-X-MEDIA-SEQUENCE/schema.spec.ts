@@ -56,37 +56,35 @@ describe('EXT-X-MEDIA-SEQUENCE schema', () => {
 
     describe('EXT_X_MEDIA_SEQUENCE_CODEC validation', () => {
         it('should reject negative sequence numbers', () => {
-            const tag = '#EXT-X-MEDIA-SEQUENCE:-1';
-            // @ts-expect-error
+            const tag = '#EXT-X-MEDIA-SEQUENCE:-1' as const;
             expect(() => EXT_X_MEDIA_SEQUENCE_CODEC.decode(tag)).toThrow();
         });
 
         it('should reject non-integer sequence numbers', () => {
-            const tag = '#EXT-X-MEDIA-SEQUENCE:1.5';
-            // @ts-expect-error
+            const tag = '#EXT-X-MEDIA-SEQUENCE:1.5' as const;
             expect(() => EXT_X_MEDIA_SEQUENCE_CODEC.decode(tag)).toThrow();
         });
 
         it('should reject non-numeric values', () => {
-            const tag = '#EXT-X-MEDIA-SEQUENCE:abc';
+            const tag = '#EXT-X-MEDIA-SEQUENCE:abc' as const;
             // @ts-expect-error
             expect(() => EXT_X_MEDIA_SEQUENCE_CODEC.decode(tag)).toThrow();
         });
 
         it('should reject empty sequence', () => {
-            const tag = '#EXT-X-MEDIA-SEQUENCE:';
+            const tag = '#EXT-X-MEDIA-SEQUENCE:' as const;
             // @ts-expect-error
             expect(() => EXT_X_MEDIA_SEQUENCE_CODEC.decode(tag)).toThrow();
         });
 
         it('should reject missing colon', () => {
-            const tag = '#EXT-X-MEDIA-SEQUENCE1';
+            const tag = '#EXT-X-MEDIA-SEQUENCE1' as const;
             // @ts-expect-error
             expect(() => EXT_X_MEDIA_SEQUENCE_CODEC.decode(tag)).toThrow();
         });
 
         it('should reject wrong tag name', () => {
-            const tag = '#EXT-X-MEDIA-SEQUENCES:1';
+            const tag = '#EXT-X-MEDIA-SEQUENCES:1' as const;
             // @ts-expect-error
             expect(() => EXT_X_MEDIA_SEQUENCE_CODEC.decode(tag)).toThrow();
         });
@@ -103,12 +101,10 @@ describe('EXT-X-MEDIA-SEQUENCE schema', () => {
         });
 
         it('should reject encoding negative sequence numbers', () => {
-            // @ts-expect-error
             expect(() => EXT_X_MEDIA_SEQUENCE_CODEC.encode(-1)).toThrow();
         });
 
         it('should reject encoding non-integer sequence numbers', () => {
-            // @ts-expect-error
             expect(() => EXT_X_MEDIA_SEQUENCE_CODEC.encode(1.5)).toThrow();
         });
 
