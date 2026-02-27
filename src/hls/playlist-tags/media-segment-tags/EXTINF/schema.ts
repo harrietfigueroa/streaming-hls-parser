@@ -36,6 +36,12 @@ export const EXTINF_OBJECT = z
          * expressed as UTF-8 text.
          */
         TITLE: z.string().optional(),
+
+        /**
+         * DURATION_STR (internal)
+         * The original string representation of the duration to preserve formatting
+         */
+        DURATION_STR: z.string().optional(),
     })
     .readonly();
 
@@ -46,14 +52,16 @@ export const EXTINF_CODEC = z.codec(EXTINF_STRING, EXTINF_OBJECT, {
         // Parse duration and optional title
         const commaIndex = content.indexOf(',');
         let duration: number;
+        let durationStr: string;
         let title: string | undefined;
 
         if (commaIndex === -1) {
             // No comma, just duration
+            durationStr = content;
             duration = parseFloat(content);
         } else {
             // Has comma, parse duration and title
-            const durationStr = content.substring(0, commaIndex);
+            durationStr = content.substring(0, commaIndex);
             duration = parseFloat(durationStr);
 
             const titleStr = content.substring(commaIndex + 1);
@@ -63,13 +71,26 @@ export const EXTINF_CODEC = z.codec(EXTINF_STRING, EXTINF_OBJECT, {
         return {
             DURATION: duration,
             TITLE: title,
+            DURATION_STR: durationStr,
         };
     },
     encode: (obj) => {
-        if (obj.TITLE !== undefined) {
-            return `${TAG}:${obj.DURATION},${obj.TITLE}` as any;
+        // Use the original duration string if available, otherwise format the number
+        let durationStr: string;
+        if (obj.DURATION_STR) {
+            durationStr = obj.DURATION_STR;
+        } else if (Number.isInteger(obj.DURATION)) {
+            durationStr = obj.DURATION.toString();
         } else {
-            return `${TAG}:${obj.DURATION}` as any;
+            // Format with enough precision, then remove trailing zeros
+            durationStr = obj.DURATION.toFixed(5).replace(/\.?0+$/, '');
+        }
+
+        // Always include trailing comma (RFC 8216 format)
+        if (obj.TITLE !== undefined && obj.TITLE !== '') {
+            return `${TAG}:${durationStr},${obj.TITLE}` as any;
+        } else {
+            return `${TAG}:${durationStr},` as any;
         }
     },
 });

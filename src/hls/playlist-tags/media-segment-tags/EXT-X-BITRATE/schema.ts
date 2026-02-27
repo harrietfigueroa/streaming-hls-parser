@@ -38,7 +38,7 @@ export const EXT_X_BITRATE_OBJECT = z.coerce.number().int().positive().describe(
     90-110% accuracy of the actual segment bit rates.
 
     Defined in: draft-pantos-hls-rfc8216bis Section 4.4.4.8
-`);
+`).readonly();
 
 export const EXT_X_BITRATE_CODEC = z.codec(EXT_X_BITRATE_STRING, EXT_X_BITRATE_OBJECT, {
     decode: (value) => {

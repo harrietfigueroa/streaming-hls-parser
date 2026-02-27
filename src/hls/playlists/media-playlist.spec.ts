@@ -151,8 +151,12 @@ http://media.example.com/third.ts
 
         it('should return the correct HLS string for a Very Large Playlist', async (): Promise<void> => {
             const hls = veryLargeMediaPlaylist.toHLS().split('\n');
+            const inputLines = veryLargePlaylistStr.split('\n').filter(line => line.trim() !== '');
 
-            for (const [i, inputLine] of veryLargePlaylistStr.split('\n').entries()) {
+            // Ensure we have the same number of non-empty lines
+            expect(hls.length).toBe(inputLines.length);
+
+            for (const [i, inputLine] of inputLines.entries()) {
                 expect(hls[i].trim()).toEqual(inputLine.trim());
             }
         });

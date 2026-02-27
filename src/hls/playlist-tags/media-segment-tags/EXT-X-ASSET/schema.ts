@@ -36,7 +36,7 @@ export const TAG = '#EXT-X-ASSET' as const;
 export const EXT_X_ASSET_STRING = z.string().startsWith(TAG);
 
 export const EXT_X_ASSET_OBJECT = z
-    .record(z.string(), z.string())
+    .record(z.string(), z.string()).readonly()
     .describe(`
     The EXT-X-ASSET tag provides content metadata for ad decision servers
     in HLS streams. This tag is used by AWS Elemental MediaTailor and other

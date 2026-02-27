@@ -50,7 +50,7 @@ export const EXT_X_I_FRAME_STREAM_INF_OBJECT = z
         RESOLUTION: z.object({
             height: z.number(),
             width: z.number(),
-        }),
+        }).readonly(),
         'HDCP-LEVEL': z.enum(['TYPE-0', 'NONE']),
         VIDEO: z.string(),
     })

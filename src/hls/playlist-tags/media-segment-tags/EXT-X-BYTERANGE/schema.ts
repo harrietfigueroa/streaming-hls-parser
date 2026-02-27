@@ -5,12 +5,12 @@ const TAG = '#EXT-X-BYTERANGE' as const;
 export const EXT_X_BYTERANGE_STRING = z.union([
     z.templateLiteral([TAG, ':', z.number()]),
     z.templateLiteral([TAG, ':', z.number(), '@', z.number()]),
-]);
+]).readonly();
 
 export const EXT_X_BYTERANGE = z.object({
     n: z.number().int().positive(),
     o: z.number().int().positive().optional(),
-});
+}).readonly();
 
 /**
  *  The EXT-X-BYTERANGE tag indicates that a Media Segment is a sub-range

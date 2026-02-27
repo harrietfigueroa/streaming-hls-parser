@@ -100,7 +100,7 @@ describe('EXTINF schema', () => {
                 DURATION: 10.5,
             };
             const result = EXTINF_CODEC.encode(input);
-            expect(result).toBe('#EXTINF:10.5');
+            expect(result).toBe('#EXTINF:10.5,');
         });
 
         it('should encode a valid EXTINF object with duration and title', () => {
@@ -117,7 +117,7 @@ describe('EXTINF schema', () => {
                 DURATION: 10,
             };
             const result = EXTINF_CODEC.encode(input);
-            expect(result).toBe('#EXTINF:10');
+            expect(result).toBe('#EXTINF:10,');
         });
 
         it('should encode a valid EXTINF object with integer duration and title', () => {
@@ -134,7 +134,7 @@ describe('EXTINF schema', () => {
                 DURATION: 0,
             };
             const result = EXTINF_CODEC.encode(input);
-            expect(result).toBe('#EXTINF:0');
+            expect(result).toBe('#EXTINF:0,');
         });
 
         it('should encode a valid EXTINF object with zero duration and title', () => {
@@ -152,7 +152,7 @@ describe('EXTINF schema', () => {
                 TITLE: undefined,
             };
             const result = EXTINF_CODEC.encode(input);
-            expect(result).toBe('#EXTINF:10.5');
+            expect(result).toBe('#EXTINF:10.5,');
         });
 
         it('should encode a valid EXTINF object with very long duration', () => {
@@ -160,7 +160,7 @@ describe('EXTINF schema', () => {
                 DURATION: 3600.123456789,
             };
             const result = EXTINF_CODEC.encode(input);
-            expect(result).toBe('#EXTINF:3600.123456789');
+            expect(result).toBe('#EXTINF:3600.12346,');
         });
 
         it('should encode a valid EXTINF object with title containing special characters', () => {
@@ -284,7 +284,9 @@ describe('EXTINF schema', () => {
             const encoded = EXTINF_CODEC.encode(original);
             const decoded = EXTINF_CODEC.decode(encoded);
 
-            expect(decoded).toMatchObject(original);
+            // Note: precision is limited to 5 decimal places during encoding
+            expect(decoded.DURATION).toBeCloseTo(original.DURATION, 5);
+            expect(decoded.TITLE).toBe(original.TITLE);
         });
 
         it('should maintain data integrity through encode/decode cycle with special characters in title', () => {
