@@ -6,15 +6,31 @@ import { EXT_X_KEY_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-KEY/s
 import { EXT_X_MAP_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-MAP/schema';
 import { EXT_X_PROGRAM_DATE_TIME_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/schema';
 import { EXT_X_DATERANGE_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/schema';
+import { EXT_X_GAP_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-GAP/schema';
+import { EXT_X_BITRATE_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-BITRATE/schema';
+import { EXT_X_PART_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-PART/schema';
+import { EXT_X_CUE_OUT_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-CUE-OUT/schema';
+import { EXT_X_CUE_IN_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-CUE-IN/schema';
+import { EXT_X_CUE_OUT_CONT_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-CUE-OUT-CONT/schema';
+import { EXT_X_ASSET_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-ASSET/schema';
+import { EXT_X_SPLICEPOINT_SCTE35_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-SPLICEPOINT-SCTE35/schema';
 
 export interface MediaSegmentOptions {
     '#EXTINF': z.infer<typeof EXTINF_CODEC>;
-    '#EXT-X-BYTERANGE': z.infer<typeof EXT_X_BYTERANGE_CODEC>;
-    '#EXT-X-DISCONTINUITY': z.infer<typeof EXT_X_DISCONTINUITY_CODEC>;
-    '#EXT-X-KEY': z.infer<typeof EXT_X_KEY_CODEC>;
-    '#EXT-X-MAP': z.infer<typeof EXT_X_MAP_CODEC>;
-    '#EXT-X-PROGRAM-DATE-TIME': z.infer<typeof EXT_X_PROGRAM_DATE_TIME_CODEC>;
-    '#EXT-X-DATERANGE': z.infer<typeof EXT_X_DATERANGE_CODEC>;
+    '#EXT-X-BYTERANGE'?: z.infer<typeof EXT_X_BYTERANGE_CODEC>;
+    '#EXT-X-DISCONTINUITY'?: z.infer<typeof EXT_X_DISCONTINUITY_CODEC>;
+    '#EXT-X-KEY'?: z.infer<typeof EXT_X_KEY_CODEC>;
+    '#EXT-X-MAP'?: z.infer<typeof EXT_X_MAP_CODEC>;
+    '#EXT-X-PROGRAM-DATE-TIME'?: z.infer<typeof EXT_X_PROGRAM_DATE_TIME_CODEC>;
+    '#EXT-X-DATERANGE'?: z.infer<typeof EXT_X_DATERANGE_CODEC>;
+    '#EXT-X-GAP'?: z.infer<typeof EXT_X_GAP_CODEC>;
+    '#EXT-X-BITRATE'?: z.infer<typeof EXT_X_BITRATE_CODEC>;
+    '#EXT-X-PART'?: z.infer<typeof EXT_X_PART_CODEC>;
+    '#EXT-X-CUE-OUT'?: z.infer<typeof EXT_X_CUE_OUT_CODEC>;
+    '#EXT-X-CUE-IN'?: z.infer<typeof EXT_X_CUE_IN_CODEC>;
+    '#EXT-X-CUE-OUT-CONT'?: z.infer<typeof EXT_X_CUE_OUT_CONT_CODEC>;
+    '#EXT-X-ASSET'?: z.infer<typeof EXT_X_ASSET_CODEC>;
+    '#EXT-X-SPLICEPOINT-SCTE35'?: z.infer<typeof EXT_X_SPLICEPOINT_SCTE35_CODEC>;
     URI: string;
 }
 export class MediaSegment implements MediaSegmentOptions {
@@ -342,6 +358,130 @@ export class MediaSegment implements MediaSegmentOptions {
     Clients SHOULD ignore EXT-X-DATERANGE tags with illegal syntax.
     */
     public readonly '#EXT-X-DATERANGE': MediaSegmentOptions['#EXT-X-DATERANGE'];
+
+    /**
+     * The EXT-X-GAP tag indicates that the segment is not available and the
+     * client should not attempt to load it. This is used in live playlists
+     * when the origin cannot produce media in real time.
+     *
+     * Its format is:
+     *
+     * #EXT-X-GAP
+     *
+     * The tag has no attributes and applies to the next Media Segment.
+     * When a client encounters a segment with the EXT-X-GAP tag, it should
+     * treat it as if the segment was not present in the playlist for the
+     * purposes of advancing playback position.
+     */
+    public readonly '#EXT-X-GAP': MediaSegmentOptions['#EXT-X-GAP'];
+
+    /**
+     * The EXT-X-BITRATE tag provides a hint about the bitrate of a Media
+     * Segment in kilobits per second. This can help clients estimate
+     * bandwidth requirements.
+     *
+     * Its format is:
+     *
+     * #EXT-X-BITRATE:<rate>
+     *
+     * where rate is a decimal-integer representing the approximate bitrate
+     * of the next Media Segment in kilobits per second.
+     */
+    public readonly '#EXT-X-BITRATE': MediaSegmentOptions['#EXT-X-BITRATE'];
+
+    /**
+     * The EXT-X-PART tag defines a Partial Segment for Low-Latency HLS.
+     * Partial Segments enable sub-second latency by allowing clients to
+     * request and play portions of segments before the full segment is
+     * available.
+     *
+     * Its format is:
+     *
+     * #EXT-X-PART:<attribute-list>
+     *
+     * Required attributes:
+     * - URI: The resource that contains the Partial Segment
+     * - DURATION: The duration of the Partial Segment in seconds
+     *
+     * Optional attributes:
+     * - INDEPENDENT: YES if the Partial Segment contains an independent frame
+     * - BYTERANGE: Byte range of the Partial Segment
+     * - GAP: YES if the Partial Segment is a gap
+     */
+    public readonly '#EXT-X-PART': MediaSegmentOptions['#EXT-X-PART'];
+
+    /**
+     * The EXT-X-CUE-OUT tag marks the start of an ad break in HLS streams.
+     * This is used in SCTE-35 ad insertion workflows supported by AWS
+     * Elemental MediaTailor, MediaLive, and other SSAI platforms.
+     *
+     * Its format is one of:
+     *
+     * #EXT-X-CUE-OUT:DURATION=<seconds>
+     * #EXT-X-CUE-OUT:<seconds>
+     * #EXT-X-CUE-OUT
+     *
+     * The tag applies to the next Media Segment and indicates the beginning
+     * of an ad avail where ads should be inserted.
+     */
+    public readonly '#EXT-X-CUE-OUT': MediaSegmentOptions['#EXT-X-CUE-OUT'];
+
+    /**
+     * The EXT-X-CUE-IN tag marks the end of an ad break in HLS streams.
+     * This is used in SCTE-35 ad insertion workflows.
+     *
+     * Its format is:
+     *
+     * #EXT-X-CUE-IN
+     *
+     * The tag has no attributes and applies to the next Media Segment,
+     * indicating the return to main content after an ad break.
+     */
+    public readonly '#EXT-X-CUE-IN': MediaSegmentOptions['#EXT-X-CUE-IN'];
+
+    /**
+     * The EXT-X-CUE-OUT-CONT tag is a continuation marker that appears
+     * during an ongoing ad break in HLS streams. This is used to track
+     * progress through the ad avail.
+     *
+     * Its format is:
+     *
+     * #EXT-X-CUE-OUT-CONT:<elapsed>/<duration>
+     *
+     * where elapsed is the number of seconds elapsed in the ad break and
+     * duration is the total ad break duration.
+     */
+    public readonly '#EXT-X-CUE-OUT-CONT': MediaSegmentOptions['#EXT-X-CUE-OUT-CONT'];
+
+    /**
+     * The EXT-X-ASSET tag provides content metadata for ad decision servers
+     * in HLS streams. This tag is used by AWS Elemental MediaTailor and other
+     * SSAI platforms to pass contextual information about the content.
+     *
+     * Its format is:
+     *
+     * #EXT-X-ASSET:<attribute-list>
+     *
+     * The attribute list consists of comma-separated key-value pairs with
+     * URL-encoded values. Common attributes include GENRE, CAID, EPISODE,
+     * SEASON, and SERIES.
+     */
+    public readonly '#EXT-X-ASSET': MediaSegmentOptions['#EXT-X-ASSET'];
+
+    /**
+     * The EXT-X-SPLICEPOINT-SCTE35 tag carries SCTE-35 splice information
+     * encoded as a base64 string. This tag is used to signal ad insertion
+     * opportunities using the SCTE-35 standard.
+     *
+     * Its format is:
+     *
+     * #EXT-X-SPLICEPOINT-SCTE35:<base64-encoded-payload>
+     *
+     * The base64 payload contains the binary splice_info_section from the
+     * SCTE-35 specification. This tag applies to the next Media Segment.
+     */
+    public readonly '#EXT-X-SPLICEPOINT-SCTE35': MediaSegmentOptions['#EXT-X-SPLICEPOINT-SCTE35'];
+
     public readonly 'URI': MediaSegmentOptions['URI'];
 
     constructor(mediaSegmentOptions: MediaSegmentOptions) {
@@ -352,6 +492,14 @@ export class MediaSegment implements MediaSegmentOptions {
         this['#EXT-X-MAP'] = mediaSegmentOptions['#EXT-X-MAP'];
         this['#EXT-X-PROGRAM-DATE-TIME'] = mediaSegmentOptions['#EXT-X-PROGRAM-DATE-TIME'];
         this['#EXT-X-DATERANGE'] = mediaSegmentOptions['#EXT-X-DATERANGE'];
+        this['#EXT-X-GAP'] = mediaSegmentOptions['#EXT-X-GAP'];
+        this['#EXT-X-BITRATE'] = mediaSegmentOptions['#EXT-X-BITRATE'];
+        this['#EXT-X-PART'] = mediaSegmentOptions['#EXT-X-PART'];
+        this['#EXT-X-CUE-OUT'] = mediaSegmentOptions['#EXT-X-CUE-OUT'];
+        this['#EXT-X-CUE-IN'] = mediaSegmentOptions['#EXT-X-CUE-IN'];
+        this['#EXT-X-CUE-OUT-CONT'] = mediaSegmentOptions['#EXT-X-CUE-OUT-CONT'];
+        this['#EXT-X-ASSET'] = mediaSegmentOptions['#EXT-X-ASSET'];
+        this['#EXT-X-SPLICEPOINT-SCTE35'] = mediaSegmentOptions['#EXT-X-SPLICEPOINT-SCTE35'];
         this['URI'] = mediaSegmentOptions['URI'];
     }
 
@@ -374,6 +522,30 @@ export class MediaSegment implements MediaSegmentOptions {
         if (this['#EXT-X-DATERANGE']) {
             yield EXT_X_DATERANGE_CODEC.encode(this['#EXT-X-DATERANGE']);
         }
+        if (this['#EXT-X-GAP']) {
+            yield EXT_X_GAP_CODEC.encode(this['#EXT-X-GAP']);
+        }
+        if (this['#EXT-X-BITRATE']) {
+            yield EXT_X_BITRATE_CODEC.encode(this['#EXT-X-BITRATE']);
+        }
+        if (this['#EXT-X-PART']) {
+            yield EXT_X_PART_CODEC.encode(this['#EXT-X-PART']);
+        }
+        if (this['#EXT-X-CUE-OUT']) {
+            yield EXT_X_CUE_OUT_CODEC.encode(this['#EXT-X-CUE-OUT']);
+        }
+        if (this['#EXT-X-CUE-IN']) {
+            yield EXT_X_CUE_IN_CODEC.encode(this['#EXT-X-CUE-IN']);
+        }
+        if (this['#EXT-X-CUE-OUT-CONT']) {
+            yield EXT_X_CUE_OUT_CONT_CODEC.encode(this['#EXT-X-CUE-OUT-CONT']);
+        }
+        if (this['#EXT-X-ASSET']) {
+            yield EXT_X_ASSET_CODEC.encode(this['#EXT-X-ASSET']);
+        }
+        if (this['#EXT-X-SPLICEPOINT-SCTE35']) {
+            yield EXT_X_SPLICEPOINT_SCTE35_CODEC.encode(this['#EXT-X-SPLICEPOINT-SCTE35']);
+        }
         yield EXTINF_CODEC.encode(this['#EXTINF']);
         yield this['URI'];
     }
@@ -391,6 +563,14 @@ export class MediaSegment implements MediaSegmentOptions {
             '#EXT-X-MAP': this['#EXT-X-MAP'],
             '#EXT-X-PROGRAM-DATE-TIME': this['#EXT-X-PROGRAM-DATE-TIME'],
             '#EXT-X-DATERANGE': this['#EXT-X-DATERANGE'],
+            '#EXT-X-GAP': this['#EXT-X-GAP'],
+            '#EXT-X-BITRATE': this['#EXT-X-BITRATE'],
+            '#EXT-X-PART': this['#EXT-X-PART'],
+            '#EXT-X-CUE-OUT': this['#EXT-X-CUE-OUT'],
+            '#EXT-X-CUE-IN': this['#EXT-X-CUE-IN'],
+            '#EXT-X-CUE-OUT-CONT': this['#EXT-X-CUE-OUT-CONT'],
+            '#EXT-X-ASSET': this['#EXT-X-ASSET'],
+            '#EXT-X-SPLICEPOINT-SCTE35': this['#EXT-X-SPLICEPOINT-SCTE35'],
             URI: this['URI'],
         };
     }

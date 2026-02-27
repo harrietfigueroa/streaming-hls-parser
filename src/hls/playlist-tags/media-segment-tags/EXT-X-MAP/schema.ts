@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { fromAttributeList, toAttributeList } from '../../../parse-helpers/attribute-list';
+import { fromAttributeList } from '../../../parse-helpers/attribute-list';
 import { EXT_X_BYTERANGE } from '../EXT-X-BYTERANGE/schema';
 import { stripTag } from '../../../parse-helpers/strip-tag';
 
@@ -76,19 +76,21 @@ export const EXT_X_MAP_CODEC = z.codec(EXT_X_MAP_STRING, EXT_X_MAP_OBJECT, {
         return obj;
     },
     encode: (obj) => {
-        const preEncoded: Record<string, unknown> = {
-            ...obj,
-        };
+        const parts: string[] = [];
 
-        if (obj.URI) {
-            preEncoded.URI = `"${obj.URI}"`;
+        // URI: quoted-string - URI of the media initialization section (always quoted)
+        if (obj.URI !== undefined) {
+            parts.push(`URI="${obj.URI}"`);
         }
 
-        if (obj.BYTERANGE) {
-            preEncoded.BYTERANGE = obj.BYTERANGE.o
-                ? `"${obj.BYTERANGE.n}@${obj.BYTERANGE.o}"`
-                : `"${obj.BYTERANGE.n}"`;
+        // BYTERANGE: quoted-string - byte range in format "n@o" or "n" (always quoted)
+        if (obj.BYTERANGE !== undefined) {
+            const byterangeValue = obj.BYTERANGE.o
+                ? `${obj.BYTERANGE.n}@${obj.BYTERANGE.o}`
+                : `${obj.BYTERANGE.n}`;
+            parts.push(`BYTERANGE="${byterangeValue}"`);
         }
-        return `${TAG}:${toAttributeList(preEncoded)}` as any;
+
+        return `${TAG}:${parts.join(',')}` as any;
     },
 });

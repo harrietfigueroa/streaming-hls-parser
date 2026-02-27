@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { fromAttributeList, toAttributeList } from '../../../parse-helpers/attribute-list';
+import { fromAttributeList } from '../../../parse-helpers/attribute-list';
 import { stripTag } from '../../../parse-helpers/strip-tag';
 
 export const TAG = '#EXT-X-SESSION-DATA' as const;
@@ -93,25 +93,29 @@ export const EXT_X_SESSION_DATA_CODEC = z.codec(
             return obj;
         },
         encode: (obj) => {
-            const preEncoded: Record<string, unknown> = {
-                ...obj,
-            };
+            const parts: string[] = [];
 
-            // Quote string values that need to be quoted
-            if (obj['DATA-ID']) {
-                preEncoded['DATA-ID'] = `"${obj['DATA-ID']}"`;
-            }
-            if (obj.VALUE) {
-                preEncoded.VALUE = `"${obj.VALUE}"`;
-            }
-            if (obj.URI) {
-                preEncoded.URI = `"${obj.URI}"`;
-            }
-            if (obj.LANGUAGE) {
-                preEncoded.LANGUAGE = `"${obj.LANGUAGE}"`;
+            // DATA-ID: quoted-string - identifier for the data value (always quoted)
+            if (obj['DATA-ID'] !== undefined) {
+                parts.push(`DATA-ID="${obj['DATA-ID']}"`);
             }
 
-            return `${TAG}:${toAttributeList(preEncoded)}` as any;
+            // VALUE: quoted-string - data value (always quoted)
+            if (obj.VALUE !== undefined) {
+                parts.push(`VALUE="${obj.VALUE}"`);
+            }
+
+            // URI: quoted-string - URI of external resource (always quoted)
+            if (obj.URI !== undefined) {
+                parts.push(`URI="${obj.URI}"`);
+            }
+
+            // LANGUAGE: quoted-string - language tag (always quoted)
+            if (obj.LANGUAGE !== undefined) {
+                parts.push(`LANGUAGE="${obj.LANGUAGE}"`);
+            }
+
+            return `${TAG}:${parts.join(',')}` as any;
         },
     },
 );

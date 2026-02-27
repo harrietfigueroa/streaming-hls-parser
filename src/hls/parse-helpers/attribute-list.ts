@@ -84,26 +84,3 @@ export function fromAttributeList(attributeListString: string): Record<string, s
     return result;
 }
 
-export function toAttributeList<T extends Record<string, unknown>>(
-    obj: T,
-): AttributeListTuple<string[]> {
-    return Object.entries(obj)
-        .map(([key, value]) => {
-            const stringValue = String(value);
-            // Quote values that contain special characters, spaces, or are not simple keywords
-            const needsQuotes =
-                stringValue.includes(',') ||
-                stringValue.includes(' ') ||
-                stringValue.includes('=') ||
-                stringValue.includes('.') ||
-                stringValue.includes('/') ||
-                stringValue.includes('-') ||
-                (stringValue.length > 0 && !/^[A-Z0-9]+$/.test(stringValue));
-
-            if (needsQuotes) {
-                return `${key}="${stringValue}"`;
-            }
-            return `${key}=${stringValue}`;
-        })
-        .join(',') as AttributeListTuple<string[]>;
-}

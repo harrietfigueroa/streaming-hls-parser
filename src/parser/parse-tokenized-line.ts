@@ -37,6 +37,38 @@ export function parseTokenizedLine(line: LexicalToken) {
             line.value = playlistTagRegistry['#EXT-X-DATERANGE'].decode(line.source as any);
             break;
         }
+        case '#EXT-X-GAP': {
+            line.value = playlistTagRegistry['#EXT-X-GAP'].decode(line.source as any);
+            break;
+        }
+        case '#EXT-X-BITRATE': {
+            line.value = playlistTagRegistry['#EXT-X-BITRATE'].decode(line.source as any);
+            break;
+        }
+        case '#EXT-X-PART': {
+            line.value = playlistTagRegistry['#EXT-X-PART'].decode(line.source as any);
+            break;
+        }
+        case '#EXT-X-CUE-OUT': {
+            line.value = playlistTagRegistry['#EXT-X-CUE-OUT'].decode(line.source as any);
+            break;
+        }
+        case '#EXT-X-CUE-IN': {
+            line.value = playlistTagRegistry['#EXT-X-CUE-IN'].decode(line.source as any);
+            break;
+        }
+        case '#EXT-X-CUE-OUT-CONT': {
+            line.value = playlistTagRegistry['#EXT-X-CUE-OUT-CONT'].decode(line.source as any);
+            break;
+        }
+        case '#EXT-X-ASSET': {
+            line.value = playlistTagRegistry['#EXT-X-ASSET'].decode(line.source as any);
+            break;
+        }
+        case '#EXT-X-SPLICEPOINT-SCTE35': {
+            line.value = playlistTagRegistry['#EXT-X-SPLICEPOINT-SCTE35'].decode(line.source as any);
+            break;
+        }
 
         // Media or Multivariant Playlist Tags
         case '#EXTM3U': {
@@ -103,6 +135,34 @@ export function parseTokenizedLine(line: LexicalToken) {
         }
         case '#EXT-X-SESSION-KEY': {
             line.value = playlistTagRegistry['#EXT-X-SESSION-KEY'].decode(line.source as any);
+            break;
+        }
+        case '#EXT-X-DEFINE': {
+            line.value = playlistTagRegistry['#EXT-X-DEFINE'].decode(line.source as any);
+            break;
+        }
+        case '#EXT-X-SERVER-CONTROL': {
+            line.value = playlistTagRegistry['#EXT-X-SERVER-CONTROL'].decode(line.source as any);
+            break;
+        }
+        case '#EXT-X-PART-INF': {
+            line.value = playlistTagRegistry['#EXT-X-PART-INF'].decode(line.source as any);
+            break;
+        }
+        case '#EXT-X-PRELOAD-HINT': {
+            line.value = playlistTagRegistry['#EXT-X-PRELOAD-HINT'].decode(line.source as any);
+            break;
+        }
+        case '#EXT-X-SKIP': {
+            line.value = playlistTagRegistry['#EXT-X-SKIP'].decode(line.source as any);
+            break;
+        }
+        case '#EXT-X-RENDITION-REPORT': {
+            line.value = playlistTagRegistry['#EXT-X-RENDITION-REPORT'].decode(line.source as any);
+            break;
+        }
+        case '#EXT-X-CONTENT-STEERING': {
+            line.value = playlistTagRegistry['#EXT-X-CONTENT-STEERING'].decode(line.source as any);
             break;
         }
     }

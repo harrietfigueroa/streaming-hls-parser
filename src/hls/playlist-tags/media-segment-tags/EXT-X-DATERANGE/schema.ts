@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { fromAttributeList, toAttributeList } from '../../../parse-helpers/attribute-list';
+import { fromAttributeList } from '../../../parse-helpers/attribute-list';
 import { stripTag } from '../../../parse-helpers/strip-tag';
 
 export const TAG = '#EXT-X-DATERANGE' as const;
@@ -235,30 +235,58 @@ export const EXT_X_DATERANGE_CODEC = z.codec(EXT_X_DATERANGE_STRING, EXT_X_DATER
     decode: (value) =>
         fromAttributeList(stripTag(value)) as unknown as z.infer<typeof EXT_X_DATERANGE_OBJECT>,
     encode: (obj) => {
-        const preEncoded: Record<string, unknown> = {
-            ...obj,
-        };
+        const parts: string[] = [];
 
-        if (obj['ID']) {
-            preEncoded['ID'] = `"${obj['ID']}"`;
+        // ID: quoted-string (always quoted)
+        if (obj.ID !== undefined) {
+            parts.push(`ID="${obj.ID}"`);
         }
 
-        if (obj['CLASS']) {
-            preEncoded['CLASS'] = `"${obj['CLASS']}"`;
+        // CLASS: quoted-string (always quoted)
+        if (obj.CLASS !== undefined) {
+            parts.push(`CLASS="${obj.CLASS}"`);
         }
 
-        if (obj['END-ON-NEXT']) {
-            preEncoded['END-ON-NEXT'] = '"YES"';
+        // START-DATE: quoted-string - ISO-8601 datetime (always quoted)
+        if (obj['START-DATE'] !== undefined) {
+            parts.push(`START-DATE="${obj['START-DATE']}"`);
         }
 
-        if (obj['START-DATE']) {
-            preEncoded['START-DATE'] = `"${obj['START-DATE']}"`;
+        // END-DATE: quoted-string - ISO-8601 datetime (always quoted)
+        if (obj['END-DATE'] !== undefined) {
+            parts.push(`END-DATE="${obj['END-DATE']}"`);
         }
 
-        if (obj['END-DATE']) {
-            preEncoded['END-DATE'] = `"${obj['END-DATE']}"`;
+        // DURATION: decimal-floating-point (not quoted)
+        if (obj.DURATION !== undefined) {
+            parts.push(`DURATION=${obj.DURATION}`);
         }
 
-        return `${TAG}:${toAttributeList(preEncoded)}` as any;
+        // PLANNED-DURATION: decimal-floating-point (not quoted)
+        if (obj['PLANNED-DURATION'] !== undefined) {
+            parts.push(`PLANNED-DURATION=${obj['PLANNED-DURATION']}`);
+        }
+
+        // SCTE35-CMD: hexadecimal-sequence (not quoted)
+        if (obj['SCTE35-CMD'] !== undefined) {
+            parts.push(`SCTE35-CMD=${obj['SCTE35-CMD']}`);
+        }
+
+        // SCTE35-OUT: hexadecimal-sequence (not quoted)
+        if (obj['SCTE35-OUT'] !== undefined) {
+            parts.push(`SCTE35-OUT=${obj['SCTE35-OUT']}`);
+        }
+
+        // SCTE35-IN: hexadecimal-sequence (not quoted)
+        if (obj['SCTE35-IN'] !== undefined) {
+            parts.push(`SCTE35-IN=${obj['SCTE35-IN']}`);
+        }
+
+        // END-ON-NEXT: quoted-string - enumerated value "YES" (always quoted)
+        if (obj['END-ON-NEXT'] !== undefined) {
+            parts.push(`END-ON-NEXT="${obj['END-ON-NEXT']}"`);
+        }
+
+        return `${TAG}:${parts.join(',')}` as any;
     },
 });

@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { fromAttributeList, toAttributeList } from '../../../parse-helpers/attribute-list';
+import { fromAttributeList } from '../../../parse-helpers/attribute-list';
 import { stripTag } from '../../../parse-helpers/strip-tag';
 
 export const TAG = '#EXT-X-STREAM-INF' as const;
@@ -210,25 +210,63 @@ export const EXT_X_STREAM_INF_CODEC = z.codec(EXT_X_STREAM_INF_STRING, EXT_X_STR
         return obj;
     },
     encode: (obj) => {
-        const preEncoded: Record<string, unknown> = {
-            ...obj,
-        };
+        const parts: string[] = [];
 
-        // Convert objects back to strings
-        if (obj.CODECS) {
-            preEncoded.CODECS = `"${obj.CODECS.join(',')}"`;
-        }
-        if (obj.RESOLUTION) {
-            preEncoded.RESOLUTION = `${obj.RESOLUTION.width}x${obj.RESOLUTION.height}`;
-        }
-        if (obj.AUDIO) {
-            preEncoded.AUDIO = `"${obj.AUDIO}"`;
-        }
-        if (obj.VIDEO) {
-            preEncoded.VIDEO = `"${obj.VIDEO}"`;
+        // BANDWIDTH: decimal-integer - peak segment bit rate in bits per second (not quoted)
+        if (obj.BANDWIDTH !== undefined) {
+            parts.push(`BANDWIDTH=${obj.BANDWIDTH}`);
         }
 
-        return `${TAG}:${toAttributeList(preEncoded)}` as any;
+        // AVERAGE-BANDWIDTH: decimal-integer - average segment bit rate (not quoted)
+        if (obj['AVERAGE-BANDWIDTH'] !== undefined) {
+            parts.push(`AVERAGE-BANDWIDTH=${obj['AVERAGE-BANDWIDTH']}`);
+        }
+
+        // CODECS: quoted-string - comma-separated list of formats (always quoted)
+        if (obj.CODECS !== undefined) {
+            parts.push(`CODECS="${obj.CODECS.join(',')}"`);
+        }
+
+        // RESOLUTION: decimal-resolution - optimal pixel resolution (not quoted)
+        if (obj.RESOLUTION !== undefined) {
+            parts.push(`RESOLUTION=${obj.RESOLUTION.width}x${obj.RESOLUTION.height}`);
+        }
+
+        // FRAME-RATE: decimal-floating-point - maximum frame rate (not quoted)
+        if (obj['FRAME-RATE'] !== undefined) {
+            parts.push(`FRAME-RATE=${obj['FRAME-RATE']}`);
+        }
+
+        // HDCP-LEVEL: enumerated-string - HDCP level (not quoted)
+        if (obj['HDCP-LEVEL'] !== undefined) {
+            parts.push(`HDCP-LEVEL=${obj['HDCP-LEVEL']}`);
+        }
+
+        // AUDIO: quoted-string - audio rendition group ID (always quoted)
+        if (obj.AUDIO !== undefined) {
+            parts.push(`AUDIO="${obj.AUDIO}"`);
+        }
+
+        // VIDEO: quoted-string - video rendition group ID (always quoted)
+        if (obj.VIDEO !== undefined) {
+            parts.push(`VIDEO="${obj.VIDEO}"`);
+        }
+
+        // SUBTITLES: quoted-string - subtitle rendition group ID (always quoted)
+        if (obj.SUBTITLES !== undefined) {
+            parts.push(`SUBTITLES="${obj.SUBTITLES}"`);
+        }
+
+        // CLOSED-CAPTIONS: quoted-string or NONE - closed captions group ID (always quoted or NONE)
+        if (obj['CLOSED-CAPTIONS'] !== undefined) {
+            if (obj['CLOSED-CAPTIONS'] === 'NONE') {
+                parts.push(`CLOSED-CAPTIONS=NONE`);
+            } else {
+                parts.push(`CLOSED-CAPTIONS="${obj['CLOSED-CAPTIONS']}"`);
+            }
+        }
+
+        return `${TAG}:${parts.join(',')}` as any;
     },
 });
 

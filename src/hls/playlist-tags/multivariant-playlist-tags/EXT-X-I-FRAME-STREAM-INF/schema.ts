@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { fromAttributeList, toAttributeList } from '../../../parse-helpers/attribute-list';
+import { fromAttributeList } from '../../../parse-helpers/attribute-list';
 import { stripTag } from '../../../parse-helpers/strip-tag';
 
 export const TAG = '#EXT-X-I-FRAME-STREAM-INF' as const;
@@ -98,27 +98,42 @@ export const EXT_X_I_FRAME_STREAM_INF_CODEC = z.codec(
             return obj;
         },
         encode: (value) => {
-            const preEncoded: Record<string, unknown> = {
-                ...value,
-            };
+            const parts: string[] = [];
 
-            if (value['CODECS']) {
-                preEncoded['CODECS'] = `"${value['CODECS'].join(',')}"`;
+            // BANDWIDTH: decimal-integer - peak segment bit rate in bits per second (not quoted)
+            if (value.BANDWIDTH !== undefined) {
+                parts.push(`BANDWIDTH=${value.BANDWIDTH}`);
             }
 
-            if (value['RESOLUTION']) {
-                preEncoded[
-                    'RESOLUTION'
-                ] = `${value['RESOLUTION'].width}x${value['RESOLUTION'].height}`;
+            // AVERAGE-BANDWIDTH: decimal-integer - average segment bit rate (not quoted)
+            if (value['AVERAGE-BANDWIDTH'] !== undefined) {
+                parts.push(`AVERAGE-BANDWIDTH=${value['AVERAGE-BANDWIDTH']}`);
             }
 
-            if (value['VIDEO']) {
-                preEncoded['VIDEO'] = `"${value['VIDEO']}"`;
+            // CODECS: quoted-string - comma-separated list of formats (always quoted)
+            if (value.CODECS !== undefined) {
+                parts.push(`CODECS="${value.CODECS.join(',')}"`);
             }
-            const uri = preEncoded['URI'];
-            delete preEncoded['URI'];
 
-            return `${TAG}:${toAttributeList(preEncoded)}\n${uri}` as any;
+            // RESOLUTION: decimal-resolution - optimal pixel resolution (not quoted)
+            if (value.RESOLUTION !== undefined) {
+                parts.push(`RESOLUTION=${value.RESOLUTION.width}x${value.RESOLUTION.height}`);
+            }
+
+            // HDCP-LEVEL: enumerated-string - HDCP level (not quoted)
+            if (value['HDCP-LEVEL'] !== undefined) {
+                parts.push(`HDCP-LEVEL=${value['HDCP-LEVEL']}`);
+            }
+
+            // VIDEO: quoted-string - video rendition group ID (always quoted)
+            if (value.VIDEO !== undefined) {
+                parts.push(`VIDEO="${value.VIDEO}"`);
+            }
+
+            // URI is output on a separate line, not in the attribute list
+            const uri = value.URI || '';
+
+            return `${TAG}:${parts.join(',')}\n${uri}` as any;
         },
     },
 );

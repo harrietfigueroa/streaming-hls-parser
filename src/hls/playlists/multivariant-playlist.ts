@@ -8,21 +8,25 @@ import { EXTM3U_CODEC } from '../playlist-tags/basic-tags/EXTM3U/schema';
 import { EXT_X_VERSION_CODEC } from '../playlist-tags/basic-tags/EXT-X-VERSION/schema';
 import { EXT_X_INDEPENDENT_SEGMENTS_CODEC } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/schema';
 import { EXT_X_START_CODEC } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/schema';
+import { EXT_X_DEFINE_CODEC } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-DEFINE/schema';
 import { EXT_X_MEDIA_CODEC } from '../playlist-tags/multivariant-playlist-tags/EXT-X-MEDIA/schema';
 import { EXT_X_SESSION_DATA_CODEC } from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-DATA/schema';
 import { EXT_X_SESSION_KEY_CODEC } from '../playlist-tags/multivariant-playlist-tags/EXT-X-SESSION-KEY/schema';
+import { EXT_X_CONTENT_STEERING_CODEC } from '../playlist-tags/multivariant-playlist-tags/EXT-X-CONTENT-STEERING/schema';
 import { StreamInf } from './stream-inf';
 import { StreamInfArrayBuilder } from './stream-inf-array-builder';
 import { Playlist } from './playlists.interfaces';
 
 export interface MultivariantPlaylistOptions {
     '#EXTM3U': z.infer<typeof EXTM3U_CODEC>;
-    '#EXT-X-VERSION': z.infer<typeof EXT_X_VERSION_CODEC>;
-    '#EXT-X-MEDIA': z.infer<typeof EXT_X_MEDIA_CODEC>;
-    '#EXT-X-SESSION-DATA': z.infer<typeof EXT_X_SESSION_DATA_CODEC>;
-    '#EXT-X-SESSION-KEY': z.infer<typeof EXT_X_SESSION_KEY_CODEC>;
-    '#EXT-X-INDEPENDENT-SEGMENTS': z.infer<typeof EXT_X_INDEPENDENT_SEGMENTS_CODEC>;
-    '#EXT-X-START': z.infer<typeof EXT_X_START_CODEC>;
+    '#EXT-X-VERSION'?: z.infer<typeof EXT_X_VERSION_CODEC>;
+    '#EXT-X-MEDIA'?: z.infer<typeof EXT_X_MEDIA_CODEC>;
+    '#EXT-X-SESSION-DATA'?: z.infer<typeof EXT_X_SESSION_DATA_CODEC>;
+    '#EXT-X-SESSION-KEY'?: z.infer<typeof EXT_X_SESSION_KEY_CODEC>;
+    '#EXT-X-INDEPENDENT-SEGMENTS'?: z.infer<typeof EXT_X_INDEPENDENT_SEGMENTS_CODEC>;
+    '#EXT-X-START'?: z.infer<typeof EXT_X_START_CODEC>;
+    '#EXT-X-DEFINE'?: z.infer<typeof EXT_X_DEFINE_CODEC>;
+    '#EXT-X-CONTENT-STEERING'?: z.infer<typeof EXT_X_CONTENT_STEERING_CODEC>;
 }
 
 export class MultivariantPlaylist extends Map<string, StreamInf> implements Playlist {
@@ -154,6 +158,32 @@ export class MultivariantPlaylist extends Map<string, StreamInf> implements Play
     */
     public readonly '#EXT-X-START': MultivariantPlaylistOptions['#EXT-X-START'];
 
+    /**
+     * The EXT-X-DEFINE tag allows variable definitions that can be referenced
+     * throughout the playlist using variable substitution. Variables can be
+     * defined explicitly with NAME/VALUE pairs or imported from query parameters.
+     *
+     * Its format is:
+     *
+     * #EXT-X-DEFINE:<attribute-list>
+     *
+     * Attributes: NAME, VALUE, IMPORT, QUERYPARAM
+     */
+    public readonly '#EXT-X-DEFINE': MultivariantPlaylistOptions['#EXT-X-DEFINE'];
+
+    /**
+     * The EXT-X-CONTENT-STEERING tag allows the server to provide a Content
+     * Steering Manifest that describes alternate pathways for delivering content.
+     * This enables dynamic CDN switching based on network conditions.
+     *
+     * Its format is:
+     *
+     * #EXT-X-CONTENT-STEERING:<attribute-list>
+     *
+     * Attributes include SERVER-URI and PATHWAY-ID.
+     */
+    public readonly '#EXT-X-CONTENT-STEERING': MultivariantPlaylistOptions['#EXT-X-CONTENT-STEERING'];
+
     private constructor(
         multivariantPlaylistOptions: MultivariantPlaylistOptions,
         variantStreams: Map<string, StreamInf>,
@@ -168,6 +198,8 @@ export class MultivariantPlaylist extends Map<string, StreamInf> implements Play
         this['#EXT-X-INDEPENDENT-SEGMENTS'] =
             multivariantPlaylistOptions['#EXT-X-INDEPENDENT-SEGMENTS'];
         this['#EXT-X-START'] = multivariantPlaylistOptions['#EXT-X-START'];
+        this['#EXT-X-DEFINE'] = multivariantPlaylistOptions['#EXT-X-DEFINE'];
+        this['#EXT-X-CONTENT-STEERING'] = multivariantPlaylistOptions['#EXT-X-CONTENT-STEERING'];
     }
 
     private static buildPlaylistOptions(
@@ -201,6 +233,14 @@ export class MultivariantPlaylist extends Map<string, StreamInf> implements Play
             }
             case '#EXT-X-START': {
                 multivariantPlaylistOptions['#EXT-X-START'] = token.value as any;
+                break;
+            }
+            case '#EXT-X-DEFINE': {
+                multivariantPlaylistOptions['#EXT-X-DEFINE'] = token.value as any;
+                break;
+            }
+            case '#EXT-X-CONTENT-STEERING': {
+                multivariantPlaylistOptions['#EXT-X-CONTENT-STEERING'] = token.value as any;
                 break;
             }
         }
@@ -317,6 +357,12 @@ export class MultivariantPlaylist extends Map<string, StreamInf> implements Play
         if (this['#EXT-X-START']) {
             yield EXT_X_START_CODEC.encode(this['#EXT-X-START']);
         }
+        if (this['#EXT-X-DEFINE']) {
+            yield EXT_X_DEFINE_CODEC.encode(this['#EXT-X-DEFINE']);
+        }
+        if (this['#EXT-X-CONTENT-STEERING']) {
+            yield EXT_X_CONTENT_STEERING_CODEC.encode(this['#EXT-X-CONTENT-STEERING']);
+        }
 
         for (const streamInf of this.values()) {
             yield* streamInf.toHLSLines();
@@ -339,6 +385,8 @@ export class MultivariantPlaylist extends Map<string, StreamInf> implements Play
             '#EXT-X-SESSION-KEY': this['#EXT-X-SESSION-KEY'],
             '#EXT-X-INDEPENDENT-SEGMENTS': this['#EXT-X-INDEPENDENT-SEGMENTS'],
             '#EXT-X-START': this['#EXT-X-START'],
+            '#EXT-X-DEFINE': this['#EXT-X-DEFINE'],
+            '#EXT-X-CONTENT-STEERING': this['#EXT-X-CONTENT-STEERING'],
             'STREAM-INF-VALUES': Array.from(this.values(), (streamInf) => streamInf.toJSON()),
         } as const;
     }

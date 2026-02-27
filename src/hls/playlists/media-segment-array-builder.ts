@@ -7,6 +7,14 @@ import { EXT_X_KEY_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-KEY/s
 import { EXT_X_MAP_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-MAP/schema';
 import { EXT_X_PROGRAM_DATE_TIME_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/schema';
 import { EXT_X_DATERANGE_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/schema';
+import { EXT_X_GAP_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-GAP/schema';
+import { EXT_X_BITRATE_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-BITRATE/schema';
+import { EXT_X_PART_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-PART/schema';
+import { EXT_X_CUE_OUT_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-CUE-OUT/schema';
+import { EXT_X_CUE_IN_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-CUE-IN/schema';
+import { EXT_X_CUE_OUT_CONT_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-CUE-OUT-CONT/schema';
+import { EXT_X_ASSET_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-ASSET/schema';
+import { EXT_X_SPLICEPOINT_SCTE35_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-SPLICEPOINT-SCTE35/schema';
 
 export class MediaSegmentArrayBuilder extends Map<string, MediaSegment> {
     private inProgress: Partial<MediaSegmentOptions> = {};
@@ -39,6 +47,38 @@ export class MediaSegmentArrayBuilder extends Map<string, MediaSegment> {
 
     public addDateRange(dateRange: z.infer<typeof EXT_X_DATERANGE_CODEC>): void {
         this.inProgress['#EXT-X-DATERANGE'] = dateRange;
+    }
+
+    public addGap(gap: z.infer<typeof EXT_X_GAP_CODEC>): void {
+        this.inProgress['#EXT-X-GAP'] = gap;
+    }
+
+    public addBitrate(bitrate: z.infer<typeof EXT_X_BITRATE_CODEC>): void {
+        this.inProgress['#EXT-X-BITRATE'] = bitrate;
+    }
+
+    public addPart(part: z.infer<typeof EXT_X_PART_CODEC>): void {
+        this.inProgress['#EXT-X-PART'] = part;
+    }
+
+    public addCueOut(cueOut: z.infer<typeof EXT_X_CUE_OUT_CODEC>): void {
+        this.inProgress['#EXT-X-CUE-OUT'] = cueOut;
+    }
+
+    public addCueIn(cueIn: z.infer<typeof EXT_X_CUE_IN_CODEC>): void {
+        this.inProgress['#EXT-X-CUE-IN'] = cueIn;
+    }
+
+    public addCueOutCont(cueOutCont: z.infer<typeof EXT_X_CUE_OUT_CONT_CODEC>): void {
+        this.inProgress['#EXT-X-CUE-OUT-CONT'] = cueOutCont;
+    }
+
+    public addAsset(asset: z.infer<typeof EXT_X_ASSET_CODEC>): void {
+        this.inProgress['#EXT-X-ASSET'] = asset;
+    }
+
+    public addSplicepointScte35(scte35: z.infer<typeof EXT_X_SPLICEPOINT_SCTE35_CODEC>): void {
+        this.inProgress['#EXT-X-SPLICEPOINT-SCTE35'] = scte35;
     }
 
     public addURI(uri: string): void {

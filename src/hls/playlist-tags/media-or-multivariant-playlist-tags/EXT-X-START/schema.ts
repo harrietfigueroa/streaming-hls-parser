@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { fromAttributeList, toAttributeList } from '../../../parse-helpers/attribute-list';
+import { fromAttributeList } from '../../../parse-helpers/attribute-list';
 
 export const PreciseValues = {
     /**
@@ -124,10 +124,19 @@ export const EXT_X_START_CODEC = z.codec(EXT_X_START_STRING, EXT_X_START_OBJECT,
         return obj;
     },
     encode: (obj) => {
-        const preEncoded: Record<string, unknown> = {
-            ...obj,
-        };
-        return `${TAG}:${toAttributeList(preEncoded)}` as any;
+        const parts: string[] = [];
+
+        // TIME-OFFSET: signed-decimal-floating-point (not quoted)
+        if (obj['TIME-OFFSET'] !== undefined) {
+            parts.push(`TIME-OFFSET=${obj['TIME-OFFSET']}`);
+        }
+
+        // PRECISE: enumerated-string - YES or NO (not quoted)
+        if (obj.PRECISE !== undefined) {
+            parts.push(`PRECISE=${obj.PRECISE}`);
+        }
+
+        return `${TAG}:${parts.join(',')}` as any;
     },
 });
 

@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { fromAttributeList, toAttributeList } from '../../../parse-helpers/attribute-list';
+import { fromAttributeList } from '../../../parse-helpers/attribute-list';
 import { stripTag } from '../../../parse-helpers/strip-tag';
 import { EXT_X_KEY_OBJECT } from '../../media-segment-tags/EXT-X-KEY/schema';
 
@@ -49,22 +49,35 @@ export const EXT_X_SESSION_KEY_CODEC = z.codec(EXT_X_SESSION_KEY_STRING, EXT_X_S
         return obj;
     },
     encode: (obj) => {
-        const preEncoded: Record<string, unknown> = {
-            ...obj,
-        };
+        const parts: string[] = [];
 
-        // Quote string values that need to be quoted
-        if (obj.URI) {
-            preEncoded.URI = `"${obj.URI}"`;
-        }
-        if (obj.KEYFORMAT) {
-            preEncoded.KEYFORMAT = `"${obj.KEYFORMAT}"`;
-        }
-        if (obj.KEYFORMATVERSIONS) {
-            preEncoded.KEYFORMATVERSIONS = `"${obj.KEYFORMATVERSIONS}"`;
+        // METHOD: enumerated-string - encryption method (not quoted)
+        // Note: MUST NOT be NONE for SESSION-KEY
+        if (obj.METHOD !== undefined) {
+            parts.push(`METHOD=${obj.METHOD}`);
         }
 
-        return `${TAG}:${toAttributeList(preEncoded)}` as any;
+        // URI: quoted-string - URI of the key file (always quoted)
+        if (obj.URI !== undefined) {
+            parts.push(`URI="${obj.URI}"`);
+        }
+
+        // IV: hexadecimal-sequence - 128-bit initialization vector (not quoted)
+        if (obj.IV !== undefined) {
+            parts.push(`IV=${obj.IV}`);
+        }
+
+        // KEYFORMAT: quoted-string - format of the key (always quoted)
+        if (obj.KEYFORMAT !== undefined) {
+            parts.push(`KEYFORMAT="${obj.KEYFORMAT}"`);
+        }
+
+        // KEYFORMATVERSIONS: quoted-string - versions of KEYFORMAT (always quoted)
+        if (obj.KEYFORMATVERSIONS !== undefined) {
+            parts.push(`KEYFORMATVERSIONS="${obj.KEYFORMATVERSIONS}"`);
+        }
+
+        return `${TAG}:${parts.join(',')}` as any;
     },
 });
 

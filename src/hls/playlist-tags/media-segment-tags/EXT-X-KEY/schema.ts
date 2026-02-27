@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { fromAttributeList, toAttributeList } from '../../../parse-helpers/attribute-list';
+import { fromAttributeList } from '../../../parse-helpers/attribute-list';
 import { stripTag } from '../../../parse-helpers/strip-tag';
 
 export const TAG = '#EXT-X-KEY' as const;
@@ -177,22 +177,33 @@ export const EXT_X_KEY_CODEC = z.codec(EXT_X_KEY_STRING, EXT_X_KEY_OBJECT, {
     decode: (value) =>
         fromAttributeList(stripTag(value)) as unknown as z.infer<typeof EXT_X_KEY_OBJECT>,
     encode: (obj) => {
-        const preEncoded: Record<string, unknown> = {
-            ...obj,
-        };
+        const parts: string[] = [];
 
-        if (obj['URI']) {
-            preEncoded['URI'] = `"${obj['URI']}"`;
+        // METHOD: enumerated-string - encryption method (not quoted)
+        if (obj.METHOD !== undefined) {
+            parts.push(`METHOD=${obj.METHOD}`);
         }
 
-        if (obj['KEYFORMAT']) {
-            preEncoded['KEYFORMAT'] = `"${obj['KEYFORMAT']}"`;
+        // URI: quoted-string - URI of the key file (always quoted)
+        if (obj.URI !== undefined) {
+            parts.push(`URI="${obj.URI}"`);
         }
 
-        if (obj['KEYFORMATVERSIONS']) {
-            preEncoded['KEYFORMATVERSIONS'] = `"${obj['KEYFORMATVERSIONS']}"`;
+        // IV: hexadecimal-sequence - 128-bit initialization vector (not quoted)
+        if (obj.IV !== undefined) {
+            parts.push(`IV=${obj.IV}`);
         }
 
-        return `${TAG}:${toAttributeList(preEncoded)}` as any;
+        // KEYFORMAT: quoted-string - format of the key (always quoted)
+        if (obj.KEYFORMAT !== undefined) {
+            parts.push(`KEYFORMAT="${obj.KEYFORMAT}"`);
+        }
+
+        // KEYFORMATVERSIONS: quoted-string - versions of KEYFORMAT (always quoted)
+        if (obj.KEYFORMATVERSIONS !== undefined) {
+            parts.push(`KEYFORMATVERSIONS="${obj.KEYFORMATVERSIONS}"`);
+        }
+
+        return `${TAG}:${parts.join(',')}` as any;
     },
 });

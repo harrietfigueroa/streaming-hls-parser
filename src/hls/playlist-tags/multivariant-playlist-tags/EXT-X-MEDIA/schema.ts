@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { fromAttributeList, toAttributeList } from '../../../parse-helpers/attribute-list';
+import { fromAttributeList } from '../../../parse-helpers/attribute-list';
 import { stripTag } from '../../../parse-helpers/strip-tag';
 
 export const TAG = '#EXT-X-MEDIA' as const;
@@ -199,36 +199,68 @@ export const EXT_X_MEDIA_CODEC = z.codec(EXT_X_MEDIA_STRING, EXT_X_MEDIA_OBJECT,
         return obj;
     },
     encode: (obj) => {
-        const preEncoded: Record<string, unknown> = {
-            ...obj,
-        };
+        const parts: string[] = [];
 
-        // Quote string values that need to be quoted
-        if (obj.URI) {
-            preEncoded.URI = `"${obj.URI}"`;
-        }
-        if (obj['GROUP-ID']) {
-            preEncoded['GROUP-ID'] = `"${obj['GROUP-ID']}"`;
-        }
-        if (obj.LANGUAGE) {
-            preEncoded.LANGUAGE = `"${obj.LANGUAGE}"`;
-        }
-        if (obj['ASSOC-LANGUAGE']) {
-            preEncoded['ASSOC-LANGUAGE'] = `"${obj['ASSOC-LANGUAGE']}"`;
-        }
-        if (obj.NAME) {
-            preEncoded.NAME = `"${obj.NAME}"`;
-        }
-        if (obj['INSTREAM-ID']) {
-            preEncoded['INSTREAM-ID'] = `"${obj['INSTREAM-ID']}"`;
-        }
-        if (obj.CHARACTERISTICS) {
-            preEncoded.CHARACTERISTICS = `"${obj.CHARACTERISTICS}"`;
-        }
-        if (obj.CHANNELS) {
-            preEncoded.CHANNELS = `"${obj.CHANNELS}"`;
+        // TYPE: enumerated-string - media type (not quoted)
+        if (obj.TYPE !== undefined) {
+            parts.push(`TYPE=${obj.TYPE}`);
         }
 
-        return `${TAG}:${toAttributeList(preEncoded)}` as any;
+        // URI: quoted-string - URI of the media playlist (always quoted)
+        if (obj.URI !== undefined) {
+            parts.push(`URI="${obj.URI}"`);
+        }
+
+        // GROUP-ID: quoted-string - rendition group identifier (always quoted)
+        if (obj['GROUP-ID'] !== undefined) {
+            parts.push(`GROUP-ID="${obj['GROUP-ID']}"`);
+        }
+
+        // LANGUAGE: quoted-string - primary language (always quoted)
+        if (obj.LANGUAGE !== undefined) {
+            parts.push(`LANGUAGE="${obj.LANGUAGE}"`);
+        }
+
+        // ASSOC-LANGUAGE: quoted-string - associated language (always quoted)
+        if (obj['ASSOC-LANGUAGE'] !== undefined) {
+            parts.push(`ASSOC-LANGUAGE="${obj['ASSOC-LANGUAGE']}"`);
+        }
+
+        // NAME: quoted-string - human-readable description (always quoted)
+        if (obj.NAME !== undefined) {
+            parts.push(`NAME="${obj.NAME}"`);
+        }
+
+        // DEFAULT: enumerated-string - YES or NO (not quoted)
+        if (obj.DEFAULT !== undefined) {
+            parts.push(`DEFAULT=${obj.DEFAULT}`);
+        }
+
+        // AUTOSELECT: enumerated-string - YES or NO (not quoted)
+        if (obj.AUTOSELECT !== undefined) {
+            parts.push(`AUTOSELECT=${obj.AUTOSELECT}`);
+        }
+
+        // FORCED: enumerated-string - YES or NO (not quoted)
+        if (obj.FORCED !== undefined) {
+            parts.push(`FORCED=${obj.FORCED}`);
+        }
+
+        // INSTREAM-ID: quoted-string - closed captions identifier (always quoted)
+        if (obj['INSTREAM-ID'] !== undefined) {
+            parts.push(`INSTREAM-ID="${obj['INSTREAM-ID']}"`);
+        }
+
+        // CHARACTERISTICS: quoted-string - comma-separated list (always quoted)
+        if (obj.CHARACTERISTICS !== undefined) {
+            parts.push(`CHARACTERISTICS="${obj.CHARACTERISTICS}"`);
+        }
+
+        // CHANNELS: quoted-string - audio channels specification (always quoted)
+        if (obj.CHANNELS !== undefined) {
+            parts.push(`CHANNELS="${obj.CHANNELS}"`);
+        }
+
+        return `${TAG}:${parts.join(',')}` as any;
     },
 });

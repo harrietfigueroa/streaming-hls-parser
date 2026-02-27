@@ -19,19 +19,31 @@ import { EXT_X_PLAYLIST_TYPE_OBJECT } from '../playlist-tags/media-playlist-tags
 import { EXT_X_I_FRAMES_ONLY_OBJECT } from '../playlist-tags/media-playlist-tags/EXT-X-I-FRAMES-ONLY/schema';
 import { EXT_X_INDEPENDENT_SEGMENTS_OBJECT } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-INDEPENDENT-SEGMENTS/schema';
 import { EXT_X_START_OBJECT } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-START/schema';
+import { EXT_X_DEFINE_OBJECT } from '../playlist-tags/media-or-multivariant-playlist-tags/EXT-X-DEFINE/schema';
+import { EXT_X_SERVER_CONTROL_OBJECT } from '../playlist-tags/media-playlist-tags/EXT-X-SERVER-CONTROL/schema';
+import { EXT_X_PART_INF_OBJECT } from '../playlist-tags/media-playlist-tags/EXT-X-PART-INF/schema';
+import { EXT_X_PRELOAD_HINT_OBJECT } from '../playlist-tags/media-playlist-tags/EXT-X-PRELOAD-HINT/schema';
+import { EXT_X_SKIP_OBJECT } from '../playlist-tags/media-playlist-tags/EXT-X-SKIP/schema';
+import { EXT_X_RENDITION_REPORT_OBJECT } from '../playlist-tags/media-playlist-tags/EXT-X-RENDITION-REPORT/schema';
 
 // Define MediaPlaylistOptions interface using schema types
 export interface MediaPlaylistOptions {
     '#EXTM3U': z.infer<typeof EXTM3U_OBJECT>;
-    '#EXT-X-VERSION': z.infer<typeof EXT_X_VERSION_OBJECT>;
+    '#EXT-X-VERSION'?: z.infer<typeof EXT_X_VERSION_OBJECT>;
     '#EXT-X-TARGETDURATION': z.infer<typeof EXT_X_TARGETDURATION_OBJECT>;
-    '#EXT-X-MEDIA-SEQUENCE': z.infer<typeof EXT_X_MEDIA_SEQUENCE_OBJECT>;
-    '#EXT-X-DISCONTINUITY-SEQUENCE': z.infer<typeof EXT_X_DISCONTINUITY_SEQUENCE_OBJECT>;
-    '#EXT-X-ENDLIST': z.infer<typeof EXT_X_ENDLIST_OBJECT>;
-    '#EXT-X-PLAYLIST-TYPE': z.infer<typeof EXT_X_PLAYLIST_TYPE_OBJECT>;
-    '#EXT-X-I-FRAMES-ONLY': z.infer<typeof EXT_X_I_FRAMES_ONLY_OBJECT>;
-    '#EXT-X-INDEPENDENT-SEGMENTS': z.infer<typeof EXT_X_INDEPENDENT_SEGMENTS_OBJECT>;
-    '#EXT-X-START': z.infer<typeof EXT_X_START_OBJECT>;
+    '#EXT-X-MEDIA-SEQUENCE'?: z.infer<typeof EXT_X_MEDIA_SEQUENCE_OBJECT>;
+    '#EXT-X-DISCONTINUITY-SEQUENCE'?: z.infer<typeof EXT_X_DISCONTINUITY_SEQUENCE_OBJECT>;
+    '#EXT-X-ENDLIST'?: z.infer<typeof EXT_X_ENDLIST_OBJECT>;
+    '#EXT-X-PLAYLIST-TYPE'?: z.infer<typeof EXT_X_PLAYLIST_TYPE_OBJECT>;
+    '#EXT-X-I-FRAMES-ONLY'?: z.infer<typeof EXT_X_I_FRAMES_ONLY_OBJECT>;
+    '#EXT-X-INDEPENDENT-SEGMENTS'?: z.infer<typeof EXT_X_INDEPENDENT_SEGMENTS_OBJECT>;
+    '#EXT-X-START'?: z.infer<typeof EXT_X_START_OBJECT>;
+    '#EXT-X-DEFINE'?: z.infer<typeof EXT_X_DEFINE_OBJECT>;
+    '#EXT-X-SERVER-CONTROL'?: z.infer<typeof EXT_X_SERVER_CONTROL_OBJECT>;
+    '#EXT-X-PART-INF'?: z.infer<typeof EXT_X_PART_INF_OBJECT>;
+    '#EXT-X-PRELOAD-HINT'?: z.infer<typeof EXT_X_PRELOAD_HINT_OBJECT>;
+    '#EXT-X-SKIP'?: z.infer<typeof EXT_X_SKIP_OBJECT>;
+    '#EXT-X-RENDITION-REPORT'?: z.infer<typeof EXT_X_RENDITION_REPORT_OBJECT>;
 }
 export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist {
     /**
@@ -229,6 +241,88 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
     */
     public readonly '#EXT-X-START': MediaPlaylistOptions['#EXT-X-START'];
 
+    /**
+     * The EXT-X-DEFINE tag allows variable definitions that can be referenced
+     * throughout the playlist using variable substitution. Variables can be
+     * defined explicitly with NAME/VALUE pairs or imported from query parameters.
+     *
+     * Its format is:
+     *
+     * #EXT-X-DEFINE:<attribute-list>
+     *
+     * Attributes: NAME, VALUE, IMPORT, QUERYPARAM
+     */
+    public readonly '#EXT-X-DEFINE': MediaPlaylistOptions['#EXT-X-DEFINE'];
+
+    /**
+     * The EXT-X-SERVER-CONTROL tag allows the server to indicate support for
+     * delivery directives for Low-Latency HLS. It specifies how a client can
+     * request playlist delta updates and block for playlist updates.
+     *
+     * Its format is:
+     *
+     * #EXT-X-SERVER-CONTROL:<attribute-list>
+     *
+     * Attributes include CAN-SKIP-UNTIL, CAN-SKIP-DATERANGES, HOLD-BACK,
+     * PART-HOLD-BACK, and CAN-BLOCK-RELOAD.
+     */
+    public readonly '#EXT-X-SERVER-CONTROL': MediaPlaylistOptions['#EXT-X-SERVER-CONTROL'];
+
+    /**
+     * The EXT-X-PART-INF tag indicates that the playlist contains Partial
+     * Segments and provides information about them. This is required for
+     * Low-Latency HLS playlists.
+     *
+     * Its format is:
+     *
+     * #EXT-X-PART-INF:PART-TARGET=<decimal-floating-point>
+     *
+     * The PART-TARGET attribute indicates the target duration for Partial
+     * Segments in seconds.
+     */
+    public readonly '#EXT-X-PART-INF': MediaPlaylistOptions['#EXT-X-PART-INF'];
+
+    /**
+     * The EXT-X-PRELOAD-HINT tag allows the server to suggest resources
+     * for the client to preload. This helps reduce latency in Low-Latency
+     * HLS by allowing clients to request resources before they appear in
+     * the playlist.
+     *
+     * Its format is:
+     *
+     * #EXT-X-PRELOAD-HINT:<attribute-list>
+     *
+     * Attributes include TYPE (PART or MAP), URI, BYTERANGE-START, and
+     * BYTERANGE-LENGTH.
+     */
+    public readonly '#EXT-X-PRELOAD-HINT': MediaPlaylistOptions['#EXT-X-PRELOAD-HINT'];
+
+    /**
+     * The EXT-X-SKIP tag indicates that the server has removed one or more
+     * Media Segments from the beginning of the playlist. This is used for
+     * playlist delta updates in Low-Latency HLS.
+     *
+     * Its format is:
+     *
+     * #EXT-X-SKIP:<attribute-list>
+     *
+     * Attributes include SKIPPED-SEGMENTS and RECENTLY-REMOVED-DATERANGES.
+     */
+    public readonly '#EXT-X-SKIP': MediaPlaylistOptions['#EXT-X-SKIP'];
+
+    /**
+     * The EXT-X-RENDITION-REPORT tag provides information about the state
+     * of other renditions in a multivariant presentation. This enables
+     * faster rendition switching in Low-Latency HLS.
+     *
+     * Its format is:
+     *
+     * #EXT-X-RENDITION-REPORT:<attribute-list>
+     *
+     * Attributes include URI, LAST-MSN, and LAST-PART.
+     */
+    public readonly '#EXT-X-RENDITION-REPORT': MediaPlaylistOptions['#EXT-X-RENDITION-REPORT'];
+
     private constructor(
         mediaPlaylistOptions: MediaPlaylistOptions,
         mediaSegments: Map<string, MediaSegment>,
@@ -246,6 +340,12 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
         this['#EXT-X-I-FRAMES-ONLY'] = mediaPlaylistOptions['#EXT-X-I-FRAMES-ONLY'];
         this['#EXT-X-INDEPENDENT-SEGMENTS'] = mediaPlaylistOptions['#EXT-X-INDEPENDENT-SEGMENTS'];
         this['#EXT-X-START'] = mediaPlaylistOptions['#EXT-X-START'];
+        this['#EXT-X-DEFINE'] = mediaPlaylistOptions['#EXT-X-DEFINE'];
+        this['#EXT-X-SERVER-CONTROL'] = mediaPlaylistOptions['#EXT-X-SERVER-CONTROL'];
+        this['#EXT-X-PART-INF'] = mediaPlaylistOptions['#EXT-X-PART-INF'];
+        this['#EXT-X-PRELOAD-HINT'] = mediaPlaylistOptions['#EXT-X-PRELOAD-HINT'];
+        this['#EXT-X-SKIP'] = mediaPlaylistOptions['#EXT-X-SKIP'];
+        this['#EXT-X-RENDITION-REPORT'] = mediaPlaylistOptions['#EXT-X-RENDITION-REPORT'];
     }
 
     private static isMediaSegmentTag(tag: string) {
@@ -257,7 +357,15 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
             tag === '#EXT-X-DISCONTINUITY' ||
             tag === '#EXT-X-KEY' ||
             tag === '#EXT-X-MAP' ||
-            tag === '#EXT-X-DATERANGE'
+            tag === '#EXT-X-DATERANGE' ||
+            tag === '#EXT-X-GAP' ||
+            tag === '#EXT-X-BITRATE' ||
+            tag === '#EXT-X-PART' ||
+            tag === '#EXT-X-CUE-OUT' ||
+            tag === '#EXT-X-CUE-IN' ||
+            tag === '#EXT-X-CUE-OUT-CONT' ||
+            tag === '#EXT-X-ASSET' ||
+            tag === '#EXT-X-SPLICEPOINT-SCTE35'
         );
     }
 
@@ -265,16 +373,8 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
         token: LexicalToken,
         mediaPlaylistOptions: Partial<MediaPlaylistOptions>,
     ): Partial<MediaPlaylistOptions> {
-        const codec = playlistTagRegistry[token.type as keyof typeof playlistTagRegistry];
-        if (codec && typeof codec.decode === 'function') {
-            try {
-                const decoded = (codec as any).decode(token.value as string);
-                mediaPlaylistOptions[token.type as keyof MediaPlaylistOptions] = decoded as any;
-            } catch (error) {
-                // If decoding fails, we'll handle it gracefully
-                console.warn(`Failed to decode ${token.type}:`, error);
-            }
-        }
+        // token.value has already been decoded by parseTokenizedLine, so use it directly
+        mediaPlaylistOptions[token.type as keyof MediaPlaylistOptions] = token.value as any;
         return mediaPlaylistOptions;
     }
 
@@ -313,6 +413,38 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
             }
             case '#EXT-X-DATERANGE': {
                 mediaSegmentsArrayBuilder.addDateRange(token.value as any);
+                break;
+            }
+            case '#EXT-X-GAP': {
+                mediaSegmentsArrayBuilder.addGap(token.value as any);
+                break;
+            }
+            case '#EXT-X-BITRATE': {
+                mediaSegmentsArrayBuilder.addBitrate(token.value as any);
+                break;
+            }
+            case '#EXT-X-PART': {
+                mediaSegmentsArrayBuilder.addPart(token.value as any);
+                break;
+            }
+            case '#EXT-X-CUE-OUT': {
+                mediaSegmentsArrayBuilder.addCueOut(token.value as any);
+                break;
+            }
+            case '#EXT-X-CUE-IN': {
+                mediaSegmentsArrayBuilder.addCueIn(token.value as any);
+                break;
+            }
+            case '#EXT-X-CUE-OUT-CONT': {
+                mediaSegmentsArrayBuilder.addCueOutCont(token.value as any);
+                break;
+            }
+            case '#EXT-X-ASSET': {
+                mediaSegmentsArrayBuilder.addAsset(token.value as any);
+                break;
+            }
+            case '#EXT-X-SPLICEPOINT-SCTE35': {
+                mediaSegmentsArrayBuilder.addSplicepointScte35(token.value as any);
                 break;
             }
         }
@@ -417,6 +549,24 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
         if (this['#EXT-X-START']) {
             yield playlistTagRegistry['#EXT-X-START'].encode(this['#EXT-X-START']);
         }
+        if (this['#EXT-X-DEFINE']) {
+            yield playlistTagRegistry['#EXT-X-DEFINE'].encode(this['#EXT-X-DEFINE']);
+        }
+        if (this['#EXT-X-SERVER-CONTROL']) {
+            yield playlistTagRegistry['#EXT-X-SERVER-CONTROL'].encode(this['#EXT-X-SERVER-CONTROL']);
+        }
+        if (this['#EXT-X-PART-INF']) {
+            yield playlistTagRegistry['#EXT-X-PART-INF'].encode(this['#EXT-X-PART-INF']);
+        }
+        if (this['#EXT-X-PRELOAD-HINT']) {
+            yield playlistTagRegistry['#EXT-X-PRELOAD-HINT'].encode(this['#EXT-X-PRELOAD-HINT']);
+        }
+        if (this['#EXT-X-SKIP']) {
+            yield playlistTagRegistry['#EXT-X-SKIP'].encode(this['#EXT-X-SKIP']);
+        }
+        if (this['#EXT-X-RENDITION-REPORT']) {
+            yield playlistTagRegistry['#EXT-X-RENDITION-REPORT'].encode(this['#EXT-X-RENDITION-REPORT']);
+        }
 
         for (const segment of this.values()) {
             yield* segment.toHLSLines();
@@ -442,6 +592,12 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
             '#EXT-X-I-FRAMES-ONLY': this['#EXT-X-I-FRAMES-ONLY'],
             '#EXT-X-INDEPENDENT-SEGMENTS': this['#EXT-X-INDEPENDENT-SEGMENTS'],
             '#EXT-X-START': this['#EXT-X-START'],
+            '#EXT-X-DEFINE': this['#EXT-X-DEFINE'],
+            '#EXT-X-SERVER-CONTROL': this['#EXT-X-SERVER-CONTROL'],
+            '#EXT-X-PART-INF': this['#EXT-X-PART-INF'],
+            '#EXT-X-PRELOAD-HINT': this['#EXT-X-PRELOAD-HINT'],
+            '#EXT-X-SKIP': this['#EXT-X-SKIP'],
+            '#EXT-X-RENDITION-REPORT': this['#EXT-X-RENDITION-REPORT'],
             mediaSegments: Array.from(this.values(), (segment) => segment.toJSON()),
             '#EXT-X-ENDLIST': this['#EXT-X-ENDLIST'],
         };
