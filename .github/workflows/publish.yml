@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'  # Required for npm trusted publishing (>=24)
           registry-url: 'https://registry.npmjs.org'
 
       - name: Extract version from tag
@@ -43,10 +43,8 @@ jobs:
       - name: Build package
         run: npm run build
 
-      - name: Publish to npm
+      - name: Publish to npm (Trusted Publishing with OIDC)
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Upload browser bundle to release
         uses: actions/upload-release-asset@v1

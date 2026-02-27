@@ -2,26 +2,32 @@
 
 This repository uses GitHub Actions to automatically publish to npm and CDNs when you create a GitHub Release.
 
+**This workflow uses npm's Trusted Publishers (OIDC)** - no npm tokens required!
+
 ## Prerequisites
 
-### 1. NPM Token
+### 1. Configure npm Trusted Publishing
 
-You need to create an npm access token and add it to GitHub secrets:
+You need to configure your npm package to trust this GitHub repository:
 
 1. Go to [npmjs.com](https://www.npmjs.com/) and log in
-2. Click your profile icon → **Access Tokens**
-3. Click **Generate New Token** → **Classic Token**
-4. Select **Automation** type
-5. Copy the token
-6. Go to your GitHub repo → **Settings** → **Secrets and variables** → **Actions**
-7. Click **New repository secret**
-8. Name: `NPM_TOKEN`
-9. Value: Paste your npm token
-10. Click **Add secret**
+2. Navigate to your package page: `npmjs.com/package/streaming-hls-parser`
+3. Click **Settings** tab
+4. Scroll to **Trusted Publishers** section
+5. Click **Add a trusted publisher**
+6. Fill in the details:
+   - **Provider**: GitHub Actions
+   - **Organization/User**: `harrietfigueroa` (or your GitHub username)
+   - **Repository**: `streaming-hls-parser`
+   - **Workflow filename**: `publish.yml`
+   - **Environment name**: Leave empty (optional)
+7. Click **Add**
 
-### 2. NPM Account Setup
+**That's it!** No npm tokens needed. The workflow authenticates using OpenID Connect (OIDC).
 
-Make sure you have access to publish the `streaming-hls-parser` package:
+### 2. NPM Account Setup (First Time Only)
+
+If this is your first publish, make sure you have access to the package name:
 
 ```bash
 # Login to npm
@@ -33,6 +39,11 @@ npm search streaming-hls-parser
 # Or claim the package if you're the owner
 npm owner add YOUR_NPM_USERNAME streaming-hls-parser
 ```
+
+### 3. Requirements
+
+- **Node.js 24+** (workflow uses Node 24 for npm >=11.5.1 requirement)
+- **GitHub repository** with cloud-hosted runners (not self-hosted)
 
 ## How to Publish a New Version
 
@@ -118,9 +129,10 @@ These will be published to npm with the appropriate dist-tag.
 
 ### Workflow Fails at "Publish to npm"
 
-**Error: `ENEEDAUTH`**
-- Your `NPM_TOKEN` secret is missing or invalid
-- Regenerate token and update GitHub secret
+**Error: `ENEEDAUTH` or authentication errors**
+- You haven't configured Trusted Publishing on npmjs.com
+- Follow the setup steps in Prerequisites section above
+- Make sure the workflow filename matches exactly: `publish.yml`
 
 **Error: `EPUBLISHCONFLICT`**
 - Version already exists on npm
