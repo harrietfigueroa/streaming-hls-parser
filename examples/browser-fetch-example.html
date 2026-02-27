@@ -97,29 +97,27 @@
 
     <div class="container">
         <h2>How it works</h2>
-        <pre><code>import { HLS } from 'streaming-hls-parser';
+        <pre><code>// In browser with bundled version:
+import { HLS } from '../dist/index.browser.js';
+
+// Or in Node.js/bundlers:
+import { HLS } from 'streaming-hls-parser';
 
 // Fetch HLS playlist from a URL
 const response = await fetch(playlistUrl);
+const text = await response.text();
 
-// Parse the playlist using Web Streams
-// The response.body is a ReadableStream of Uint8Array chunks
-const playlist = await HLS.parseMediaPlaylist(response.body);
+// Parse the playlist (auto-detects media vs multivariant)
+const playlist = HLS.parse(text);
 
-// Or parse a multivariant playlist
-const playlist = await HLS.parseMultivariantPlaylist(response.body);
-
-// Or use auto-detection
-const playlist = await HLS.parse(await response.text());</code></pre>
+// Convert back to HLS format
+const hlsString = HLS.stringify(playlist);</code></pre>
     </div>
 
     <script type="module">
-        // This example assumes you have the library built and available as an ES module
-        // For local testing, you would import from your dist folder:
-        // import { HLS } from '../dist/index.js';
-
-        // For this demo, we'll simulate the parsing without the actual import
-        // In a real application, you would import the library as shown above
+        // Import the HLS parser from the built library
+        // Make sure to build the library first with: npm run build
+        import { HLS } from '../dist/index.browser.js';
 
         const fetchBtn = document.getElementById('fetchBtn');
         const playlistUrl = document.getElementById('playlistUrl');
@@ -149,30 +147,41 @@ const playlist = await HLS.parse(await response.text());</code></pre>
                 // Get the text content
                 const text = await response.text();
 
-                status.innerHTML = '<div class="success">Playlist fetched successfully!</div>';
+                status.innerHTML = '<div class="info">Parsing playlist...</div>';
 
-                // Display the raw playlist
+                // Parse the playlist using HLS.parse()
+                const playlist = HLS.parse(text);
+
+                status.innerHTML = '<div class="success">Playlist parsed successfully!</div>';
+
+                // Determine playlist type
+                const isMultivariant = text.includes('#EXT-X-STREAM-INF');
+                const playlistType = isMultivariant ? 'Multivariant Playlist' : 'Media Playlist';
+
+                // Display the parsed playlist
                 output.innerHTML = `
-                    <h3>Raw Playlist Content</h3>
-                    <pre>${escapeHtml(text)}</pre>
+                    <h3>Parsed Playlist Object</h3>
+                    <pre>${escapeHtml(JSON.stringify(playlist, null, 2))}</pre>
 
                     <h3>Playlist Info</h3>
                     <div class="info">
+                        <strong>Type:</strong> ${playlistType}<br>
                         <strong>Content-Type:</strong> ${response.headers.get('content-type')}<br>
-                        <strong>Size:</strong> ${text.length} characters<br>
-                        <strong>Lines:</strong> ${text.split('\\n').length}<br>
-                        <strong>Type:</strong> ${text.includes('#EXT-X-STREAM-INF') ? 'Multivariant Playlist' : 'Media Playlist'}
+                        <strong>Original Size:</strong> ${text.length} characters<br>
+                        <strong>Lines:</strong> ${text.split('\n').length}<br>
+                        ${!isMultivariant ? `<strong>Segments:</strong> ${playlist.size || 0}` : ''}
                     </div>
 
-                    <p><em>Note: To actually parse this with the HLS library, import the library and use:</em></p>
-                    <pre>const playlist = HLS.parse(text);
-// or for streaming
-const playlist = await HLS.parseMediaPlaylist(response.body);</pre>
+                    <h3>Raw Playlist Content</h3>
+                    <pre>${escapeHtml(text)}</pre>
+
+                    <h3>Stringify Back to HLS</h3>
+                    <pre>${escapeHtml(HLS.stringify(playlist))}</pre>
                 `;
 
             } catch (error) {
                 status.innerHTML = `<div class="error">Error: ${escapeHtml(error.message)}</div>`;
-                console.error('Fetch error:', error);
+                console.error('Parse error:', error);
             } finally {
                 fetchBtn.disabled = false;
             }

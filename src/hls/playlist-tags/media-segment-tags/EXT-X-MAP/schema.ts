@@ -130,7 +130,7 @@ export const EXT_X_MAP_CODEC = z.codec(EXT_X_MAP_STRING, EXT_X_MAP_OBJECT, {
 
         // BYTERANGE: quoted-string - byte range in format "n@o" or "n" (always quoted)
         if (obj.BYTERANGE !== undefined) {
-            const byterangeValue = obj.BYTERANGE.o
+            const byterangeValue = obj.BYTERANGE.o !== undefined
                 ? `${obj.BYTERANGE.n}@${obj.BYTERANGE.o}`
                 : `${obj.BYTERANGE.n}`;
             parts.push(`BYTERANGE="${byterangeValue}"`);

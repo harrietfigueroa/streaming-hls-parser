@@ -362,7 +362,7 @@ describe('EXTINF schema', () => {
             const result = EXTINF_CODEC.decode(tag);
             expect(result).toMatchObject({
                 DURATION: 10.5,
-                TITLE: '   ',
+                TITLE: undefined,
             });
         });
 

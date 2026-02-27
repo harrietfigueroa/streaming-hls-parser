@@ -16,7 +16,7 @@ import { EXT_X_CUE_OUT_CONT_CODEC } from '../playlist-tags/media-segment-tags/EX
 import { EXT_X_ASSET_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-ASSET/schema';
 import { EXT_X_SPLICEPOINT_SCTE35_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-SPLICEPOINT-SCTE35/schema';
 
-export class MediaSegmentArrayBuilder extends Map<string, MediaSegment> {
+export class MediaSegmentArrayBuilder extends Array<MediaSegment> {
     private inProgress: Partial<MediaSegmentOptions> = {};
     private inProgressErrors: Array<{
         tag: string;
@@ -94,10 +94,30 @@ export class MediaSegmentArrayBuilder extends Map<string, MediaSegment> {
         // When we get a URI then we're done with this segment and we can start a new one
         this.inProgress['URI'] = uri;
         const errors = this.inProgressErrors.length > 0 ? this.inProgressErrors : undefined;
-        this.set(uri, new MediaSegment(this.inProgress as MediaSegmentOptions, errors));
+        this.push(new MediaSegment(this.inProgress as MediaSegmentOptions, errors));
 
+        // Reset segment-specific tags but preserve tags that apply to multiple segments
+        // Tags that persist: EXT-X-MAP, EXT-X-KEY, EXT-X-BITRATE
+        // Tags that reset: EXTINF, EXT-X-BYTERANGE, EXT-X-DISCONTINUITY, EXT-X-PROGRAM-DATE-TIME,
+        //                  EXT-X-DATERANGE, EXT-X-GAP, EXT-X-PART, EXT-X-CUE-*, EXT-X-ASSET, EXT-X-SPLICEPOINT-SCTE35
         this.inProgress = {
             URI: undefined,
+            '#EXTINF': undefined,
+            '#EXT-X-BYTERANGE': undefined,
+            '#EXT-X-DISCONTINUITY': undefined,
+            '#EXT-X-PROGRAM-DATE-TIME': undefined,
+            '#EXT-X-DATERANGE': undefined,
+            '#EXT-X-GAP': undefined,
+            '#EXT-X-PART': undefined,
+            '#EXT-X-CUE-OUT': undefined,
+            '#EXT-X-CUE-IN': undefined,
+            '#EXT-X-CUE-OUT-CONT': undefined,
+            '#EXT-X-ASSET': undefined,
+            '#EXT-X-SPLICEPOINT-SCTE35': undefined,
+            // Keep these tags as they apply to multiple segments:
+            '#EXT-X-MAP': this.inProgress['#EXT-X-MAP'],
+            '#EXT-X-KEY': this.inProgress['#EXT-X-KEY'],
+            '#EXT-X-BITRATE': this.inProgress['#EXT-X-BITRATE'],
         };
         this.inProgressErrors = [];
     }

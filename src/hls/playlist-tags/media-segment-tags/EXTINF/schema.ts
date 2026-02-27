@@ -64,7 +64,7 @@ export const EXTINF_CODEC = z.codec(EXTINF_STRING, EXTINF_OBJECT, {
             durationStr = content.substring(0, commaIndex);
             duration = parseFloat(durationStr);
 
-            const titleStr = content.substring(commaIndex + 1);
+            const titleStr = content.substring(commaIndex + 1).trim();
             title = titleStr || undefined;
         }
 

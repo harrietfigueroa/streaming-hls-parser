@@ -157,6 +157,31 @@ export const EXT_X_STREAM_INF_OBJECT = z
          * The VIDEO attribute is OPTIONAL.
          */
         VIDEO: z.string().optional(),
+
+        /**
+         * SUBTITLES
+         * The value is a quoted-string. It MUST match the value of the
+         * GROUP-ID attribute of an EXT-X-MEDIA tag elsewhere in the Master
+         * Playlist whose TYPE attribute is SUBTITLES. It indicates the set of
+         * subtitle Renditions that can be used when playing the presentation.
+         *
+         * The SUBTITLES attribute is OPTIONAL.
+         */
+        SUBTITLES: z.string().optional(),
+
+        /**
+         * CLOSED-CAPTIONS
+         * The value can either be a quoted-string or an enumerated-string with
+         * the value NONE. If the value is a quoted-string, it MUST match the
+         * value of the GROUP-ID attribute of an EXT-X-MEDIA tag elsewhere in
+         * the Playlist whose TYPE attribute is CLOSED-CAPTIONS. If the value
+         * is NONE, all EXT-X-STREAM-INF tags MUST have this attribute with a
+         * value of NONE, indicating that there are no closed captions in any
+         * Variant Stream in the Master Playlist.
+         *
+         * The CLOSED-CAPTIONS attribute is OPTIONAL.
+         */
+        'CLOSED-CAPTIONS': z.union([z.string(), z.literal('NONE')]).optional(),
     })
     .refine(
         (data) => {

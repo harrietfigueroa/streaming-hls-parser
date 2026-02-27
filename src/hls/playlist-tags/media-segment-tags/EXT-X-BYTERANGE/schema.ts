@@ -9,7 +9,7 @@ export const EXT_X_BYTERANGE_STRING = z.union([
 
 export const EXT_X_BYTERANGE = z.object({
     n: z.number().int().positive(),
-    o: z.number().int().positive().optional(),
+    o: z.number().int().nonnegative().optional(),
 }).readonly();
 
 /**
@@ -46,7 +46,7 @@ export const EXT_X_BYTERANGE_CODEC = z.codec(EXT_X_BYTERANGE_STRING, EXT_X_BYTER
         return { n: +stripped };
     },
     encode: (value) => {
-        if (value.o) {
+        if (value.o !== undefined) {
             return `${TAG}:${value.n}@${value.o}` as const;
         }
         return `${TAG}:${value.n}` as const;

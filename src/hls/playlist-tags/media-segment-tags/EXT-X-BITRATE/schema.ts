@@ -1,7 +1,7 @@
 import * as z from 'zod';
 
 export const TAG = '#EXT-X-BITRATE' as const;
-export const EXT_X_BITRATE_STRING = z.templateLiteral([TAG, ':', z.coerce.number().int().positive()]);
+export const EXT_X_BITRATE_STRING = z.string().startsWith(`${TAG}:`);
 
 /**
  * The EXT-X-BITRATE tag identifies the approximate segment bit rate of

@@ -32,6 +32,23 @@ import { EXT_X_PRELOAD_HINT_OBJECT } from '../playlist-tags/media-playlist-tags/
 import { EXT_X_SKIP_OBJECT } from '../playlist-tags/media-playlist-tags/EXT-X-SKIP/schema';
 import { EXT_X_RENDITION_REPORT_OBJECT } from '../playlist-tags/media-playlist-tags/EXT-X-RENDITION-REPORT/schema';
 
+// Import codecs for encoding segment tags
+import { EXTINF_CODEC } from '../playlist-tags/media-segment-tags/EXTINF/schema';
+import { EXT_X_BYTERANGE_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-BYTERANGE/schema';
+import { EXT_X_DISCONTINUITY_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-DISCONTINUITY/schema';
+import { EXT_X_KEY_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-KEY/schema';
+import { EXT_X_MAP_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-MAP/schema';
+import { EXT_X_PROGRAM_DATE_TIME_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-PROGRAM-DATE-TIME/schema';
+import { EXT_X_DATERANGE_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-DATERANGE/schema';
+import { EXT_X_GAP_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-GAP/schema';
+import { EXT_X_BITRATE_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-BITRATE/schema';
+import { EXT_X_PART_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-PART/schema';
+import { EXT_X_CUE_OUT_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-CUE-OUT/schema';
+import { EXT_X_CUE_IN_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-CUE-IN/schema';
+import { EXT_X_CUE_OUT_CONT_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-CUE-OUT-CONT/schema';
+import { EXT_X_ASSET_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-ASSET/schema';
+import { EXT_X_SPLICEPOINT_SCTE35_CODEC } from '../playlist-tags/media-segment-tags/EXT-X-SPLICEPOINT-SCTE35/schema';
+
 // Define MediaPlaylistOptions interface using schema types
 export interface MediaPlaylistOptions {
     '#EXTM3U': z.infer<typeof EXTM3U_OBJECT>;
@@ -51,7 +68,7 @@ export interface MediaPlaylistOptions {
     '#EXT-X-SKIP'?: z.infer<typeof EXT_X_SKIP_OBJECT>;
     '#EXT-X-RENDITION-REPORT'?: z.infer<typeof EXT_X_RENDITION_REPORT_OBJECT>;
 }
-export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist {
+export class MediaPlaylist implements Playlist, ReadonlyArray<MediaSegment> {
     /**
      * The EXTM3U tag indicates that the file is an Extended M3U [M3U]
      Playlist file.  It MUST be the first line of every Media Playlist and
@@ -261,6 +278,145 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
     public readonly '#EXT-X-DEFINE': MediaPlaylistOptions['#EXT-X-DEFINE'];
 
     /**
+     * The segments in this Media Playlist
+     */
+    private readonly segments: ReadonlyArray<MediaSegment>;
+
+    /**
+     * Index signature to access segments by numeric index
+     */
+    readonly [n: number]: MediaSegment;
+
+    /**
+     * The number of segments in this Media Playlist
+     */
+    public get size(): number {
+        return this.segments.length;
+    }
+
+    /**
+     * The number of segments in this Media Playlist (alias for size)
+     */
+    public get length(): number {
+        return this.segments.length;
+    }
+
+    // Implement ReadonlyArray interface methods by delegating to segments
+    public [Symbol.iterator](): IterableIterator<MediaSegment> {
+        return this.segments[Symbol.iterator]();
+    }
+
+    public concat(...items: ConcatArray<MediaSegment>[]): MediaSegment[];
+    public concat(...items: (MediaSegment | ConcatArray<MediaSegment>)[]): MediaSegment[];
+    public concat(...items: unknown[]): MediaSegment[] {
+        return this.segments.concat(...(items as any));
+    }
+
+    public join(separator?: string): string {
+        return this.segments.join(separator);
+    }
+
+    public slice(start?: number, end?: number): MediaSegment[] {
+        return this.segments.slice(start, end);
+    }
+
+    public indexOf(searchElement: MediaSegment, fromIndex?: number): number {
+        return this.segments.indexOf(searchElement, fromIndex);
+    }
+
+    public lastIndexOf(searchElement: MediaSegment, fromIndex?: number): number {
+        return this.segments.lastIndexOf(searchElement, fromIndex);
+    }
+
+    public every<S extends MediaSegment>(predicate: (value: MediaSegment, index: number, array: readonly MediaSegment[]) => value is S, thisArg?: unknown): this is readonly S[];
+    public every(predicate: (value: MediaSegment, index: number, array: readonly MediaSegment[]) => unknown, thisArg?: unknown): boolean;
+    public every(predicate: (value: MediaSegment, index: number, array: readonly MediaSegment[]) => unknown, thisArg?: unknown): boolean {
+        return this.segments.every(predicate, thisArg);
+    }
+
+    public some(predicate: (value: MediaSegment, index: number, array: readonly MediaSegment[]) => unknown, thisArg?: unknown): boolean {
+        return this.segments.some(predicate, thisArg);
+    }
+
+    public forEach(callbackfn: (value: MediaSegment, index: number, array: readonly MediaSegment[]) => void, thisArg?: unknown): void {
+        this.segments.forEach(callbackfn, thisArg);
+    }
+
+    public map<U>(callbackfn: (value: MediaSegment, index: number, array: readonly MediaSegment[]) => U, thisArg?: unknown): U[] {
+        return this.segments.map(callbackfn, thisArg);
+    }
+
+    public filter<S extends MediaSegment>(predicate: (value: MediaSegment, index: number, array: readonly MediaSegment[]) => value is S, thisArg?: unknown): S[];
+    public filter(predicate: (value: MediaSegment, index: number, array: readonly MediaSegment[]) => unknown, thisArg?: unknown): MediaSegment[];
+    public filter(predicate: (value: MediaSegment, index: number, array: readonly MediaSegment[]) => unknown, thisArg?: unknown): MediaSegment[] {
+        return this.segments.filter(predicate, thisArg);
+    }
+
+    public reduce(callbackfn: (previousValue: MediaSegment, currentValue: MediaSegment, currentIndex: number, array: readonly MediaSegment[]) => MediaSegment): MediaSegment;
+    public reduce(callbackfn: (previousValue: MediaSegment, currentValue: MediaSegment, currentIndex: number, array: readonly MediaSegment[]) => MediaSegment, initialValue: MediaSegment): MediaSegment;
+    public reduce<U>(callbackfn: (previousValue: U, currentValue: MediaSegment, currentIndex: number, array: readonly MediaSegment[]) => U, initialValue: U): U;
+    public reduce<U>(callbackfn: (previousValue: U, currentValue: MediaSegment, currentIndex: number, array: readonly MediaSegment[]) => U, initialValue?: U): U {
+        return this.segments.reduce(callbackfn, initialValue!);
+    }
+
+    public reduceRight(callbackfn: (previousValue: MediaSegment, currentValue: MediaSegment, currentIndex: number, array: readonly MediaSegment[]) => MediaSegment): MediaSegment;
+    public reduceRight(callbackfn: (previousValue: MediaSegment, currentValue: MediaSegment, currentIndex: number, array: readonly MediaSegment[]) => MediaSegment, initialValue: MediaSegment): MediaSegment;
+    public reduceRight<U>(callbackfn: (previousValue: U, currentValue: MediaSegment, currentIndex: number, array: readonly MediaSegment[]) => U, initialValue: U): U;
+    public reduceRight<U>(callbackfn: (previousValue: U, currentValue: MediaSegment, currentIndex: number, array: readonly MediaSegment[]) => U, initialValue?: U): U {
+        return this.segments.reduceRight(callbackfn, initialValue!);
+    }
+
+    public find<S extends MediaSegment>(predicate: (value: MediaSegment, index: number, obj: readonly MediaSegment[]) => value is S, thisArg?: unknown): S | undefined;
+    public find(predicate: (value: MediaSegment, index: number, obj: readonly MediaSegment[]) => unknown, thisArg?: unknown): MediaSegment | undefined;
+    public find(predicate: (value: MediaSegment, index: number, obj: readonly MediaSegment[]) => unknown, thisArg?: unknown): MediaSegment | undefined {
+        return this.segments.find(predicate, thisArg);
+    }
+
+    public findIndex(predicate: (value: MediaSegment, index: number, obj: readonly MediaSegment[]) => unknown, thisArg?: unknown): number {
+        return this.segments.findIndex(predicate, thisArg);
+    }
+
+    public entries(): IterableIterator<[number, MediaSegment]> {
+        return this.segments.entries();
+    }
+
+    public keys(): IterableIterator<number> {
+        return this.segments.keys();
+    }
+
+    public values(): IterableIterator<MediaSegment> {
+        return this.segments.values();
+    }
+
+    public includes(searchElement: MediaSegment, fromIndex?: number): boolean {
+        return this.segments.includes(searchElement, fromIndex);
+    }
+
+    public flatMap<U, This = undefined>(callback: (this: This, value: MediaSegment, index: number, array: MediaSegment[]) => U | readonly U[], thisArg?: This): U[] {
+        return this.segments.flatMap(callback as never, thisArg);
+    }
+
+    public flat<A, D extends number = 1>(depth?: D): FlatArray<A, D>[] {
+        return this.segments.flat(depth) as any;
+    }
+
+    public at(index: number): MediaSegment | undefined {
+        return this.segments.at(index);
+    }
+
+    public toString(): string {
+        return this.segments.toString();
+    }
+
+    public toLocaleString(): string {
+        return this.segments.toLocaleString();
+    }
+
+    public get [Symbol.unscopables]() {
+        return this.segments[Symbol.unscopables];
+    }
+
+    /**
      * The EXT-X-SERVER-CONTROL tag allows the server to indicate support for
      * delivery directives for Low-Latency HLS. It specifies how a client can
      * request playlist delta updates and block for playlist updates.
@@ -371,9 +527,9 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
 
     private constructor(
         mediaPlaylistOptions: MediaPlaylistOptions,
-        mediaSegments: Map<string, MediaSegment>,
+        mediaSegments: MediaSegment[],
     ) {
-        super(Array.from(mediaSegments.entries()));
+        this.segments = mediaSegments;
 
         this['#EXTM3U'] = mediaPlaylistOptions['#EXTM3U'];
         this['#EXT-X-VERSION'] = mediaPlaylistOptions['#EXT-X-VERSION'];
@@ -551,8 +707,11 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
             }
 
             if (parsingSegments === false) {
-                MediaPlaylist.buildPlaylistOptions(token, mediaPlaylistOptions);
-                parsingSegments = MediaPlaylist.isMediaSegmentTag(token.type);
+                if (MediaPlaylist.isMediaSegmentTag(token.type)) {
+                    parsingSegments = true;
+                } else {
+                    MediaPlaylist.buildPlaylistOptions(token, mediaPlaylistOptions);
+                }
             }
             if (parsingSegments) {
                 MediaPlaylist.buildSegments(token, mediaSegmentsArrayBuilder);
@@ -582,8 +741,11 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
             }
 
             if (parsingSegments === false) {
-                MediaPlaylist.buildPlaylistOptions(token, mediaPlaylistOptions);
-                parsingSegments = MediaPlaylist.isMediaSegmentTag(token.type);
+                if (MediaPlaylist.isMediaSegmentTag(token.type)) {
+                    parsingSegments = true;
+                } else {
+                    MediaPlaylist.buildPlaylistOptions(token, mediaPlaylistOptions);
+                }
             }
             if (parsingSegments) {
                 MediaPlaylist.buildSegments(token, mediaSegmentsArrayBuilder);
@@ -655,8 +817,69 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
             yield playlistTagRegistry['#EXT-X-RENDITION-REPORT'].encode(this['#EXT-X-RENDITION-REPORT']);
         }
 
+        // Track persistent tags to avoid repeating them unnecessarily
+        let lastMap: z.infer<typeof EXT_X_MAP_CODEC> | undefined = undefined;
+        let lastKey: z.infer<typeof EXT_X_KEY_CODEC> | undefined = undefined;
+        let lastBitrate: z.infer<typeof EXT_X_BITRATE_CODEC> | undefined = undefined;
+
         for (const segment of this.values()) {
-            yield* segment.toHLSLines();
+            // Only output #EXT-X-MAP if it's different from the last one
+            const mapChanged = JSON.stringify(segment['#EXT-X-MAP']) !== JSON.stringify(lastMap);
+            if (segment['#EXT-X-MAP'] && mapChanged) {
+                yield EXT_X_MAP_CODEC.encode(segment['#EXT-X-MAP']);
+                lastMap = segment['#EXT-X-MAP'];
+            }
+
+            // Only output #EXT-X-KEY if it's different from the last one
+            const keyChanged = JSON.stringify(segment['#EXT-X-KEY']) !== JSON.stringify(lastKey);
+            if (segment['#EXT-X-KEY'] && keyChanged) {
+                yield EXT_X_KEY_CODEC.encode(segment['#EXT-X-KEY']);
+                lastKey = segment['#EXT-X-KEY'];
+            }
+
+            // Only output #EXT-X-BITRATE if it's different from the last one
+            const bitrateChanged = JSON.stringify(segment['#EXT-X-BITRATE']) !== JSON.stringify(lastBitrate);
+            if (segment['#EXT-X-BITRATE'] && bitrateChanged) {
+                yield EXT_X_BITRATE_CODEC.encode(segment['#EXT-X-BITRATE']);
+                lastBitrate = segment['#EXT-X-BITRATE'];
+            }
+
+            // Output all other segment tags (excluding MAP, KEY, BITRATE which are handled above)
+            if (segment['#EXT-X-BYTERANGE']) {
+                yield EXT_X_BYTERANGE_CODEC.encode(segment['#EXT-X-BYTERANGE']);
+            }
+            if (segment['#EXT-X-DISCONTINUITY']) {
+                yield EXT_X_DISCONTINUITY_CODEC.encode(segment['#EXT-X-DISCONTINUITY']);
+            }
+            if (segment['#EXT-X-PROGRAM-DATE-TIME']) {
+                yield EXT_X_PROGRAM_DATE_TIME_CODEC.encode(segment['#EXT-X-PROGRAM-DATE-TIME']);
+            }
+            if (segment['#EXT-X-DATERANGE']) {
+                yield EXT_X_DATERANGE_CODEC.encode(segment['#EXT-X-DATERANGE']);
+            }
+            if (segment['#EXT-X-GAP']) {
+                yield EXT_X_GAP_CODEC.encode(segment['#EXT-X-GAP']);
+            }
+            if (segment['#EXT-X-PART']) {
+                yield EXT_X_PART_CODEC.encode(segment['#EXT-X-PART']);
+            }
+            if (segment['#EXT-X-CUE-OUT']) {
+                yield EXT_X_CUE_OUT_CODEC.encode(segment['#EXT-X-CUE-OUT']);
+            }
+            if (segment['#EXT-X-CUE-IN']) {
+                yield EXT_X_CUE_IN_CODEC.encode(segment['#EXT-X-CUE-IN']);
+            }
+            if (segment['#EXT-X-CUE-OUT-CONT']) {
+                yield EXT_X_CUE_OUT_CONT_CODEC.encode(segment['#EXT-X-CUE-OUT-CONT']);
+            }
+            if (segment['#EXT-X-ASSET']) {
+                yield EXT_X_ASSET_CODEC.encode(segment['#EXT-X-ASSET']);
+            }
+            if (segment['#EXT-X-SPLICEPOINT-SCTE35']) {
+                yield EXT_X_SPLICEPOINT_SCTE35_CODEC.encode(segment['#EXT-X-SPLICEPOINT-SCTE35']);
+            }
+            yield EXTINF_CODEC.encode(segment['#EXTINF']);
+            yield segment['URI'];
         }
 
         if (this['#EXT-X-ENDLIST']) {
@@ -684,10 +907,7 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
             }
 
             // Reconstruct playlist with modified values
-            const mediaSegments = new Map<string, MediaSegment>();
-            for (const [uri, segment] of this.entries()) {
-                mediaSegments.set(uri, segment);
-            }
+            const mediaSegments: MediaSegment[] = Array.from(this);
 
             const tempPlaylist = new MediaPlaylist(
                 modifiedOptions as MediaPlaylistOptions,
