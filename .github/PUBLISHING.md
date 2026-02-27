@@ -85,8 +85,8 @@ The GitHub Action will automatically:
 4. ✅ Run all tests (443 tests)
 5. ✅ Build TypeScript and browser bundle
 6. ✅ Publish to npm with provenance
-7. ✅ Upload browser bundle to GitHub Release
-8. ✅ Comment on release with CDN links
+7. ✅ Upload browser bundle and source map to GitHub Release
+8. ✅ Update release description with CDN links and installation instructions
 
 You can monitor progress in the **Actions** tab.
 

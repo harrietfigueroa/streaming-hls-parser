@@ -47,64 +47,48 @@ jobs:
         run: npm publish --provenance --access public
 
       - name: Upload browser bundle to release
-        uses: actions/upload-release-asset@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./dist/index.browser.js
-          asset_name: index.browser.js
-          asset_content_type: application/javascript
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} \
+            ./dist/index.browser.js \
+            ./dist/index.browser.js.map \
+            --clobber
 
-      - name: Upload browser bundle source map to release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./dist/index.browser.js.map
-          asset_name: index.browser.js.map
-          asset_content_type: application/json
-
-      - name: Comment on release with CDN links
+      - name: Update release with CDN links
         uses: actions/github-script@v7
         with:
           script: |
             const version = '${{ steps.get_version.outputs.version }}';
             const packageName = 'streaming-hls-parser';
+            const currentBody = context.payload.release.body || '';
 
-            const comment = `## 📦 Published successfully!
+            const separator = '\n\n___\n\n';
+            const cdnInfo = separator + '## 📦 Published to npm!\n\n' +
+              '### Installation\n' +
+              '```bash\n' +
+              'npm install ' + packageName + '@' + version + '\n' +
+              '```\n\n' +
+              '### CDN Links\n\n' +
+              '**jsDelivr:**\n' +
+              '```html\n' +
+              '<script type="module">\n' +
+              '  import { HLS } from \'https://cdn.jsdelivr.net/npm/' + packageName + '@' + version + '/dist/index.browser.js\';\n' +
+              '</script>\n' +
+              '```\n\n' +
+              '**unpkg:**\n' +
+              '```html\n' +
+              '<script type="module">\n' +
+              '  import { HLS } from \'https://unpkg.com/' + packageName + '@' + version + '/dist/index.browser.js\';\n' +
+              '</script>\n' +
+              '```\n\n' +
+              '**GitHub Release Assets:**\n' +
+              'Browser bundle and source map are attached to this release as assets.\n\n' +
+              '_Note: CDNs typically sync within 5-10 minutes of npm publication._';
 
-            ### NPM
-            \`\`\`bash
-            npm install ${packageName}@${version}
-            \`\`\`
-
-            ### CDN Links
-
-            **jsDelivr:**
-            \`\`\`html
-            <script type="module">
-              import { HLS } from 'https://cdn.jsdelivr.net/npm/${packageName}@${version}/dist/index.browser.js';
-            </script>
-            \`\`\`
-
-            **unpkg:**
-            \`\`\`html
-            <script type="module">
-              import { HLS } from 'https://unpkg.com/${packageName}@${version}/dist/index.browser.js';
-            </script>
-            \`\`\`
-
-            **GitHub Release Assets:**
-            - Browser bundle attached to this release
-            - [index.browser.js](${context.payload.release.html_url})
-
-            CDNs typically sync within 5-10 minutes of npm publication.`;
-
-            github.rest.issues.createComment({
+            await github.rest.repos.updateRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.payload.release.number || context.payload.release.id,
-              body: comment
+              release_id: context.payload.release.id,
+              body: currentBody + cdnInfo
             });
