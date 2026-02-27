@@ -24,7 +24,7 @@ export const EXT_X_MAP_OBJECT = z.object({
      * resource indicated by the URI.
      */
     BYTERANGE: EXT_X_BYTERANGE,
-});
+}).readonly();
 
 /**
  * The EXT-X-MAP tag specifies how to obtain the Media Initialization

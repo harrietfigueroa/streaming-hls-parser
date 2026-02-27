@@ -104,6 +104,7 @@ export const EXT_X_STREAM_INF_OBJECT = z
                 width: z.number().int().min(1, 'Width must be a positive integer'),
                 height: z.number().int().min(1, 'Height must be a positive integer'),
             })
+            .readonly()
             .optional(),
 
         /**

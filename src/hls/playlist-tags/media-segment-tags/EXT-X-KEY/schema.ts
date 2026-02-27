@@ -84,7 +84,7 @@ export const EXT_X_KEY_OBJECT = z.object({
       version number of 5 or greater.
      */
     KEYFORMATVERSIONS: z.string().optional(),
-});
+}).readonly();
 
 /**
 4.3.2.4.  EXT-X-KEY
