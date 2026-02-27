@@ -4,10 +4,12 @@
     "description": "An HLS Parser that supports both streaming and string input, compatible with browsers and Node.js",
     "type": "module",
     "main": "dist/index.js",
+    "browser": "dist/index.browser.js",
     "types": "dist/index.d.ts",
     "exports": {
         ".": {
             "types": "./dist/index.d.ts",
+            "browser": "./dist/index.browser.js",
             "import": "./dist/index.js",
             "default": "./dist/index.js"
         }

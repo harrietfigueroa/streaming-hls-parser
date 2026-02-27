@@ -1,0 +1,112 @@
+name: Publish to npm and GitHub Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed to upload release assets
+      id-token: write  # Needed for npm provenance
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          # Remove 'v' prefix from tag (e.g., v1.0.0 -> 1.0.0)
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      - name: Update package.json version
+        run: |
+          npm version ${{ steps.get_version.outputs.version }} --no-git-tag-version
+          echo "Updated package.json to version ${{ steps.get_version.outputs.version }}"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build package
+        run: npm run build
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Upload browser bundle to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./dist/index.browser.js
+          asset_name: index.browser.js
+          asset_content_type: application/javascript
+
+      - name: Upload browser bundle source map to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./dist/index.browser.js.map
+          asset_name: index.browser.js.map
+          asset_content_type: application/json
+
+      - name: Comment on release with CDN links
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ steps.get_version.outputs.version }}';
+            const packageName = 'streaming-hls-parser';
+
+            const comment = `## 📦 Published successfully!
+
+            ### NPM
+            \`\`\`bash
+            npm install ${packageName}@${version}
+            \`\`\`
+
+            ### CDN Links
+
+            **jsDelivr:**
+            \`\`\`html
+            <script type="module">
+              import { HLS } from 'https://cdn.jsdelivr.net/npm/${packageName}@${version}/dist/index.browser.js';
+            </script>
+            \`\`\`
+
+            **unpkg:**
+            \`\`\`html
+            <script type="module">
+              import { HLS } from 'https://unpkg.com/${packageName}@${version}/dist/index.browser.js';
+            </script>
+            \`\`\`
+
+            **GitHub Release Assets:**
+            - Browser bundle attached to this release
+            - [index.browser.js](${context.payload.release.html_url})
+
+            CDNs typically sync within 5-10 minutes of npm publication.`;
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.release.number || context.payload.release.id,
+              body: comment
+            });

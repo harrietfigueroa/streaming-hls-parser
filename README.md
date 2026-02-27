@@ -19,9 +19,44 @@ A fast, cross-platform HLS (HTTP Live Streaming) playlist parser with support fo
 
 ## Installation
 
+### NPM
+
 ```bash
 npm install streaming-hls-parser
 ```
+
+### CDN (Browser)
+
+You can use the library directly in browsers via CDN:
+
+**jsDelivr:**
+```html
+<script type="module">
+  import { HLS } from 'https://cdn.jsdelivr.net/npm/streaming-hls-parser/dist/index.browser.js';
+
+  const playlist = HLS.parse(hlsString);
+  console.log(playlist);
+</script>
+```
+
+**unpkg:**
+```html
+<script type="module">
+  import { HLS } from 'https://unpkg.com/streaming-hls-parser/dist/index.browser.js';
+
+  const playlist = HLS.parse(hlsString);
+</script>
+```
+
+**Specific Version:**
+```html
+<!-- Replace 0.1.0 with desired version -->
+<script type="module">
+  import { HLS } from 'https://cdn.jsdelivr.net/npm/streaming-hls-parser@0.1.0/dist/index.browser.js';
+</script>
+```
+
+> **Note:** CDNs automatically sync with npm within 5-10 minutes of each release.
 
 ## Quick Start
 

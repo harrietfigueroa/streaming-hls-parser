@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [16, 18, 20]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build package
+        run: npm run build
+
+      - name: Check bundle size
+        run: |
+          BROWSER_SIZE=$(stat -f%z "dist/index.browser.js" 2>/dev/null || stat -c%s "dist/index.browser.js")
+          echo "Browser bundle size: $(numfmt --to=iec-i --suffix=B $BROWSER_SIZE)"
+          # Warn if bundle exceeds 500KB
+          if [ $BROWSER_SIZE -gt 512000 ]; then
+            echo "⚠️  Warning: Browser bundle is larger than 500KB"
+          fi
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check TypeScript types
+        run: npx tsc --noEmit
+
+      - name: Run ESLint (if configured)
+        run: npm run lint --if-present
+        continue-on-error: true
