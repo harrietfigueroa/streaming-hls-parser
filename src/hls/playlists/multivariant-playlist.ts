@@ -349,20 +349,18 @@ export class MultivariantPlaylist extends Map<string, StreamInf> implements Play
         );
     }
 
-    public static async fromStream<Input extends Iterable<string> | AsyncIterable<string>>(
+    public static async fromStream<Input extends Iterable<string> | AsyncIterable<string | Uint8Array>>(
         source: Input,
         reviver?: Reviver,
     ): Promise<MultivariantPlaylist> {
-        const tokenizedStream: AsyncIterable<LexicalToken> = createStream(source);
+        // Create stream with reviver applied in the transform pipeline
+        const tokenizedStream: AsyncIterable<LexicalToken> = createStream(source, reviver);
 
         const multivariantPlaylistOptions: Partial<MultivariantPlaylistOptions> = {};
         const variantStreamsArrayBuilder = new StreamInfArrayBuilder();
 
         let parsingStreamVariants: boolean = false;
-        for await (let token of tokenizedStream) {
-            if (reviver) {
-                token = reviver(token);
-            }
+        for await (const token of tokenizedStream) {
             if (parsingStreamVariants === false) {
                 MultivariantPlaylist.buildPlaylistOptions(token, multivariantPlaylistOptions);
                 if (token.type === '#EXT-X-STREAM-INF') {

@@ -568,17 +568,14 @@ export class MediaPlaylist extends Map<string, MediaSegment> implements Playlist
     public static async fromStream<
         Input extends Iterable<string> | AsyncIterable<string | Uint8Array>,
     >(source: Input, reviver?: Reviver): Promise<MediaPlaylist> {
-        const tokenizedStream: AsyncIterable<LexicalToken> = createStream(source);
+        // Create stream with reviver applied in the transform pipeline
+        const tokenizedStream: AsyncIterable<LexicalToken> = createStream(source, reviver);
 
         const mediaPlaylistOptions: Partial<MediaPlaylistOptions> = {};
         const mediaSegmentsArrayBuilder = new MediaSegmentArrayBuilder();
 
         let parsingSegments: boolean = false;
-        for await (let token of tokenizedStream) {
-            if (reviver) {
-                token = reviver(token);
-            }
-
+        for await (const token of tokenizedStream) {
             if (token.type === '#EXT-X-ENDLIST') {
                 mediaPlaylistOptions['#EXT-X-ENDLIST'] = token.value as any;
                 continue;

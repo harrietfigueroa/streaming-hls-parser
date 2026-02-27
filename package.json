@@ -1,16 +1,55 @@
 {
     "name": "streaming-hls-parser",
     "version": "0.0.0",
-    "description": "An HLS Parser that supports both streaming and string input",
+    "description": "An HLS Parser that supports both streaming and string input, compatible with browsers and Node.js",
+    "type": "module",
     "main": "dist/src/index.js",
+    "types": "dist/src/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/src/index.d.ts",
+            "import": "./dist/src/index.js",
+            "default": "./dist/src/index.js"
+        }
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
     "scripts": {
         "test": "vitest run",
         "test:watch": "vitest watch",
         "test:typecheck": "vitest run --typecheck",
-        "compile": "tsc"
+        "compile": "tsc",
+        "build": "tsc",
+        "prepublishOnly": "npm run build"
     },
+    "keywords": [
+        "hls",
+        "m3u8",
+        "playlist",
+        "parser",
+        "streaming",
+        "http-live-streaming",
+        "web-streams",
+        "browser",
+        "node",
+        "deno",
+        "bun"
+    ],
     "author": "harriet.f.figueroa@gmail.com",
     "license": "ISC",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/harrietfigueroa/streaming-hls-parser.git"
+    },
+    "bugs": {
+        "url": "https://github.com/harrietfigueroa/streaming-hls-parser/issues"
+    },
+    "engines": {
+        "node": ">=16.5.0"
+    },
     "devDependencies": {
         "@types/node": "^22.14.1",
         "@typescript-eslint/eslint-plugin": "^6.9.0",

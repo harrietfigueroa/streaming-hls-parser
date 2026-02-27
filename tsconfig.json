@@ -1,6 +1,7 @@
 {
     "compilerOptions": {
         "target": "es2022" /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */,
+        "lib": ["ES2022", "DOM"] /* Specify library files to include (ES2022 for modern JS, DOM for Web Streams API). */,
         "module": "ESNext" /* Specify what module code is generated. */,
         "moduleResolution": "node" /* Specify module resolution strategy. */,
         "outDir": "./dist" /* Specify an output folder for all emitted files. */,

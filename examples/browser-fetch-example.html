@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HLS Parser - Browser Fetch Example</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .url-input {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        pre {
+            background: #f8f8f8;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 400px;
+        }
+        .error {
+            color: #d32f2f;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .success {
+            color: #388e3c;
+            background: #e8f5e9;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .info {
+            color: #1976d2;
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>HLS Parser - Browser Fetch Example</h1>
+
+    <div class="container">
+        <h2>Fetch HLS Playlist from URL</h2>
+        <p>This example demonstrates using the HLS parser with Web Streams API to parse playlists fetched from a URL.</p>
+
+        <input
+            type="text"
+            id="playlistUrl"
+            class="url-input"
+            placeholder="Enter HLS playlist URL (e.g., https://example.com/playlist.m3u8)"
+            value="https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8"
+        >
+
+        <button id="fetchBtn">Parse Playlist</button>
+
+        <div id="status"></div>
+        <div id="output"></div>
+    </div>
+
+    <div class="container">
+        <h2>How it works</h2>
+        <pre><code>import { HLS } from 'streaming-hls-parser';
+
+// Fetch HLS playlist from a URL
+const response = await fetch(playlistUrl);
+
+// Parse the playlist using Web Streams
+// The response.body is a ReadableStream of Uint8Array chunks
+const playlist = await HLS.parseMediaPlaylist(response.body);
+
+// Or parse a multivariant playlist
+const playlist = await HLS.parseMultivariantPlaylist(response.body);
+
+// Or use auto-detection
+const playlist = await HLS.parse(await response.text());</code></pre>
+    </div>
+
+    <script type="module">
+        // This example assumes you have the library built and available as an ES module
+        // For local testing, you would import from your dist folder:
+        // import { HLS } from '../dist/index.js';
+
+        // For this demo, we'll simulate the parsing without the actual import
+        // In a real application, you would import the library as shown above
+
+        const fetchBtn = document.getElementById('fetchBtn');
+        const playlistUrl = document.getElementById('playlistUrl');
+        const status = document.getElementById('status');
+        const output = document.getElementById('output');
+
+        fetchBtn.addEventListener('click', async () => {
+            fetchBtn.disabled = true;
+            status.innerHTML = '<div class="info">Fetching playlist...</div>';
+            output.innerHTML = '';
+
+            try {
+                const url = playlistUrl.value.trim();
+                if (!url) {
+                    throw new Error('Please enter a URL');
+                }
+
+                // Fetch the playlist
+                const response = await fetch(url, {
+                    mode: 'cors' // Handle CORS
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // Get the text content
+                const text = await response.text();
+
+                status.innerHTML = '<div class="success">Playlist fetched successfully!</div>';
+
+                // Display the raw playlist
+                output.innerHTML = `
+                    <h3>Raw Playlist Content</h3>
+                    <pre>${escapeHtml(text)}</pre>
+
+                    <h3>Playlist Info</h3>
+                    <div class="info">
+                        <strong>Content-Type:</strong> ${response.headers.get('content-type')}<br>
+                        <strong>Size:</strong> ${text.length} characters<br>
+                        <strong>Lines:</strong> ${text.split('\\n').length}<br>
+                        <strong>Type:</strong> ${text.includes('#EXT-X-STREAM-INF') ? 'Multivariant Playlist' : 'Media Playlist'}
+                    </div>
+
+                    <p><em>Note: To actually parse this with the HLS library, import the library and use:</em></p>
+                    <pre>const playlist = HLS.parse(text);
+// or for streaming
+const playlist = await HLS.parseMediaPlaylist(response.body);</pre>
+                `;
+
+            } catch (error) {
+                status.innerHTML = `<div class="error">Error: ${escapeHtml(error.message)}</div>`;
+                console.error('Fetch error:', error);
+            } finally {
+                fetchBtn.disabled = false;
+            }
+        });
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

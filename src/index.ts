@@ -117,11 +117,11 @@ export class HLS {
      */
     public static parseMediaPlaylist(input: string, reviver?: Reviver): MediaPlaylist;
     public static parseMediaPlaylist(
-        input: AsyncIterable<string>,
+        input: AsyncIterable<string | Uint8Array>,
         reviver?: Reviver,
     ): Promise<MediaPlaylist>;
     public static parseMediaPlaylist(
-        input: string | AsyncIterable<string>,
+        input: string | AsyncIterable<string | Uint8Array>,
         reviver?: Reviver,
     ): MediaPlaylist | Promise<MediaPlaylist> {
         if (typeof input === 'string') {
@@ -152,11 +152,11 @@ export class HLS {
         reviver?: Reviver,
     ): MultivariantPlaylist;
     public static parseMultivariantPlaylist(
-        input: AsyncIterable<string>,
+        input: AsyncIterable<string | Uint8Array>,
         reviver?: Reviver,
     ): Promise<MultivariantPlaylist>;
     public static parseMultivariantPlaylist(
-        input: string | AsyncIterable<string>,
+        input: string | AsyncIterable<string | Uint8Array>,
         reviver?: Reviver,
     ): MultivariantPlaylist | Promise<MultivariantPlaylist> {
         if (typeof input === 'string') {

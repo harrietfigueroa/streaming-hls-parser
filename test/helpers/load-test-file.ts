@@ -7,7 +7,20 @@ export enum TestFiles {
     MULTI_VARIANT_PLAYLIST = `./examples/multi-variant-playlist.m3u8`,
     VOD_PLAYLIST = `./examples/vod-playlist.m3u8`,
 }
+
+/**
+ * Load a test file as a Node.js Readable stream (for backward compatibility)
+ */
 export function loadTestFile(fileName: TestFiles): Readable {
+    return createReadStream(fileName, {
+        encoding: 'utf-8',
+    });
+}
+
+/**
+ * Load a test file as an async iterable for use with Web Streams
+ */
+export function loadTestFileAsIterable(fileName: TestFiles): AsyncIterable<string> {
     return createReadStream(fileName, {
         encoding: 'utf-8',
     });
