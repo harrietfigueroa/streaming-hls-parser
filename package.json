@@ -1,6 +1,6 @@
 {
     "name": "streaming-hls-parser",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "description": "An HLS Parser that supports both streaming and string input, compatible with browsers and Node.js",
     "type": "module",
     "main": "dist/src/index.js",
