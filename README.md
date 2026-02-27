@@ -384,17 +384,30 @@ async function loadPlaylist(url) {
     const text = await response.text();
     return HLS.parse(text);
 }
+
+// Example: Load from a public HLS stream
+const playlist = await loadPlaylist('https://example.com/playlist.m3u8');
 ```
 
 ### With File Input
 
-```typescript
-import { HLS } from 'streaming-hls-parser';
+The recommended approach in browsers is to use a file input to avoid CORS issues:
 
-async function handleFileUpload(file) {
-    const text = await file.text();
-    return HLS.parse(text);
-}
+```html
+<input type="file" id="playlistFile" accept=".m3u8" />
+
+<script type="module">
+    import { HLS } from 'https://cdn.jsdelivr.net/npm/streaming-hls-parser/dist/index.browser.js';
+
+    document.getElementById('playlistFile').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const text = await file.text();
+            const playlist = HLS.parse(text);
+            console.log('Loaded playlist with', playlist.size, 'segments');
+        }
+    });
+</script>
 ```
 
 ### ES Modules in Browser
@@ -403,11 +416,21 @@ async function handleFileUpload(file) {
 <script type="module">
     import { HLS } from 'https://cdn.jsdelivr.net/npm/streaming-hls-parser/dist/index.browser.js';
 
-    const response = await fetch('playlist.m3u8');
-    const text = await response.text();
-    const playlist = HLS.parse(text);
+    // Option 1: Parse an HLS string directly
+    const hlsString = `#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:10
+#EXTINF:9.009,
+segment1.ts
+#EXT-X-ENDLIST`;
 
+    const playlist = HLS.parse(hlsString);
     console.log('Loaded playlist with', playlist.size, 'segments');
+
+    // Option 2: Fetch from a URL (requires CORS to be enabled on the server)
+    // const response = await fetch('https://example.com/playlist.m3u8');
+    // const text = await response.text();
+    // const playlist = HLS.parse(text);
 </script>
 ```
 

@@ -27,6 +27,13 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+        }
+        textarea.url-input {
+            resize: vertical;
+        }
+        input[type="file"] {
+            margin-bottom: 10px;
         }
         button {
             background: #007bff;
@@ -78,8 +85,42 @@
     <h1>HLS Parser - Browser Fetch Example</h1>
 
     <div class="container">
-        <h2>Fetch HLS Playlist from URL</h2>
-        <p>This example demonstrates using the HLS parser with Web Streams API to parse playlists fetched from a URL.</p>
+        <h2>Option 1: Parse HLS String Directly</h2>
+        <p>Paste an HLS playlist or use the example below (no CORS issues):</p>
+
+        <textarea
+            id="playlistText"
+            class="url-input"
+            rows="10"
+            placeholder="Paste HLS playlist content here..."
+        >#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:10
+#EXTINF:9.009,
+segment1.ts
+#EXTINF:9.009,
+segment2.ts
+#EXT-X-ENDLIST</textarea>
+
+        <button id="parseBtn">Parse Playlist</button>
+
+        <div id="status1"></div>
+        <div id="output1"></div>
+    </div>
+
+    <div class="container">
+        <h2>Option 2: Load from File</h2>
+        <p>Upload a local .m3u8 file (recommended to avoid CORS issues):</p>
+
+        <input type="file" id="playlistFile" accept=".m3u8" />
+
+        <div id="status2"></div>
+        <div id="output2"></div>
+    </div>
+
+    <div class="container">
+        <h2>Option 3: Fetch from URL</h2>
+        <p>Fetch from a public URL (requires CORS to be enabled on the server):</p>
 
         <input
             type="text"
@@ -89,25 +130,28 @@
             value="https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8"
         >
 
-        <button id="fetchBtn">Parse Playlist</button>
+        <button id="fetchBtn">Fetch & Parse</button>
 
-        <div id="status"></div>
-        <div id="output"></div>
+        <div id="status3"></div>
+        <div id="output3"></div>
     </div>
 
     <div class="container">
         <h2>How it works</h2>
-        <pre><code>// In browser with bundled version:
-import { HLS } from '../dist/index.browser.js';
+        <pre><code>// In browser via CDN:
+import { HLS } from 'https://cdn.jsdelivr.net/npm/streaming-hls-parser/dist/index.browser.js';
 
-// Or in Node.js/bundlers:
-import { HLS } from 'streaming-hls-parser';
+// Parse HLS string
+const playlist = HLS.parse(hlsString);
 
-// Fetch HLS playlist from a URL
-const response = await fetch(playlistUrl);
+// Or fetch from URL (requires CORS)
+const response = await fetch(url);
 const text = await response.text();
+const playlist = HLS.parse(text);
 
-// Parse the playlist (auto-detects media vs multivariant)
+// Or load from file
+const file = input.files[0];
+const text = await file.text();
 const playlist = HLS.parse(text);
 
 // Convert back to HLS format
@@ -115,19 +159,83 @@ const hlsString = HLS.stringify(playlist);</code></pre>
     </div>
 
     <script type="module">
-        // Import the HLS parser from the built library
-        // Make sure to build the library first with: npm run build
-        import { HLS } from '../dist/index.browser.js';
+        // Import from CDN (works without building)
+        import { HLS } from 'https://cdn.jsdelivr.net/npm/streaming-hls-parser/dist/index.browser.js';
 
+        // Or import from local build (requires: npm run build)
+        // import { HLS } from '../dist/index.browser.js';
+
+        // Option 1: Parse HLS string directly
+        const parseBtn = document.getElementById('parseBtn');
+        const playlistText = document.getElementById('playlistText');
+        const status1 = document.getElementById('status1');
+        const output1 = document.getElementById('output1');
+
+        parseBtn.addEventListener('click', async () => {
+            parseBtn.disabled = true;
+            status1.innerHTML = '<div class="info">Parsing playlist...</div>';
+            output1.innerHTML = '';
+
+            try {
+                const text = playlistText.value.trim();
+                if (!text) {
+                    throw new Error('Please enter HLS playlist content');
+                }
+
+                const parseStart = performance.now();
+                const playlist = HLS.parse(text);
+                const parseEnd = performance.now();
+                const parseDuration = parseEnd - parseStart;
+
+                displayPlaylist(playlist, text, status1, output1, '', null, parseDuration);
+            } catch (error) {
+                status1.innerHTML = `<div class="error">Error: ${escapeHtml(error.message)}</div>`;
+                console.error('Parse error:', error);
+            } finally {
+                parseBtn.disabled = false;
+            }
+        });
+
+        // Option 2: Load from file
+        const playlistFile = document.getElementById('playlistFile');
+        const status2 = document.getElementById('status2');
+        const output2 = document.getElementById('output2');
+
+        playlistFile.addEventListener('change', async (e) => {
+            status2.innerHTML = '<div class="info">Loading file...</div>';
+            output2.innerHTML = '';
+
+            try {
+                const file = e.target.files[0];
+                if (!file) {
+                    throw new Error('No file selected');
+                }
+
+                const text = await file.text();
+                status2.innerHTML = '<div class="info">Parsing playlist...</div>';
+
+                const parseStart = performance.now();
+                const playlist = HLS.parse(text);
+                const parseEnd = performance.now();
+                const parseDuration = parseEnd - parseStart;
+
+                displayPlaylist(playlist, text, status2, output2, file.name, null, parseDuration);
+            } catch (error) {
+                status2.innerHTML = `<div class="error">Error: ${escapeHtml(error.message)}</div>`;
+                console.error('Parse error:', error);
+            }
+        });
+
+        // Option 3: Fetch from URL
         const fetchBtn = document.getElementById('fetchBtn');
         const playlistUrl = document.getElementById('playlistUrl');
-        const status = document.getElementById('status');
-        const output = document.getElementById('output');
+        const status3 = document.getElementById('status3');
+        const output3 = document.getElementById('output3');
 
         fetchBtn.addEventListener('click', async () => {
             fetchBtn.disabled = true;
-            status.innerHTML = '<div class="info">Fetching playlist...</div>';
-            output.innerHTML = '';
+            status3.innerHTML = '<div class="info">Fetching playlist...</div>';
+            output3.innerHTML = '';
 
             try {
                 const url = playlistUrl.value.trim();
@@ -135,57 +243,71 @@ const hlsString = HLS.stringify(playlist);</code></pre>
                     throw new Error('Please enter a URL');
                 }
 
-                // Fetch the playlist
                 const response = await fetch(url, {
-                    mode: 'cors' // Handle CORS
+                    mode: 'cors'
                 });
 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
-                // Get the text content
                 const text = await response.text();
+                status3.innerHTML = '<div class="info">Parsing playlist...</div>';
 
-                status.innerHTML = '<div class="info">Parsing playlist...</div>';
-
-                // Parse the playlist using HLS.parse()
+                const parseStart = performance.now();
                 const playlist = HLS.parse(text);
+                const parseEnd = performance.now();
+                const parseDuration = parseEnd - parseStart;
 
-                status.innerHTML = '<div class="success">Playlist parsed successfully!</div>';
-
-                // Determine playlist type
-                const isMultivariant = text.includes('#EXT-X-STREAM-INF');
-                const playlistType = isMultivariant ? 'Multivariant Playlist' : 'Media Playlist';
-
-                // Display the parsed playlist
-                output.innerHTML = `
-                    <h3>Parsed Playlist Object</h3>
-                    <pre>${escapeHtml(JSON.stringify(playlist, null, 2))}</pre>
-
-                    <h3>Playlist Info</h3>
-                    <div class="info">
-                        <strong>Type:</strong> ${playlistType}<br>
-                        <strong>Content-Type:</strong> ${response.headers.get('content-type')}<br>
-                        <strong>Original Size:</strong> ${text.length} characters<br>
-                        <strong>Lines:</strong> ${text.split('\n').length}<br>
-                        ${!isMultivariant ? `<strong>Segments:</strong> ${playlist.size || 0}` : ''}
-                    </div>
-
-                    <h3>Raw Playlist Content</h3>
-                    <pre>${escapeHtml(text)}</pre>
-
-                    <h3>Stringify Back to HLS</h3>
-                    <pre>${escapeHtml(HLS.stringify(playlist))}</pre>
-                `;
-
+                displayPlaylist(playlist, text, status3, output3, url, response, parseDuration);
             } catch (error) {
-                status.innerHTML = `<div class="error">Error: ${escapeHtml(error.message)}</div>`;
-                console.error('Parse error:', error);
+                status3.innerHTML = `<div class="error">Error: ${escapeHtml(error.message)}<br><small>Note: This URL may not have CORS enabled. Try Option 1 or 2 instead.</small></div>`;
+                console.error('Fetch error:', error);
             } finally {
                 fetchBtn.disabled = false;
             }
         });
+
+        function displayPlaylist(playlist, text, statusEl, outputEl, source = '', response = null, parseDuration = 0) {
+            statusEl.innerHTML = '<div class="success">Playlist parsed successfully!</div>';
+
+            const isMultivariant = text.includes('#EXT-X-STREAM-INF');
+            const playlistType = isMultivariant ? 'Multivariant Playlist' : 'Media Playlist';
+
+            // Measure stringify duration
+            const stringifyStart = performance.now();
+            const stringified = HLS.stringify(playlist);
+            const stringifyEnd = performance.now();
+            const stringifyDuration = stringifyEnd - stringifyStart;
+
+            outputEl.innerHTML = `
+                <h3>Performance</h3>
+                <div class="info">
+                    <strong>Parse Time:</strong> ${parseDuration.toFixed(3)} ms<br>
+                    <strong>Stringify Time:</strong> ${stringifyDuration.toFixed(3)} ms<br>
+                    <strong>Total:</strong> ${(parseDuration + stringifyDuration).toFixed(3)} ms
+                </div>
+
+                <h3>Playlist Info</h3>
+                <div class="info">
+                    <strong>Type:</strong> ${playlistType}<br>
+                    ${source ? `<strong>Source:</strong> ${escapeHtml(source)}<br>` : ''}
+                    ${response ? `<strong>Content-Type:</strong> ${response.headers.get('content-type')}<br>` : ''}
+                    <strong>Size:</strong> ${text.length} characters<br>
+                    <strong>Lines:</strong> ${text.split('\n').length}<br>
+                    ${!isMultivariant ? `<strong>Segments:</strong> ${playlist.size || 0}` : ''}
+                </div>
+
+                <h3>Parsed Playlist Object</h3>
+                <pre>${escapeHtml(JSON.stringify(playlist, null, 2))}</pre>
+
+                <h3>Raw Playlist Content</h3>
+                <pre>${escapeHtml(text)}</pre>
+
+                <h3>Stringify Back to HLS</h3>
+                <pre>${escapeHtml(stringified)}</pre>
+            `;
+        }
 
         function escapeHtml(text) {
             const div = document.createElement('div');
