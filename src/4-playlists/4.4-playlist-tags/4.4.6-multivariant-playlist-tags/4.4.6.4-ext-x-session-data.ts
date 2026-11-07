@@ -3,7 +3,7 @@
 // DATA-ID and LANGUAGE pairs across a playlist's tags.
 import { z } from "zod";
 
-import { attributeListTagSchema, enumeratedStringSchema, quotedStringSchema } from "../../4.2-attribute-lists.js";
+import { type AttributeWritersOf, attributeListTagSchema, enumeratedStringSchema, quotedStringSchema, writeAsIs, writeQuotedString } from "../../4.2-attribute-lists.js";
 import { type Issue, type Rule, Severity } from "../../../library/rule.js";
 
 const SECTION = "4.4.6.4";
@@ -67,3 +67,12 @@ export function checkSessionData(sessionData: readonly SessionData[]) {
     }
     return issues;
 }
+
+/** EXT-X-SESSION-DATA's attribute writers, in written order. */
+export const extXSessionDataAttributeWriters = {
+    "DATA-ID": writeQuotedString,
+    VALUE: writeQuotedString,
+    URI: writeQuotedString,
+    FORMAT: writeAsIs,
+    LANGUAGE: writeQuotedString,
+} as const satisfies AttributeWritersOf<typeof extXSessionDataSchema>;

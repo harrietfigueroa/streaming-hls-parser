@@ -4,10 +4,13 @@
 import { z } from "zod";
 
 import {
+    type AttributeWritersOf,
     attributeListTagSchema,
     enumeratedStringSchema,
     hexadecimalSequenceSchema,
     quotedStringSchema,
+    writeAsIs,
+    writeQuotedString,
 } from "../../4.2-attribute-lists.js";
 import { type Issue, type Rule, Severity } from "../../../library/rule.js";
 
@@ -134,3 +137,12 @@ export function applyKeys<K extends Key>(options: { readonly applying: readonly 
     }
     return Object.freeze(applying);
 }
+
+/** EXT-X-KEY's attribute writers, in written order, which EXT-X-SESSION-KEY shares. */
+export const keyAttributeWriters = {
+    METHOD: writeAsIs,
+    URI: writeQuotedString,
+    IV: writeAsIs,
+    KEYFORMAT: writeQuotedString,
+    KEYFORMATVERSIONS: writeQuotedString,
+} as const satisfies AttributeWritersOf<typeof extXKeySchema>;

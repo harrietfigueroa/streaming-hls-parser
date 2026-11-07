@@ -3,7 +3,18 @@
 // position, and each malformed case breaks exactly one rule of a valid base.
 import { describe, expect, test } from "vitest";
 
-import { type DataOf, HLS, IgnoredKind, Limit, type MediaPlaylist, type MultivariantPlaylist, ParseKind, PlaylistKind } from "../src/index.js";
+import {
+    type DataOf,
+    HLS,
+    IgnoredKind,
+    Limit,
+    type MediaPlaylist,
+    type MultivariantPlaylist,
+    ParseKind,
+    type Playlist,
+    PlaylistKind,
+} from "../src/index.js";
+import { defaultTagTables } from "../src/library/tag-table.js";
 import {
     extXStreamInfIgnoreReason,
     extXStreamInfRules,
@@ -1006,5 +1017,174 @@ describe("parsed objects' methods", () => {
         const segmentPrototype: unknown = Object.getPrototypeOf(segment);
         expect(Object.isFrozen(playlistPrototype)).toBe(true);
         expect(Object.isFrozen(segmentPrototype)).toBe(true);
+    });
+});
+
+// HLS.stringify writes a playlist or a unit from its data alone in the canonical form: parsing what it
+// writes gives back the same data, for playlists that together carry every tag the library recognizes.
+describe("HLS.stringify", () => {
+    const MEDIA_EVERY_TAG = [
+        "#EXTM3U",
+        "#EXT-X-VERSION:10",
+        "#EXT-X-INDEPENDENT-SEGMENTS",
+        "#EXT-X-START:TIME-OFFSET=-3.5,PRECISE=YES",
+        '#EXT-X-DEFINE:NAME="host",VALUE="example.com"',
+        "#EXT-X-TARGETDURATION:4",
+        "#EXT-X-MEDIA-SEQUENCE:270",
+        "#EXT-X-DISCONTINUITY-SEQUENCE:2",
+        "#EXT-X-PLAYLIST-TYPE:EVENT",
+        "#EXT-X-PART-INF:PART-TARGET=1.002",
+        "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=24,CAN-SKIP-DATERANGES=YES,HOLD-BACK=12,PART-HOLD-BACK=3.012,CAN-BLOCK-RELOAD=YES",
+        '#EXT-X-SKIP:SKIPPED-SEGMENTS=3,RECENTLY-REMOVED-DATERANGES="old"',
+        '#EXT-X-DATERANGE:ID="ad",CLASS="com.example.ad",START-DATE="2026-01-01T00:00:00Z",CUE="PRE,ONCE",DURATION=30,PLANNED-DURATION=30,SCTE35-OUT=0xFC30,X-AD-ID="XYZ",X-COUNT=2.5,X-RAW=0xAB',
+        "# a comment",
+        "#EXT-X-FUTURE:1",
+        '#EXT-X-KEY:METHOD=AES-128,URI="https://{$host}/key",IV=0x0123456789ABCDEF0123456789ABCDEF,KEYFORMAT="identity",KEYFORMATVERSIONS="1",FUTURE=2',
+        '#EXT-X-MAP:URI="init.mp4",BYTERANGE="720@0"',
+        "#EXT-X-PROGRAM-DATE-TIME:2026-01-01T00:00:00.000Z",
+        "#EXT-X-BITRATE:1500",
+        '#EXT-X-PART:DURATION=1.002,URI="p0.mp4",INDEPENDENT=YES,BYTERANGE="100@0"',
+        '#EXT-X-PART:DURATION=1.002,URI="p0.mp4",BYTERANGE="100@100"',
+        "#EXTINF:4.004,title",
+        "a.mp4",
+        "#EXT-X-DISCONTINUITY",
+        "#EXT-X-GAP",
+        "#EXT-X-BYTERANGE:1000@0",
+        "#EXTINF:4,",
+        "b.mp4",
+        "#EXT-X-BYTERANGE:1000",
+        "#EXTINF:4,",
+        "b.mp4",
+        '#EXT-X-PART:DURATION=1,URI="c.0.mp4"',
+        '#EXT-X-PRELOAD-HINT:TYPE=PART,URI="c.1.mp4",BYTERANGE-START=0,BYTERANGE-LENGTH=100',
+        '#EXT-X-RENDITION-REPORT:URI="other.m3u8",LAST-MSN=273,LAST-PART=0',
+        "",
+    ].join("\n");
+
+    const MEDIA_I_FRAMES = '#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-I-FRAMES-ONLY\n#EXT-X-MAP:URI="i.mp4"\n#EXT-X-BYTERANGE:100@0\n#EXTINF:4,\ni.mp4\n#EXT-X-ENDLIST\n';
+
+    const MULTIVARIANT_EVERY_TAG = [
+        "#EXTM3U",
+        "#EXT-X-VERSION:13",
+        "#EXT-X-INDEPENDENT-SEGMENTS",
+        "#EXT-X-START:TIME-OFFSET=10",
+        '#EXT-X-DEFINE:NAME="cdn",VALUE="https://cdn.example.com"',
+        '#EXT-X-CONTENT-STEERING:SERVER-URI="https://steer.example.com",PATHWAY-ID="CDN-A"',
+        '#EXT-X-SESSION-DATA:DATA-ID="com.example.title",VALUE="Title",LANGUAGE="en"',
+        '#EXT-X-SESSION-DATA:DATA-ID="com.example.info",URI="info.json",FORMAT=JSON',
+        '#EXT-X-SESSION-KEY:METHOD=SAMPLE-AES,URI="skd://key",KEYFORMAT="com.apple.streamingkeydelivery",KEYFORMATVERSIONS="1"',
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="English",LANGUAGE="en",ASSOC-LANGUAGE="en-US",DEFAULT=YES,AUTOSELECT=YES,CHANNELS="6/JOC/BINAURAL",CHARACTERISTICS="public.accessibility.describes-video",BIT-DEPTH=16,SAMPLE-RATE=48000,STABLE-RENDITION-ID="en",URI="{$cdn}/en.m3u8"',
+        '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="sub",NAME="English",LANGUAGE="en",DEFAULT=NO,AUTOSELECT=YES,FORCED=NO,URI="subs.m3u8"',
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=86000,URI="iframe.m3u8",CODECS="avc1.4d001f",RESOLUTION=640x360,VIDEO-RANGE=SDR,HDCP-LEVEL=NONE',
+        "# a comment",
+        '#EXT-X-STREAM-INF:BANDWIDTH=1280000,AVERAGE-BANDWIDTH=1000000,SCORE=1.5,CODECS="avc1.4d001f,mp4a.40.2",SUPPLEMENTAL-CODECS="dvh1.08.01/db1p",RESOLUTION=1280x720,FRAME-RATE=29.97,HDCP-LEVEL=TYPE-0,ALLOWED-CPC="com.example:SW",VIDEO-RANGE=PQ,REQ-VIDEO-LAYOUT="CH-STEREO,CH-MONO",STABLE-VARIANT-ID="hd",AUDIO="aud",SUBTITLES="sub",CLOSED-CAPTIONS=NONE,PATHWAY-ID="CDN-A"',
+        "hd.m3u8",
+        '#EXT-X-STREAM-INF:BANDWIDTH=1,REQ-FUTURE=1',
+        "dropped.m3u8",
+        '#EXT-X-STREAM-INF:BANDWIDTH=320000,AUDIO="aud",CLOSED-CAPTIONS=NONE,PATHWAY-ID="CDN-A"',
+        "low.m3u8",
+        "",
+    ].join("\n");
+
+    const playlistTexts = [
+        { name: "section 9.1's playlist", text: SIMPLE_MEDIA_PLAYLIST },
+        { name: "a Media Playlist with every tag but two", text: MEDIA_EVERY_TAG },
+        { name: "an I-frames-only playlist", text: MEDIA_I_FRAMES },
+        { name: "a Multivariant Playlist with every tag", text: MULTIVARIANT_EVERY_TAG },
+        { name: "the Low-Latency playlist", text: LOW_LATENCY_LINES.join("\n") },
+    ] as const;
+
+    function parseText(text: string) {
+        const outcome = HLS.safeParse(text);
+        assertCondition(outcome.kind === ParseKind.parsed, `The playlist parsed as ${outcome.kind}: ${JSON.stringify(outcome)}`);
+        return outcome.playlist;
+    }
+
+    test.each(playlistTexts)("parses what it writes for $name back to the same data", ({ text }) => {
+        const playlist = parseText(text);
+        const written = HLS.stringify(playlist);
+        expect(parseText(written)).toEqual(playlist);
+    });
+
+    function* tagNamesOf(playlist: Playlist) {
+        for (const key of Object.keys(playlist)) {
+            yield key;
+        }
+        let units: readonly object[];
+        if (playlist.kind === PlaylistKind.media) {
+            units = playlist.segments;
+        } else {
+            units = playlist.variants;
+        }
+        for (const unit of units) {
+            for (const key of Object.keys(unit)) {
+                yield key;
+            }
+        }
+        const hasPendingSegment = playlist.kind === PlaylistKind.media && playlist.pendingSegment !== undefined;
+        if (hasPendingSegment) {
+            for (const key of Object.keys(playlist.pendingSegment)) {
+                yield key;
+            }
+        }
+    }
+
+    test.each(Object.values(PlaylistKind))("the %s fixtures carry every tag of that kind", (kind) => {
+        const written = new Set<string>();
+        for (const { text } of playlistTexts) {
+            const playlist = parseText(text);
+            if (playlist.kind === kind) {
+                for (const name of tagNamesOf(playlist)) {
+                    written.add(name);
+                }
+            }
+        }
+        const tables = defaultTagTables[kind];
+        const playlistNames = Object.keys(tables.playlist.shape);
+        const unitNames = Object.keys(tables.unit.shape);
+        const names = playlistNames.concat(unitNames);
+        const missing: string[] = [];
+        for (const name of names) {
+            if (!written.has(name)) {
+                missing.push(name);
+            }
+        }
+        expect(missing).toEqual([]);
+    });
+
+    test("writes section 9.1's playlist in the canonical form", () => {
+        const expected = [
+            "#EXTM3U",
+            "#EXT-X-VERSION:3",
+            "#EXT-X-TARGETDURATION:10",
+            "#EXTINF:9.009,",
+            "http://media.example.com/first.ts",
+            "#EXTINF:9.009,",
+            "http://media.example.com/second.ts",
+            "#EXTINF:3.003,",
+            "http://media.example.com/third.ts",
+            "#EXT-X-ENDLIST",
+            "",
+        ].join("\n");
+        const playlist = parseText(SIMPLE_MEDIA_PLAYLIST);
+        expect(HLS.stringify(playlist)).toBe(expected);
+    });
+
+    test("writes a segment built by hand", () => {
+        expect(HLS.stringify({ EXTINF: { duration: 0.0000001 }, uri: "a.ts", ignored: [] })).toBe("#EXTINF:0.0000001,\na.ts\n");
+    });
+
+    test("writes a spread playlist as it writes the playlist", () => {
+        const playlist = parseText(MULTIVARIANT_EVERY_TAG);
+        expect(HLS.stringify({ ...playlist })).toBe(HLS.stringify(playlist));
+    });
+
+    test("toHLS with canonical writes what HLS.stringify writes", () => {
+        const playlist = parseText(MEDIA_EVERY_TAG);
+        assertCondition(playlist.kind === PlaylistKind.media, `The playlist parsed as ${playlist.kind}.`);
+        const [segment] = playlist.segments;
+        assertCondition(segment !== undefined, "The playlist has no segment.");
+        expect(playlist.toHLS({ canonical: true })).toBe(HLS.stringify(playlist));
+        expect(segment.toHLS({ canonical: true })).toBe(HLS.stringify(segment));
     });
 });

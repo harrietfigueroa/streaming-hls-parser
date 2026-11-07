@@ -3,7 +3,16 @@
 // parameters, and checks the attributes each TYPE requires or forbids.
 import { z } from "zod";
 
-import { attributeListTagSchema, decimalIntegerSchema, enumeratedStringSchema, quotedStringSchema } from "../../../4.2-attribute-lists.js";
+import {
+    type AttributeWritersOf,
+    attributeListTagSchema,
+    decimalIntegerSchema,
+    enumeratedStringSchema,
+    quotedStringSchema,
+    writeAsIs,
+    writeDecimalInteger,
+    writeQuotedString,
+} from "../../../4.2-attribute-lists.js";
 import { assertCondition } from "../../../../library/assert.js";
 import { type Issue, type Rule, Severity } from "../../../../library/rule.js";
 
@@ -235,3 +244,43 @@ export function checkMedia(media: Media) {
     }
     return issues;
 }
+
+/** Writes CHARACTERISTICS' Media Characteristic Tags as one comma-separated quoted-string. */
+function writeCharacteristics(characteristics: readonly string[]) {
+    const joined = characteristics.join(LIST_SEPARATOR);
+    return writeQuotedString(joined);
+}
+
+/** Writes CHANNELS' parameters as one '/'-separated quoted-string, each list comma-separated. */
+function writeChannels(channels: Channels) {
+    const parameters = [writeDecimalInteger(channels.count)];
+    if (channels.audioCodingIdentifiers !== undefined) {
+        const audioCoding = channels.audioCodingIdentifiers.join(LIST_SEPARATOR);
+        parameters.push(audioCoding);
+    }
+    if (channels.specialUsageIdentifiers !== undefined) {
+        const specialUsage = channels.specialUsageIdentifiers.join(LIST_SEPARATOR);
+        parameters.push(specialUsage);
+    }
+    const joined = parameters.join(PARAMETER_SEPARATOR);
+    return writeQuotedString(joined);
+}
+
+/** EXT-X-MEDIA's attribute writers, in written order. */
+export const extXMediaAttributeWriters = {
+    TYPE: writeAsIs,
+    URI: writeQuotedString,
+    "GROUP-ID": writeQuotedString,
+    LANGUAGE: writeQuotedString,
+    "ASSOC-LANGUAGE": writeQuotedString,
+    NAME: writeQuotedString,
+    "STABLE-RENDITION-ID": writeQuotedString,
+    DEFAULT: writeAsIs,
+    AUTOSELECT: writeAsIs,
+    FORCED: writeAsIs,
+    "INSTREAM-ID": writeQuotedString,
+    "BIT-DEPTH": writeDecimalInteger,
+    "SAMPLE-RATE": writeDecimalInteger,
+    CHARACTERISTICS: writeCharacteristics,
+    CHANNELS: writeChannels,
+} as const satisfies AttributeWritersOf<typeof extXMediaSchema>;

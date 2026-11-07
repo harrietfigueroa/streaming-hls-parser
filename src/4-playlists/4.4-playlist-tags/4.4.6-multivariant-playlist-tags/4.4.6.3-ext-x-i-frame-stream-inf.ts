@@ -1,9 +1,9 @@
 // Section 4.4.6.3, EXT-X-I-FRAME-STREAM-INF. This module is pure: it declares
 // the tag's rules and its attribute table, EXT-X-STREAM-INF's but FRAME-RATE,
 // AUDIO, SUBTITLES, and CLOSED-CAPTIONS, with a URI.
-import { attributeListTagSchema, quotedStringSchema } from "../../4.2-attribute-lists.js";
+import { type AttributeWritersOf, attributeListTagSchema, quotedStringSchema, writeQuotedString } from "../../4.2-attribute-lists.js";
 import { type Rule, Severity } from "../../../library/rule.js";
-import { variantStreamAttributes } from "./4.4.6.2-ext-x-stream-inf/4.4.6.2-ext-x-stream-inf.js";
+import { variantStreamAttributes, variantStreamAttributeWriters } from "./4.4.6.2-ext-x-stream-inf/4.4.6.2-ext-x-stream-inf.js";
 
 const SECTION = "4.4.6.3";
 
@@ -23,3 +23,9 @@ export const extXIFrameStreamInfRules = {
  * Section 4.4.6.3: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.6.3
  */
 export const extXIFrameStreamInfSchema = attributeListTagSchema({ ...variantStreamAttributes, URI: quotedStringSchema }).describe("EXT-X-I-FRAME-STREAM-INF, section 4.4.6.3: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.6.3");
+
+/** EXT-X-I-FRAME-STREAM-INF's attribute writers, in written order. */
+export const extXIFrameStreamInfAttributeWriters = {
+    ...variantStreamAttributeWriters,
+    URI: writeQuotedString,
+} as const satisfies AttributeWritersOf<typeof extXIFrameStreamInfSchema>;

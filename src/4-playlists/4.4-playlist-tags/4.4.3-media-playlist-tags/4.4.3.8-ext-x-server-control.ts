@@ -4,9 +4,12 @@
 import { z } from "zod";
 
 import {
+    type AttributeWritersOf,
     attributeListTagSchema,
     decimalFloatingPointSchema,
     enumeratedStringSchema,
+    writeAsIs,
+    writeDecimalFloatingPoint,
 } from "../../4.2-attribute-lists.js";
 import { type Issue, type Rule, Severity } from "../../../library/rule.js";
 
@@ -114,3 +117,12 @@ export function checkServerControl(options: {
     }
     return issues;
 }
+
+/** EXT-X-SERVER-CONTROL's attribute writers, in written order. */
+export const extXServerControlAttributeWriters = {
+    "CAN-SKIP-UNTIL": writeDecimalFloatingPoint,
+    "CAN-SKIP-DATERANGES": writeAsIs,
+    "HOLD-BACK": writeDecimalFloatingPoint,
+    "PART-HOLD-BACK": writeDecimalFloatingPoint,
+    "CAN-BLOCK-RELOAD": writeAsIs,
+} as const satisfies AttributeWritersOf<typeof extXServerControlSchema>;

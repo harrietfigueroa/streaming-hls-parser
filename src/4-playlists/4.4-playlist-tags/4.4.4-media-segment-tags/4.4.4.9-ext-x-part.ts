@@ -4,13 +4,17 @@
 import { z } from "zod";
 
 import {
+    type AttributeWritersOf,
     attributeListTagSchema,
     decimalFloatingPointSchema,
     enumeratedStringSchema,
     quotedStringSchema,
+    writeAsIs,
+    writeDecimalFloatingPoint,
+    writeQuotedString,
 } from "../../4.2-attribute-lists.js";
 import { type Issue, type Rule, Severity } from "../../../library/rule.js";
-import { byteRangeSchema } from "./4.4.4.2-ext-x-byterange.js";
+import { byteRangeSchema, writeQuotedByteRange } from "./4.4.4.2-ext-x-byterange.js";
 
 const SECTION = "4.4.4.9";
 
@@ -99,3 +103,12 @@ export function checkPartDurations(options: { readonly parts: readonly Part[]; r
     }
     return issues;
 }
+
+/** EXT-X-PART's attribute writers, in written order. */
+export const extXPartAttributeWriters = {
+    URI: writeQuotedString,
+    DURATION: writeDecimalFloatingPoint,
+    INDEPENDENT: writeAsIs,
+    BYTERANGE: writeQuotedByteRange,
+    GAP: writeAsIs,
+} as const satisfies AttributeWritersOf<typeof extXPartSchema>;

@@ -1,10 +1,14 @@
 // Section 4.4.5.3, EXT-X-PRELOAD-HINT. This module is pure: it declares the
 // tag's rules and its attribute table as a schema.
 import {
+    type AttributeWritersOf,
     attributeListTagSchema,
     decimalIntegerSchema,
     enumeratedStringSchema,
     quotedStringSchema,
+    writeAsIs,
+    writeDecimalInteger,
+    writeQuotedString,
 } from "../../4.2-attribute-lists.js";
 import { type Rule, Severity } from "../../../library/rule.js";
 
@@ -40,3 +44,11 @@ export const extXPreloadHintSchema = attributeListTagSchema({
     "BYTERANGE-LENGTH": decimalIntegerSchema.optional(),
 })
     .describe("EXT-X-PRELOAD-HINT, section 4.4.5.3: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.3");
+
+/** EXT-X-PRELOAD-HINT's attribute writers, in written order. */
+export const extXPreloadHintAttributeWriters = {
+    TYPE: writeAsIs,
+    URI: writeQuotedString,
+    "BYTERANGE-START": writeDecimalInteger,
+    "BYTERANGE-LENGTH": writeDecimalInteger,
+} as const satisfies AttributeWritersOf<typeof extXPreloadHintSchema>;

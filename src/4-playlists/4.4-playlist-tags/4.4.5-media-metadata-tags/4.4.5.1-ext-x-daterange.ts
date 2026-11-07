@@ -4,13 +4,21 @@
 import { z } from "zod";
 
 import {
+    type AttributeWritersOf,
     attributeListTagSchema,
     decimalFloatingPointSchema,
     enumeratedStringListSchema,
     enumeratedStringSchema,
     hexadecimalSequenceSchema,
+    isHexadecimalSequence,
     quotedStringSchema,
     signedDecimalFloatingPointSchema,
+    writeAsIs,
+    writeAttributeList,
+    writeDecimalFloatingPoint,
+    writeEnumeratedStringList,
+    writeQuotedString,
+    writeSignedDecimalFloatingPoint,
 } from "../../4.2-attribute-lists.js";
 import { type DateTime, dateTimeSchema, toEpochMilliseconds } from "../../../library/date-time.js";
 import { type Issue, type Rule, Severity } from "../../../library/rule.js";
@@ -144,11 +152,19 @@ function splitClientAttributes(attributes: Readonly<Record<string, string>>) {
     return definedOnly;
 }
 
-function joinClientAttributes(split: z.output<typeof splitSchema>) {
-    if (split.clientAttributes === undefined) {
-        return split.attributes;
+type SplitOutput = z.output<typeof splitSchema>;
+
+/** A converted Date Range: its defined attributes, and its X- attributes when it has any. */
+type JoinedDateRange = SplitOutput["attributes"] & { readonly clientAttributes?: NonNullable<SplitOutput["clientAttributes"]> };
+
+// One declared binding, so the inferred return type keeps clientAttributes, which a union of the two
+// object types would lose to the type without it.
+function joinClientAttributes(split: SplitOutput) {
+    let joined: JoinedDateRange = split.attributes;
+    if (split.clientAttributes !== undefined) {
+        joined = Object.freeze({ ...split.attributes, clientAttributes: split.clientAttributes });
     }
-    return Object.freeze({ ...split.attributes, clientAttributes: split.clientAttributes });
+    return joined;
 }
 
 /**
@@ -301,4 +317,50 @@ export function checkDateRanges(options: { readonly dateRanges: readonly DateRan
         }
     }
     return issues;
+}
+
+// The defined attributes' writers, in written order; X- attributes follow them.
+const dateRangeAttributeWriters = {
+    ID: writeQuotedString,
+    CLASS: writeQuotedString,
+    "START-DATE": writeQuotedString,
+    CUE: writeEnumeratedStringList,
+    "END-DATE": writeQuotedString,
+    DURATION: writeDecimalFloatingPoint,
+    "PLANNED-DURATION": writeDecimalFloatingPoint,
+    "SCTE35-CMD": writeAsIs,
+    "SCTE35-OUT": writeAsIs,
+    "SCTE35-IN": writeAsIs,
+    "END-ON-NEXT": writeAsIs,
+} as const satisfies AttributeWritersOf<typeof dateRangeAttributesSchema>;
+
+const PAIR_SEPARATOR = ",";
+const NAME_VALUE_SEPARATOR = "=";
+
+/**
+ * Writes an X- attribute's value. A number is a signed-decimal-floating-point and a string a
+ * hexadecimal-sequence when it has that form, else a quoted-string, so a quoted value written in the
+ * form of a hexadecimal-sequence comes back unquoted.
+ */
+function writeClientAttributeValue(value: string | number) {
+    if (typeof value === "number") {
+        return writeSignedDecimalFloatingPoint(value);
+    }
+    if (isHexadecimalSequence(value)) {
+        return value;
+    }
+    return writeQuotedString(value);
+}
+
+/** Writes EXT-X-DATERANGE's attribute-list: its defined attributes, its unrecognized ones, and then its X- attributes. */
+export function writeDateRangeAttributes(dateRange: z.output<typeof extXDateRangeSchema>) {
+    const { clientAttributes, ...defined } = dateRange;
+    const pairs = [writeAttributeList(defined, dateRangeAttributeWriters)];
+    if (clientAttributes !== undefined) {
+        for (const [name, value] of Object.entries(clientAttributes)) {
+            const written = writeClientAttributeValue(value);
+            pairs.push(`${name}${NAME_VALUE_SEPARATOR}${written}`);
+        }
+    }
+    return pairs.join(PAIR_SEPARATOR);
 }

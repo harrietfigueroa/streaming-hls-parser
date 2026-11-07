@@ -1,9 +1,12 @@
 // Section 4.4.2.2, EXT-X-START. This module is pure: it declares the tag's
 // rules and its attribute table as a schema.
 import {
+    type AttributeWritersOf,
     attributeListTagSchema,
     enumeratedStringSchema,
     signedDecimalFloatingPointSchema,
+    writeAsIs,
+    writeSignedDecimalFloatingPoint,
 } from "../../4.2-attribute-lists.js";
 import { type Rule, Severity } from "../../../library/rule.js";
 
@@ -37,3 +40,9 @@ export const extXStartSchema = attributeListTagSchema({
     PRECISE: enumeratedStringSchema([Precise.yes, Precise.no]).optional(),
 })
     .describe("EXT-X-START, section 4.4.2.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.2.2");
+
+/** EXT-X-START's attribute writers, in written order. */
+export const extXStartAttributeWriters = {
+    "TIME-OFFSET": writeSignedDecimalFloatingPoint,
+    PRECISE: writeAsIs,
+} as const satisfies AttributeWritersOf<typeof extXStartSchema>;

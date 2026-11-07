@@ -321,3 +321,121 @@ export function attributeListTagSchema<const Shape extends AttributesShape>(shap
     const tagSchema = z.object({ ...shape, ignored: z.array(z.string()).readonly().optional() }).readonly();
     return z.preprocess(splitUnrecognized, tagSchema);
 }
+
+// Writing. Each writer takes a converted AttributeValue and writes it in its type's canonical form, the
+// inverse of that type's schema, so a written attribute-list parses back to the same values.
+
+const EXPONENT_MARKER = "e";
+// Enough fraction digits to write a double below 1e-6 without the exponent String() gives it.
+const FIXED_FRACTION_DIGITS = 20;
+const TRAILING_FRACTION_ZEROS_PATTERN = /\.?0+$/;
+const FORBIDDEN_QUOTED_CHARACTERS_PATTERN = /["\r\n]/;
+const DECIMAL_INTEGER_MIN = 0n;
+
+/** Whether `value` is a hexadecimal-sequence as written, `0x` or `0X` and uppercase hexadecimal digits. */
+export function isHexadecimalSequence(value: string) {
+    return HEXADECIMAL_SEQUENCE_PATTERN.test(value);
+}
+
+/** Writes a quoted-string, which holds no double quote, carriage return, or line feed. */
+export function writeQuotedString(value: string) {
+    assertCondition(!FORBIDDEN_QUOTED_CHARACTERS_PATTERN.test(value), `The quoted-string ${JSON.stringify(value)} holds a quote or a line break.`);
+    return `${QUOTE}${value}${QUOTE}`;
+}
+
+/** Writes an enumerated-string or a hexadecimal-sequence, each as its own text. */
+export function writeAsIs(value: string) {
+    return value;
+}
+
+/** Writes a decimal-integer. */
+export function writeDecimalInteger(value: bigint) {
+    assertCondition(value >= DECIMAL_INTEGER_MIN, `The decimal-integer ${value} is negative.`);
+    assertCondition(value <= DECIMAL_INTEGER_MAX, `The decimal-integer ${value} exceeds ${DECIMAL_INTEGER_MAX}.`);
+    return value.toString();
+}
+
+/** Writes a signed-decimal-floating-point in positional notation, which the grammar requires in place of an exponent. */
+export function writeSignedDecimalFloatingPoint(value: number) {
+    assertCondition(Number.isFinite(value), `The decimal-floating-point ${value} is not finite.`);
+    const shortest = String(value);
+    if (!shortest.includes(EXPONENT_MARKER)) {
+        return shortest;
+    }
+    const fixed = value.toFixed(FIXED_FRACTION_DIGITS);
+    assertCondition(!fixed.includes(EXPONENT_MARKER), `The decimal-floating-point ${value} has no positional form.`);
+    return fixed.replace(TRAILING_FRACTION_ZEROS_PATTERN, "");
+}
+
+/** Writes a decimal-floating-point, which is not negative. */
+export function writeDecimalFloatingPoint(value: number) {
+    assertCondition(value >= 0, `The decimal-floating-point ${value} is negative.`);
+    return writeSignedDecimalFloatingPoint(value);
+}
+
+/** Writes a decimal-resolution as `<width>x<height>`. */
+export function writeDecimalResolution(value: { readonly width: bigint; readonly height: bigint }) {
+    const width = writeDecimalInteger(value.width);
+    const height = writeDecimalInteger(value.height);
+    return `${width}${RESOLUTION_SEPARATOR}${height}`;
+}
+
+/** Writes an enumerated-string-list as a quoted-string of its members, comma-separated. */
+export function writeEnumeratedStringList(members: readonly string[]) {
+    const joined = members.join(LIST_SEPARATOR);
+    return writeQuotedString(joined);
+}
+
+type AttributeNames<Attributes> = Exclude<keyof Attributes, "ignored"> & string;
+
+/** One writer per AttributeName a tag defines, each taking that attribute's converted value; the table's order is the written order. */
+export type AttributeWriters<Attributes> = {
+    readonly [Name in AttributeNames<Attributes>]-?: (value: NonNullable<Attributes[Name]>) => string;
+};
+
+/** The attribute writers for the tag `Schema` converts. */
+export type AttributeWritersOf<Schema extends z.ZodType> = AttributeWriters<z.output<Schema>>;
+
+function hasWriter<Attributes>(writers: AttributeWriters<Attributes>, name: string): name is AttributeNames<Attributes> {
+    return Object.hasOwn(writers, name);
+}
+
+function writeAttribute<Attributes, Name extends AttributeNames<Attributes>>(options: {
+    readonly attributes: Attributes;
+    readonly writers: AttributeWriters<Attributes>;
+    readonly name: Name;
+}) {
+    const value = options.attributes[options.name];
+    const isAbsent = value === undefined || value === null;
+    if (isAbsent) {
+        const absent: readonly string[] = [];
+        return absent;
+    }
+    const writer = options.writers[options.name];
+    const written = writer(value);
+    return [`${options.name}${NAME_VALUE_SEPARATOR}${written}`];
+}
+
+/**
+ * Writes an attribute-list from a tag's converted attributes: each attribute present, in the order of
+ * `writers`, then each unrecognized attribute in its `ignored` array as written.
+ */
+export function writeAttributeList<Attributes extends { readonly ignored?: readonly string[] | undefined }>(
+    attributes: Attributes,
+    writers: AttributeWriters<Attributes>,
+) {
+    const pairs: string[] = [];
+    for (const name of Object.keys(writers)) {
+        assertCondition(hasWriter(writers, name), `The writer table's key ${name} is not its own.`);
+        const written = writeAttribute({ attributes, writers, name });
+        for (const pair of written) {
+            pairs.push(pair);
+        }
+    }
+    if (attributes.ignored !== undefined) {
+        for (const pair of attributes.ignored) {
+            pairs.push(pair);
+        }
+    }
+    return pairs.join(PAIR_SEPARATOR);
+}

@@ -7,6 +7,7 @@ import { assertCondition } from "./assert.js";
 import { jsonify } from "./jsonify.js";
 import type { ResolvedFields } from "./resolve.js";
 import type { TextRange } from "./scan.js";
+import { type Stringifiable, stringify } from "./stringify.js";
 import type {
     ConvertedMediaPlaylist,
     ConvertedMediaSegment,
@@ -14,6 +15,9 @@ import type {
     ConvertedMultivariantPlaylist,
     ConvertedVariant,
 } from "./schemas.js";
+
+/** The options of toHLS: `canonical` writes the value as HLS.stringify does, in place of the text as written. */
+export type ToHLSOptions = { readonly canonical?: boolean };
 
 /** Where a unit's text lies in the source it was parsed from. */
 type UnitSource = { readonly source: string; readonly range: TextRange };
@@ -59,7 +63,10 @@ function* chunksOf(playlistSource: PlaylistSource) {
 /** The methods of a parsed unit: a Media Segment, the pending Parent Segment, or a Variant Stream. */
 export class UnitMethods {
     /** The unit's lines exactly as written, from the line after the playlist tag or URI line before it through its last. */
-    toHLS() {
+    toHLS<T extends Stringifiable>(this: T, options: ToHLSOptions = {}) {
+        if (options.canonical === true) {
+            return stringify(this);
+        }
         return unitTextOf(this);
     }
 
@@ -77,7 +84,10 @@ export class UnitMethods {
 /** The methods of a parsed playlist of either kind. */
 export class PlaylistMethods {
     /** The playlist's text exactly as written. */
-    toHLS() {
+    toHLS<T extends Stringifiable>(this: T, options: ToHLSOptions = {}) {
+        if (options.canonical === true) {
+            return stringify(this);
+        }
         return playlistTextOf(this);
     }
 

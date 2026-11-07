@@ -1,7 +1,7 @@
 // Section 4.4.5.4, EXT-X-RENDITION-REPORT. This module is pure: it declares
 // the tag's rules and attribute table, and checks that a report's URI is
 // relative.
-import { attributeListTagSchema, decimalIntegerSchema, quotedStringSchema } from "../../4.2-attribute-lists.js";
+import { type AttributeWritersOf, attributeListTagSchema, decimalIntegerSchema, quotedStringSchema, writeDecimalInteger, writeQuotedString } from "../../4.2-attribute-lists.js";
 import { type Issue, type Rule, Severity } from "../../../library/rule.js";
 
 const SECTION = "4.4.5.4";
@@ -45,3 +45,10 @@ export function checkRenditionReport(report: { readonly URI?: string | undefined
     }
     return issues;
 }
+
+/** EXT-X-RENDITION-REPORT's attribute writers, in written order. */
+export const extXRenditionReportAttributeWriters = {
+    URI: writeQuotedString,
+    "LAST-MSN": writeDecimalInteger,
+    "LAST-PART": writeDecimalInteger,
+} as const satisfies AttributeWritersOf<typeof extXRenditionReportSchema>;

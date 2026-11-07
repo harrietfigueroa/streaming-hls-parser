@@ -3,7 +3,7 @@
 // and checks that each offset-less range follows a range of its resource.
 import { z } from "zod";
 
-import { decimalIntegerSchema } from "../../4.2-attribute-lists.js";
+import { decimalIntegerSchema, writeDecimalInteger, writeQuotedString } from "../../4.2-attribute-lists.js";
 import { type Issue, type Rule, Severity } from "../../../library/rule.js";
 
 const SECTION = "4.4.4.2";
@@ -141,4 +141,20 @@ export function resolveByteRange(options: { readonly byteRange: ByteRange; reado
     const resolvedRange = Object.freeze({ length: byteRange.length, offset });
     const resolved: ByteRangeResolution = { kind: ByteRangeResolutionKind.resolved, byteRange: resolvedRange };
     return resolved;
+}
+
+/** Writes a byte range as `<n>[@<o>]`, its offset after '@' when it has one. */
+export function writeByteRange(byteRange: { readonly length: bigint; readonly offset?: bigint | undefined }) {
+    const length = writeDecimalInteger(byteRange.length);
+    if (byteRange.offset === undefined) {
+        return length;
+    }
+    const offset = writeDecimalInteger(byteRange.offset);
+    return `${length}${OFFSET_SEPARATOR}${offset}`;
+}
+
+/** Writes a byte range as a quoted-string, as EXT-X-MAP and EXT-X-PART write theirs. */
+export function writeQuotedByteRange(byteRange: { readonly length: bigint; readonly offset?: bigint | undefined }) {
+    const written = writeByteRange(byteRange);
+    return writeQuotedString(written);
 }

@@ -4,12 +4,18 @@
 import { z } from "zod";
 
 import {
+    type AttributeWritersOf,
     attributeListTagSchema,
     decimalFloatingPointSchema,
     decimalIntegerSchema,
     decimalResolutionSchema,
     enumeratedStringSchema,
     quotedStringSchema,
+    writeAsIs,
+    writeDecimalFloatingPoint,
+    writeDecimalInteger,
+    writeDecimalResolution,
+    writeQuotedString,
 } from "../../../4.2-attribute-lists.js";
 import { type Issue, type Rule, Severity } from "../../../../library/rule.js";
 import type { IgnoreReason } from "../../../../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
@@ -221,3 +227,48 @@ export function checkRenditionReferences(options: {
     }
     return issues;
 }
+
+/** Writes REQ-VIDEO-LAYOUT's View Presentation Entries as one quoted-string, entries comma-separated and specifiers '/'-separated. */
+function writeVideoLayout(entries: readonly (readonly VideoLayout[])[]) {
+    const writtenEntries: string[] = [];
+    for (const entry of entries) {
+        const writtenEntry = entry.join(SPECIFIER_SEPARATOR);
+        writtenEntries.push(writtenEntry);
+    }
+    const joined = writtenEntries.join(ENTRY_SEPARATOR);
+    return writeQuotedString(joined);
+}
+
+/** Writes CLOSED-CAPTIONS: NONE as the enumerated-string, so a Group named NONE comes back as NONE, and any other value quoted. */
+function writeClosedCaptions(value: string) {
+    if (value === NONE) {
+        return NONE;
+    }
+    return writeQuotedString(value);
+}
+
+/** The writers of the attributes EXT-X-STREAM-INF shares with EXT-X-I-FRAME-STREAM-INF, in written order. */
+export const variantStreamAttributeWriters = {
+    BANDWIDTH: writeDecimalInteger,
+    "AVERAGE-BANDWIDTH": writeDecimalInteger,
+    SCORE: writeDecimalFloatingPoint,
+    CODECS: writeQuotedString,
+    "SUPPLEMENTAL-CODECS": writeQuotedString,
+    RESOLUTION: writeDecimalResolution,
+    "HDCP-LEVEL": writeAsIs,
+    "ALLOWED-CPC": writeQuotedString,
+    "VIDEO-RANGE": writeAsIs,
+    "REQ-VIDEO-LAYOUT": writeVideoLayout,
+    "STABLE-VARIANT-ID": writeQuotedString,
+    VIDEO: writeQuotedString,
+    "PATHWAY-ID": writeQuotedString,
+} as const;
+
+/** EXT-X-STREAM-INF's attribute writers, in written order. */
+export const extXStreamInfAttributeWriters = {
+    ...variantStreamAttributeWriters,
+    "FRAME-RATE": writeDecimalFloatingPoint,
+    AUDIO: writeQuotedString,
+    SUBTITLES: writeQuotedString,
+    "CLOSED-CAPTIONS": writeClosedCaptions,
+} as const satisfies AttributeWritersOf<typeof extXStreamInfSchema>;

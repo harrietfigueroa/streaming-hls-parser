@@ -34,6 +34,7 @@ import {
 } from "./output.js";
 import { resolveSegmentFields } from "./resolve.js";
 import { revive, type Reviver } from "./revive.js";
+import { stringify } from "./stringify.js";
 import { CheckKind, type Issue, Severity } from "./rule.js";
 import { type RawPlaylist, type RawTag, type RawTags, ScanKind, scanPlaylist } from "./scan.js";
 import {
@@ -595,5 +596,5 @@ export function createHLS(tables: TagTables) {
         return playlistOf(outcome);
     }
 
-    return Object.freeze({ safeParse, parse });
+    return Object.freeze({ safeParse, parse, stringify });
 }

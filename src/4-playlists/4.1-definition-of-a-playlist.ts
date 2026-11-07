@@ -178,3 +178,10 @@ export function classifyLine(line: string) {
     const uri: Line = { kind: LineKind.uri, uri: line };
     return uri;
 }
+/** Writes a tag line: '#', its name, and its value after ':' when it has one. */
+export function writeTag(options: { readonly name: string; readonly value?: string }) {
+    if (options.value === undefined) {
+        return `${COMMENT_PREFIX}${options.name}`;
+    }
+    return `${COMMENT_PREFIX}${options.name}${TAG_VALUE_SEPARATOR}${options.value}`;
+}

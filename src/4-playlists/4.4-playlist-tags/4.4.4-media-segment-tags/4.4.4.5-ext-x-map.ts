@@ -1,8 +1,8 @@
 // Section 4.4.4.5, EXT-X-MAP. This module is pure: it declares the tag's
 // rules and its attribute table as a schema.
-import { attributeListTagSchema, quotedStringSchema } from "../../4.2-attribute-lists.js";
+import { type AttributeWritersOf, attributeListTagSchema, quotedStringSchema, writeQuotedString } from "../../4.2-attribute-lists.js";
 import { type Rule, Severity } from "../../../library/rule.js";
-import { byteRangeWithOffsetSchema } from "./4.4.4.2-ext-x-byterange.js";
+import { byteRangeWithOffsetSchema, writeQuotedByteRange } from "./4.4.4.2-ext-x-byterange.js";
 
 const SECTION = "4.4.4.5";
 
@@ -26,3 +26,9 @@ export const extXMapSchema = attributeListTagSchema({
     BYTERANGE: quotedStringSchema.pipe(byteRangeWithOffsetSchema).optional(),
 })
     .describe("EXT-X-MAP, section 4.4.4.5: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.5");
+
+/** EXT-X-MAP's attribute writers, in written order. */
+export const extXMapAttributeWriters = {
+    URI: writeQuotedString,
+    BYTERANGE: writeQuotedByteRange,
+} as const satisfies AttributeWritersOf<typeof extXMapSchema>;

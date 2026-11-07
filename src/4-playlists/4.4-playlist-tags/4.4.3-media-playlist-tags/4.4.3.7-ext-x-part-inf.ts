@@ -1,6 +1,6 @@
 // Section 4.4.3.7, EXT-X-PART-INF. This module is pure: it declares the tag's
 // rules and its attribute table as a schema.
-import { attributeListTagSchema, decimalFloatingPointSchema } from "../../4.2-attribute-lists.js";
+import { type AttributeWritersOf, attributeListTagSchema, decimalFloatingPointSchema, writeDecimalFloatingPoint } from "../../4.2-attribute-lists.js";
 import { type Rule, Severity } from "../../../library/rule.js";
 
 const SECTION = "4.4.3.7";
@@ -25,3 +25,8 @@ export const extXPartInfRules = {
  * Section 4.4.3.7: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.3.7
  */
 export const extXPartInfSchema = attributeListTagSchema({ "PART-TARGET": decimalFloatingPointSchema }).describe("EXT-X-PART-INF, section 4.4.3.7: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.3.7");
+
+/** EXT-X-PART-INF's attribute writers, in written order. */
+export const extXPartInfAttributeWriters = {
+    "PART-TARGET": writeDecimalFloatingPoint,
+} as const satisfies AttributeWritersOf<typeof extXPartInfSchema>;

@@ -3,7 +3,7 @@
 // Pathways the variants are on.
 import { z } from "zod";
 
-import { attributeListTagSchema, quotedStringSchema } from "../../4.2-attribute-lists.js";
+import { type AttributeWritersOf, attributeListTagSchema, quotedStringSchema, writeQuotedString } from "../../4.2-attribute-lists.js";
 import { type Issue, type Rule, Severity } from "../../../library/rule.js";
 import type { StreamInf } from "./4.4.6.2-ext-x-stream-inf/4.4.6.2-ext-x-stream-inf.js";
 
@@ -66,3 +66,9 @@ export function checkContentSteering(options: {
     issues.push({ rule: extXContentSteeringRules.pathwayOfVariant, detail: `PATHWAY-ID="${pathwayId}" is the Pathway of no variant.` });
     return issues;
 }
+
+/** EXT-X-CONTENT-STEERING's attribute writers, in written order. */
+export const extXContentSteeringAttributeWriters = {
+    "SERVER-URI": writeQuotedString,
+    "PATHWAY-ID": writeQuotedString,
+} as const satisfies AttributeWritersOf<typeof extXContentSteeringSchema>;

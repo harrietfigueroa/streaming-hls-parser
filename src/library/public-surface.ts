@@ -19,3 +19,5 @@ export type { Issue, Rule, Severity } from "./rule.js";
 export { Limit, type Limits, type ParseOptions } from "./options.js";
 export { type DateTime, type TemporalNamespace, toDate, toEpochMilliseconds, toInstant } from "./date-time.js";
 export { type IgnoredLine, IgnoredKind } from "./scan.js";
+export type { ToHLSOptions } from "./output.js";
+export type { Stringifiable } from "./stringify.js";

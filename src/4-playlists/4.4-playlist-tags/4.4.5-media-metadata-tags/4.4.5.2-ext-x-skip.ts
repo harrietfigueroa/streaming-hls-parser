@@ -1,9 +1,12 @@
 // Section 4.4.5.2, EXT-X-SKIP. This module is pure: it declares the tag's
 // rules and its attribute table as a schema.
 import {
+    type AttributeWritersOf,
     attributeListTagSchema,
     decimalIntegerSchema,
     possiblyEmptyQuotedStringSchema,
+    writeDecimalInteger,
+    writeQuotedString,
 } from "../../4.2-attribute-lists.js";
 import { type Rule, Severity } from "../../../library/rule.js";
 
@@ -34,3 +37,9 @@ export const extXSkipSchema = attributeListTagSchema({
     "RECENTLY-REMOVED-DATERANGES": possiblyEmptyQuotedStringSchema.optional(),
 })
     .describe("EXT-X-SKIP, section 4.4.5.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.2");
+
+/** EXT-X-SKIP's attribute writers, in written order. */
+export const extXSkipAttributeWriters = {
+    "SKIPPED-SEGMENTS": writeDecimalInteger,
+    "RECENTLY-REMOVED-DATERANGES": writeQuotedString,
+} as const satisfies AttributeWritersOf<typeof extXSkipSchema>;

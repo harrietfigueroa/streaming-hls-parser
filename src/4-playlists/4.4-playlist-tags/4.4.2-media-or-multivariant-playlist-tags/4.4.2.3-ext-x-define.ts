@@ -5,9 +5,11 @@
 import { z } from "zod";
 
 import {
+    type AttributeWritersOf,
     attributeListTagSchema,
     possiblyEmptyQuotedStringSchema,
     quotedStringSchema,
+    writeQuotedString,
 } from "../../4.2-attribute-lists.js";
 import { unreachable } from "../../../library/assert.js";
 import { type Issue, type Rule, Severity } from "../../../library/rule.js";
@@ -293,3 +295,11 @@ export function checkMultivariantDefinitions(defines: readonly Define[]) {
     }
     return issues;
 }
+
+/** EXT-X-DEFINE's attribute writers, in written order. */
+export const extXDefineAttributeWriters = {
+    NAME: writeQuotedString,
+    VALUE: writeQuotedString,
+    IMPORT: writeQuotedString,
+    QUERYPARAM: writeQuotedString,
+} as const satisfies AttributeWritersOf<typeof extXDefineSchema>;

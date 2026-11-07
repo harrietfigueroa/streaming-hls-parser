@@ -2,7 +2,7 @@
 // and its schema, which splits the value into a duration and a title.
 import { z } from "zod";
 
-import { decimalFloatingPointSchema } from "../../4.2-attribute-lists.js";
+import { decimalFloatingPointSchema, writeDecimalFloatingPoint } from "../../4.2-attribute-lists.js";
 import { type Rule, Severity } from "../../../library/rule.js";
 
 const SECTION = "4.4.4.1";
@@ -61,3 +61,13 @@ function splitExtinf(value: string) {
  * Section 4.4.4.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.1
  */
 export const extinfSchema = z.string().regex(EXTINF_FORMAT_PATTERN).transform(splitExtinf).pipe(extinfFieldsSchema).describe("EXTINF, section 4.4.4.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.1");
+
+/** Writes EXTINF's value, its duration and then its title after the comma, which is present without a title. */
+export function writeExtinfValue(extinf: { readonly duration: number; readonly title?: string | undefined }) {
+    const duration = writeDecimalFloatingPoint(extinf.duration);
+    let title = "";
+    if (extinf.title !== undefined) {
+        title = extinf.title;
+    }
+    return `${duration}${DURATION_TITLE_SEPARATOR}${title}`;
+}
