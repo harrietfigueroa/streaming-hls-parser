@@ -53,7 +53,7 @@ describe("resolveDefinition", () => {
         { name: "no source", attributes: { VALUE: '"x"' }, rule: extXDefineRules.singleSource },
         { name: "two sources", attributes: { NAME: '"a"', VALUE: '"x"', IMPORT: '"b"' }, rule: extXDefineRules.singleSource },
         { name: "an invalid Variable Name", attributes: { NAME: '"a.b"', VALUE: '"x"' }, rule: extXDefineRules.format },
-        { name: "an IMPORT outside a Multivariant Playlist", attributes: { IMPORT: '"host"' }, rule: extXDefineRules.importResolves },
+        { name: "an IMPORT with no Multivariant Playlist given", attributes: { IMPORT: '"host"' }, rule: extXDefineRules.importResolves },
         { name: "a QUERYPARAM the URI lacks", attributes: { QUERYPARAM: '"missing"' }, rule: extXDefineRules.queryParamResolves },
         { name: "a QUERYPARAM with no value", attributes: { QUERYPARAM: '"flag"' }, rule: extXDefineRules.queryParamResolves },
         { name: "a QUERYPARAM decoding to a quote", attributes: { QUERYPARAM: '"quote"' }, rule: extXDefineRules.queryParamCharacters },
@@ -79,6 +79,18 @@ describe("resolveDefinition", () => {
         const variables: ReadonlyMap<string, string> = new Map([["host", "a"]]);
         const definition = resolveDefinition({ attributes: { NAME: '"HOST"', VALUE: '"b"' }, variables });
         expect(definition).toEqual({ kind: DefinitionKind.defined, name: "HOST", value: "b" });
+    });
+
+    test("defines an IMPORT from the Multivariant Playlist's variables", () => {
+        const imported: ReadonlyMap<string, string> = new Map([["host", "example.com"]]);
+        const definition = resolveDefinition({ attributes: { IMPORT: '"host"' }, variables: noVariables, imported });
+        expect(definition).toEqual({ kind: DefinitionKind.defined, name: "host", value: "example.com" });
+    });
+
+    test("reports an IMPORT the Multivariant Playlist does not declare", () => {
+        const imported: ReadonlyMap<string, string> = new Map([["host", "example.com"]]);
+        const definition = resolveDefinition({ attributes: { IMPORT: '"token"' }, variables: noVariables, imported });
+        expect(definition).toMatchObject({ kind: DefinitionKind.malformed, issue: { rule: extXDefineRules.importResolves } });
     });
 
     test("leaves a definition 6.3.1 ignores undefined", () => {

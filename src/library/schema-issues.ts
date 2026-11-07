@@ -280,13 +280,13 @@ export function withIgnoredTags(playlist: RawPlaylist, ignorables: readonly Igno
     if (pending === undefined) {
         const trailing = rebuildIgnored(playlist.ignored, trailingIndex);
         const ignored = joinIgnored({ leading: carried, trailing });
-        const rebuilt: RawPlaylist = { kind: playlist.kind, tags, units, ignored };
+        const rebuilt: RawPlaylist = { kind: playlist.kind, tags, units, ignored, variables: playlist.variables };
         return rebuilt;
     }
     const pendingTags = withoutTags(pending.tags, removed);
     const pendingTrailing = rebuildIgnored(pending.ignored, trailingIndex);
     const pendingIgnored = joinIgnored({ leading: carried, trailing: pendingTrailing });
     const pendingSegment = { tags: pendingTags, ignored: pendingIgnored };
-    const rebuiltWithPending: RawPlaylist = { kind: playlist.kind, tags, units, ignored: playlist.ignored, pendingSegment };
+    const rebuiltWithPending: RawPlaylist = { kind: playlist.kind, tags, units, ignored: playlist.ignored, pendingSegment, variables: playlist.variables };
     return rebuiltWithPending;
 }

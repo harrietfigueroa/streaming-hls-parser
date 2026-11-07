@@ -20,6 +20,7 @@ import { checkAlternativeRendition } from "../4-playlists/4.4-playlist-tags/4.4.
 import { checkSessionData } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.4-ext-x-session-data.js";
 import { checkSessionKeys } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.5-ext-x-session-key.js";
 import { checkContentSteering } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.6-ext-x-content-steering.js";
+import { checkMultivariantDefinitions } from "../4-playlists/4.4-playlist-tags/4.4.2-media-or-multivariant-playlist-tags/4.4.2.3-ext-x-define.js";
 import { assertCondition, unreachable } from "./assert.js";
 import { type Limit, type ParseOptions, resolveLimits } from "./options.js";
 import { defaultPolicy, type Policy } from "./policy.js";
@@ -74,6 +75,7 @@ function buildSchemas(tables: TagTables) {
             ...tables.multivariant.playlist.shape,
             kind: z.literal(PlaylistKind.multivariant),
             variants: z.array(variantSchema).readonly(),
+            variables: z.map(z.string(), z.string()).readonly().optional(),
             ignored: ignoredLinesSchema,
         })
         .readonly();
@@ -167,6 +169,11 @@ function toPlaylistInput(playlist: RawPlaylist, entries: EntriesByKind) {
     }
     const values = toTagValues(playlist.tags, kindEntries.playlist);
     const unitsKey = UNITS_KEYS[playlist.kind];
+    // Only a Multivariant Playlist's variables are read later, by the IMPORT definitions of its Media Playlists.
+    const hasImportableVariables = playlist.kind === PlaylistKind.multivariant && playlist.variables.size > 0;
+    if (hasImportableVariables) {
+        return { ...values, kind: playlist.kind, [unitsKey]: units, variables: playlist.variables, ignored: playlist.ignored };
+    }
     const pending = playlist.pendingSegment;
     if (pending === undefined) {
         return { ...values, kind: playlist.kind, [unitsKey]: units, ignored: playlist.ignored };
@@ -291,6 +298,13 @@ function streamInfOf(variant: Variant) {
 /** Finds every broken rule that spans a converted Multivariant Playlist's tags or variants. */
 function findMultivariantPlaylistIssues(playlist: MultivariantPlaylist) {
     const issues: Issue[] = [];
+    const defines = playlist["EXT-X-DEFINE"];
+    if (defines !== undefined) {
+        const defineIssues = checkMultivariantDefinitions(defines);
+        for (const issue of defineIssues) {
+            issues.push(issue);
+        }
+    }
     let renditions: NonNullable<MultivariantPlaylist["EXT-X-MEDIA"]> = [];
     if (playlist["EXT-X-MEDIA"] !== undefined) {
         renditions = playlist["EXT-X-MEDIA"];
@@ -383,6 +397,9 @@ function checkPlaylist(options: {
     return parsed;
 }
 
+// A Multivariant Playlist with no EXT-X-DEFINE declares no variable, so every IMPORT against it fails.
+const NO_VARIABLES: ReadonlyMap<string, string> = new Map();
+
 /** Creates the HLS namespace over `tables`, whose schemas are either as declared or compiled. */
 export function createHLS(tables: TagTables) {
     const schemas = buildSchemas(tables);
@@ -442,7 +459,14 @@ export function createHLS(tables: TagTables) {
 
     function safeParse(text: string, options: ParseOptions = {}) {
         const limits = resolveLimits(options);
-        const scan = scanPlaylist({ text, entries, policy, limits, uri: options.uri });
+        let imported: ReadonlyMap<string, string> | undefined;
+        if (options.multivariant !== undefined) {
+            imported = NO_VARIABLES;
+            if (options.multivariant.variables !== undefined) {
+                imported = options.multivariant.variables;
+            }
+        }
+        const scan = scanPlaylist({ text, entries, policy, limits, uri: options.uri, imported });
         if (scan.kind === ScanKind.malformed) {
             return malformedParse([scan.issue]);
         }

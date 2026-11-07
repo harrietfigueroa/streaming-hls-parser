@@ -19,7 +19,7 @@ import { alternativeRenditionRules } from "../src/4-playlists/4.4-playlist-tags/
 import { extXSessionDataRules } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.4-ext-x-session-data.js";
 import { extXSessionKeyRules } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.5-ext-x-session-key.js";
 import { extXContentSteeringRules } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.6-ext-x-content-steering.js";
-import { AssertionError } from "../src/library/assert.js";
+import { AssertionError, assertCondition } from "../src/library/assert.js";
 import { attributeListRules } from "../src/4-playlists/4.2-attribute-lists.js";
 import { extXStartRules } from "../src/4-playlists/4.4-playlist-tags/4.4.2-media-or-multivariant-playlist-tags/4.4.2.2-ext-x-start.js";
 import { ignoreReasons } from "../src/6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
@@ -440,6 +440,42 @@ describe("HLS.safeParse variable substitution", () => {
         const text = `${HEAD}#EXT-X-DEFINE:NAME="a",VALUE="x"\n#EXT-X-DEFINE:NAME="b",VALUE="{$a}y"\n#EXTINF:1,\n{$b}.ts\n`;
         const outcome = HLS.safeParse(text);
         expect(outcome).toMatchObject({ kind: ParseKind.parsed, playlist: { segments: [{ uri: "xy.ts" }] } });
+    });
+
+    const MULTIVARIANT_URI = new URL("https://example.com/main.m3u8?token=abc");
+    const MULTIVARIANT_WITH_DEFINITIONS = '#EXTM3U\n#EXT-X-DEFINE:NAME="host",VALUE="example.com"\n#EXT-X-DEFINE:QUERYPARAM="token"\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://{$host}/a.m3u8\n';
+
+    function parseMultivariant(text: string) {
+        const outcome = HLS.safeParse(text, { uri: MULTIVARIANT_URI });
+        assertCondition(outcome.kind === ParseKind.parsed, `The Multivariant Playlist parsed as ${outcome.kind}.`);
+        const playlist = outcome.playlist;
+        assertCondition(playlist.kind === PlaylistKind.multivariant, `The playlist parsed as ${playlist.kind}.`);
+        return playlist;
+    }
+
+    test("keeps a Multivariant Playlist's resolved variables, QUERYPARAM values included", () => {
+        const playlist = parseMultivariant(MULTIVARIANT_WITH_DEFINITIONS);
+        expect(playlist.variables).toEqual(new Map([["host", "example.com"], ["token", "abc"]]));
+    });
+
+    test("substitutes an IMPORT from the multivariant option", () => {
+        const multivariant = parseMultivariant(MULTIVARIANT_WITH_DEFINITIONS);
+        const text = `${HEAD}#EXT-X-DEFINE:IMPORT="host"\n#EXT-X-DEFINE:IMPORT="token"\n#EXTINF:1,\nhttps://{$host}/a.ts?t={$token}\n`;
+        const outcome = HLS.safeParse(text, { multivariant });
+        expect(outcome).toMatchObject({ kind: ParseKind.parsed, playlist: { segments: [{ uri: "https://example.com/a.ts?t=abc" }] } });
+    });
+
+    test("reports an IMPORT the multivariant option does not declare", () => {
+        const multivariant = parseMultivariant(MULTIVARIANT_WITH_DEFINITIONS);
+        const outcome = HLS.safeParse(`${HEAD}#EXT-X-DEFINE:IMPORT="cdn"\n#EXTINF:1,\na.ts\n`, { multivariant });
+        expect(outcome).toMatchObject({ kind: ParseKind.malformed, issues: [{ rule: extXDefineRules.importResolves }] });
+    });
+
+    test("reports an IMPORT in a Multivariant Playlist", () => {
+        const multivariant = parseMultivariant(MULTIVARIANT_WITH_DEFINITIONS);
+        const text = '#EXTM3U\n#EXT-X-DEFINE:IMPORT="host"\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n';
+        const outcome = HLS.safeParse(text, { multivariant });
+        expect(outcome).toMatchObject({ kind: ParseKind.malformed, issues: [{ rule: extXDefineRules.importNotInMultivariant }] });
     });
 
     test("reads a QUERYPARAM variable from the uri option", () => {

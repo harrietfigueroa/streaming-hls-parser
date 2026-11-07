@@ -2,6 +2,7 @@
 // partial limits against the named defaults, asserting each is a positive
 // integer, since a malformed limit is the caller's programmer error.
 import { assertCondition } from "./assert.js";
+import type { MultivariantPlaylist } from "./create-hls.js";
 
 export const Limit = {
     lineBytesMax: "lineBytesMax",
@@ -28,6 +29,8 @@ const limitsDefault = {
 export type ParseOptions = {
     /** The playlist's URI, which QUERYPARAM variables read their values from. */
     readonly uri?: URL;
+    /** The Multivariant Playlist the parsed playlist was loaded from, whose variables IMPORT definitions read. */
+    readonly multivariant?: MultivariantPlaylist;
     /** Overrides for any of the default limits. */
     readonly limits?: Partial<Limits>;
 };

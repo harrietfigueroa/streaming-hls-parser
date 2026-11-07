@@ -94,6 +94,8 @@ export type RawPlaylist = RawUnit & {
     readonly kind: PlaylistKind;
     readonly units: readonly RawUriUnit[];
     readonly pendingSegment?: RawUnit;
+    /** Each Variable Name the playlist's definitions provide, with its resolved Variable Value. */
+    readonly variables: ReadonlyMap<string, string>;
 };
 
 export const ScanKind = { scanned: "scanned", malformed: "malformed", limitExceeded: "limitExceeded" } as const;
@@ -256,10 +258,11 @@ function defineVariable(options: {
     readonly value: RawValue;
     readonly variables: ReadonlyMap<string, string>;
     readonly uri: URL | undefined;
+    readonly imported: ReadonlyMap<string, string> | undefined;
 }) {
-    const { value, variables, uri } = options;
+    const { value, variables, uri, imported } = options;
     assertCondition(typeof value === "object", `EXT-X-DEFINE's raw value ${String(value)} is not its attributes.`);
-    return resolveDefinition({ attributes: value, variables, uri });
+    return resolveDefinition({ attributes: value, variables, uri, imported });
 }
 
 /** Whether a tag belongs to the playlist as a whole, or to the unit its next URI line ends. */
@@ -366,8 +369,10 @@ export function scanPlaylist(options: {
     readonly policy: Policy;
     readonly limits: Limits;
     readonly uri: URL | undefined;
+    /** The variables of the Multivariant Playlist an IMPORT reads, when one was given. */
+    readonly imported: ReadonlyMap<string, string> | undefined;
 }) {
-    const { text, entries, policy, limits, uri } = options;
+    const { text, entries, policy, limits, uri, imported } = options;
     const playlistTags = new Map<string, RawTag[]>();
     const units: RawUriUnit[] = [];
     const violations: Issue[] = [];
@@ -500,7 +505,7 @@ export function scanPlaylist(options: {
                     issue = { rule: extXPartRules.parentTagsPrecedeParts, detail };
                 } else if (read.kind === ReadKind.read) {
                     if (line.name === EXT_X_DEFINE_TAG_NAME) {
-                        const definition = defineVariable({ value: read.value, variables, uri });
+                        const definition = defineVariable({ value: read.value, variables, uri, imported });
                         if (definition.kind === DefinitionKind.malformed) {
                             issue = atLine(definition.issue, lineNumber);
                         } else if (definition.kind === DefinitionKind.defined) {
@@ -554,7 +559,7 @@ export function scanPlaylist(options: {
     }
     if (unitTags.has(EXT_X_PART_TAG_NAME)) {
         const pendingSegment = { tags: unitTags, ignored };
-        const withPending: RawPlaylist = { kind: playlistKind, tags: playlistTags, units, ignored: [], pendingSegment };
+        const withPending: RawPlaylist = { kind: playlistKind, tags: playlistTags, units, ignored: [], pendingSegment, variables };
         const scannedWithPending: Scan = { kind: ScanKind.scanned, playlist: withPending, violations };
         return scannedWithPending;
     }
@@ -566,7 +571,7 @@ export function scanPlaylist(options: {
         }
         violations.push(issue);
     }
-    const playlist: RawPlaylist = { kind: playlistKind, tags: playlistTags, units, ignored };
+    const playlist: RawPlaylist = { kind: playlistKind, tags: playlistTags, units, ignored, variables };
     const scanned: Scan = { kind: ScanKind.scanned, playlist, violations };
     return scanned;
 }
