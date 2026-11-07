@@ -80,6 +80,8 @@ import {
 } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.6-ext-x-program-date-time.js";
 import { EXT_X_GAP_TAG_NAME, extXGapRules, extXGapSchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.7-ext-x-gap.js";
 import { EXT_X_BITRATE_TAG_NAME, extXBitrateRules, extXBitrateSchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.8-ext-x-bitrate.js";
+import { EXT_X_KEY_TAG_NAME, extXKeyRules, extXKeySchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.4-ext-x-key.js";
+import { EXT_X_MAP_TAG_NAME, extXMapRules, extXMapSchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.5-ext-x-map.js";
 import type { Rule } from "./rule.js";
 
 /** How the scanner reads a tag's raw value: as the text after ':', or as an attribute-list. */
@@ -208,6 +210,8 @@ const mediaSegmentShape = {
     [EXT_X_PROGRAM_DATE_TIME_TAG_NAME]: extXProgramDateTimeSchema.optional(),
     [EXT_X_GAP_TAG_NAME]: extXGapSchema.optional(),
     [EXT_X_BITRATE_TAG_NAME]: extXBitrateSchema.optional(),
+    [EXT_X_KEY_TAG_NAME]: z.array(extXKeySchema).readonly().optional(),
+    [EXT_X_MAP_TAG_NAME]: extXMapSchema.optional(),
 } as const;
 
 const mediaSegmentEntries = {
@@ -240,6 +244,16 @@ const mediaSegmentEntries = {
     [EXT_X_BITRATE_TAG_NAME]: {
         form: ValueForm.text,
         format: extXBitrateRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: mediaSegmentTagRules.singlePerSegment },
+    },
+    [EXT_X_KEY_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXKeyRules.format,
+        occurrence: { kind: OccurrenceKind.repeated },
+    },
+    [EXT_X_MAP_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXMapRules.format,
         occurrence: { kind: OccurrenceKind.once, duplicate: mediaSegmentTagRules.singlePerSegment },
     },
 } as const satisfies UnitEntries<typeof mediaSegmentShape>;

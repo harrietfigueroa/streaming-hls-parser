@@ -48,6 +48,26 @@ export const byteRangeSchema = z.string().transform(splitByteRange).pipe(byteRan
 /** Converts the EXT-X-BYTERANGE tag's value per decision 25. */
 export const extXByteRangeSchema = byteRangeSchema;
 
+const offsetByteRangeFieldsSchema = z
+    .object({ length: decimalIntegerSchema, offset: decimalIntegerSchema })
+    .readonly();
+
+type OffsetByteRangeFields = z.input<typeof offsetByteRangeFieldsSchema>;
+
+// A range written without '@' has an empty offset, which the decimal-integer schema rejects.
+function splitOffsetByteRange(value: string) {
+    const separatorIndex = value.indexOf(OFFSET_SEPARATOR);
+    if (separatorIndex === NOT_FOUND) {
+        const offsetMissing: OffsetByteRangeFields = { length: value, offset: "" };
+        return offsetMissing;
+    }
+    const fields: OffsetByteRangeFields = { length: value.slice(0, separatorIndex), offset: value.slice(separatorIndex + 1) };
+    return fields;
+}
+
+/** Converts `<n>@<o>`, its offset required, to a frozen `{ length, offset }` in bytes. */
+export const byteRangeWithOffsetSchema = z.string().transform(splitOffsetByteRange).pipe(offsetByteRangeFieldsSchema);
+
 type ByteRange = z.output<typeof byteRangeSchema>;
 type RangedSegment = { readonly uri: string; readonly [EXT_X_BYTERANGE_TAG_NAME]?: ByteRange | undefined };
 

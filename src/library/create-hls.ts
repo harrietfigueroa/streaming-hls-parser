@@ -7,6 +7,7 @@ import { z } from "zod";
 import { checkSegmentDuration } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.1-ext-x-targetduration.js";
 import { checkServerControl } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.8-ext-x-server-control.js";
 import { checkByteRangeOffsets } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.2-ext-x-byterange.js";
+import { checkKey } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.4-ext-x-key.js";
 import { assertCondition } from "./assert.js";
 import { type Limit, type ParseOptions, resolveLimits } from "./options.js";
 import { defaultPolicy, type Policy } from "./policy.js";
@@ -145,6 +146,16 @@ function findPlaylistIssues(playlist: MediaPlaylist) {
         const check = checkSegmentDuration({ targetDuration, duration, segmentIndex });
         if (check.kind === CheckKind.failed) {
             issues.push(check.issue);
+        }
+        const keys = segment["EXT-X-KEY"];
+        if (keys === undefined) {
+            continue;
+        }
+        for (const key of keys) {
+            const keyIssues = checkKey(key);
+            for (const issue of keyIssues) {
+                issues.push({ rule: issue.rule, detail: `Segment ${segmentIndex + 1}: ${issue.detail}` });
+            }
         }
     }
     const serverControl = playlist["EXT-X-SERVER-CONTROL"];
