@@ -46,11 +46,14 @@ type IgnoreMember<K extends IgnoreKind> = { readonly kind: K } & IgnorePayloads[
 type Ignore = { [K in IgnoreKind]: IgnoreMember<K> }[IgnoreKind];
 
 const SEGMENTS_KEY = "segments";
+const PENDING_SEGMENT_KEY = "pendingSegment";
 const PLAYLIST_TAG_DEPTH = 1;
 // A segment tag's path is ["segments", segmentIndex, tagName, ...].
 const SEGMENT_TAG_DEPTH = 3;
 const SEGMENT_INDEX_POSITION = 1;
 const SEGMENT_TAG_NAME_POSITION = 2;
+// A pending segment tag's path is ["pendingSegment", tagName, ...].
+const PENDING_SEGMENT_TAG_DEPTH = 2;
 // An attribute's issue sits one step below its tag.
 const ATTRIBUTE_DEPTH = 1;
 
@@ -64,6 +67,16 @@ function locateTag(options: { readonly path: readonly PropertyKey[]; readonly pl
     const { path, playlist, playlistTagEntries, segmentTagEntries } = options;
     const [head] = path;
     const isStringHead = typeof head === "string";
+    if (head === PENDING_SEGMENT_KEY) {
+        const [, name] = path;
+        assertCondition(typeof name === "string", `Pending segment key ${String(name)} is not a string.`);
+        const entry = segmentTagEntries.get(name);
+        assertCondition(entry !== undefined, `Schema issue at unknown pending segment key ${name}.`);
+        const unit = playlist.pendingSegment;
+        assertCondition(unit !== undefined, "Schema issue at a pending segment the scan did not produce.");
+        const where = `The pending segment's ${name}`;
+        return { unit, name, entry, where, rest: path.slice(PENDING_SEGMENT_TAG_DEPTH) };
+    }
     const isPlaylistTag = isStringHead && head !== SEGMENTS_KEY;
     if (isPlaylistTag) {
         const entry = playlistTagEntries.get(head);
@@ -221,9 +234,18 @@ export function withIgnoredTags(playlist: RawPlaylist, ignorables: readonly Igno
         const ignored = rebuildIgnored(segment.ignored, segmentIndex);
         segments.push({ tags, uri: segment.uri, ignored });
     }
-    const playlistIndex = playlist.segments.length;
+    // Lines after the last URI belong to the pending segment when there is one, and to the playlist otherwise.
+    const trailingIndex = playlist.segments.length;
     const tags = withoutTags(playlist.tags, removed);
-    const ignored = rebuildIgnored(playlist.ignored, playlistIndex);
-    const rebuilt: RawPlaylist = { tags, segments, ignored };
-    return rebuilt;
+    const pending = playlist.pendingSegment;
+    if (pending === undefined) {
+        const ignored = rebuildIgnored(playlist.ignored, trailingIndex);
+        const rebuilt: RawPlaylist = { tags, segments, ignored };
+        return rebuilt;
+    }
+    const pendingTags = withoutTags(pending.tags, removed);
+    const pendingIgnored = rebuildIgnored(pending.ignored, trailingIndex);
+    const pendingSegment = { tags: pendingTags, ignored: pendingIgnored };
+    const rebuiltWithPending: RawPlaylist = { tags, segments, ignored: playlist.ignored, pendingSegment };
+    return rebuiltWithPending;
 }

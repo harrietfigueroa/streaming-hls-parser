@@ -16,6 +16,8 @@ import { PlaylistType } from "../src/4-playlists/4.4-playlist-tags/4.4.3-media-p
 import { extXServerControlRules } from "../src/4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.8-ext-x-server-control.js";
 import { extXByteRangeRules } from "../src/4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.2-ext-x-byterange.js";
 import { extXKeyRules, KeyMethod } from "../src/4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.4-ext-x-key.js";
+import { extXPartRules } from "../src/4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.9-ext-x-part.js";
+import { extXPartInfRules } from "../src/4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.7-ext-x-part-inf.js";
 import { definitionRules } from "../src/4-playlists/4.1-definition-of-a-playlist.js";
 import { extm3uRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.1-extm3u.js";
 import { extXVersionRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.2-ext-x-version.js";
@@ -177,6 +179,56 @@ describe("HLS.safeParse", () => {
         });
     });
 
+    // Section 9.11's excerpt, with the head lines its "..." stands for.
+    const LOW_LATENCY_PLAYLIST = [
+        "#EXTM3U",
+        "#EXT-X-TARGETDURATION:4",
+        "#EXT-X-PART-INF:PART-TARGET=2.00004",
+        "#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK=6.00012",
+        "#EXT-X-MEDIA-SEQUENCE:270",
+        "#EXTINF:4.00008,",
+        "fileSequence270.mp4",
+        '#EXT-X-PART:DURATION=2.00004,INDEPENDENT=YES,URI="filePart271.0.mp4"',
+        '#EXT-X-PART:DURATION=2.00004,URI="filePart271.1.mp4"',
+        "#EXTINF:4.00008,",
+        "fileSequence271.mp4",
+        '#EXT-X-PART:DURATION=2.00004,INDEPENDENT=YES,URI="filePart272.0.mp4"',
+        '#EXT-X-PART:DURATION=0.50001,URI="filePart272.1.mp4"',
+        "#EXTINF:2.50005,",
+        "fileSequence272.mp4",
+        "#EXT-X-DISCONTINUITY",
+        '#EXT-X-PART:DURATION=2.00004,INDEPENDENT=YES,URI="midRoll273.0.mp4"',
+        '#EXT-X-PART:DURATION=2.00004,URI="midRoll273.1.mp4"',
+        "#EXTINF:4.00008,",
+        "midRoll273.mp4",
+        '#EXT-X-PART:DURATION=2.00004,INDEPENDENT=YES,URI="midRoll274.0.mp4"',
+        '#EXT-X-PRELOAD-HINT:TYPE=PART,URI="midRoll274.1.mp4"',
+        '#EXT-X-RENDITION-REPORT:URI="/1M/LL-HLS.m3u8",LAST-MSN=274,LAST-PART=1',
+        "",
+    ];
+
+    test("keeps the parts after the last URI as the pending Parent Segment", () => {
+        const outcome = HLS.safeParse(LOW_LATENCY_PLAYLIST.join("\n"));
+        expect(outcome).toMatchObject({
+            kind: ParseKind.parsed,
+            playlist: {
+                segments: [
+                    { uri: "fileSequence270.mp4" },
+                    { uri: "fileSequence271.mp4", "EXT-X-PART": [{ URI: "filePart271.0.mp4" }, { URI: "filePart271.1.mp4" }] },
+                    { uri: "fileSequence272.mp4" },
+                    { uri: "midRoll273.mp4", "EXT-X-DISCONTINUITY": true },
+                ],
+                pendingSegment: { "EXT-X-PART": [{ URI: "midRoll274.0.mp4", DURATION: 2.00004, INDEPENDENT: "YES" }] },
+            },
+        });
+    });
+
+    test("reports a part-related rule broken in the Low-Latency playlist", () => {
+        const withoutPartInf = LOW_LATENCY_PLAYLIST.filter(isNotPartInf);
+        const outcome = HLS.safeParse(withoutPartInf.join("\n"));
+        expect(outcome).toMatchObject({ kind: ParseKind.malformed, issues: [{ rule: extXPartInfRules.requiredWithParts }] });
+    });
+
     test("skips blank lines", () => {
         const text = "#EXTM3U\n\n#EXT-X-TARGETDURATION:10\n\n#EXTINF:1,\n\na.ts\n";
         const outcome = HLS.safeParse(text);
@@ -256,6 +308,8 @@ describe("HLS.safeParse", () => {
         { name: "a second EXT-X-GAP before one URI", text: `${BASE_HEAD}#EXT-X-GAP\n#EXT-X-GAP\n${BASE_SEGMENT}`, rule: mediaSegmentTagRules.singlePerSegment },
         { name: "an AES-128 key without a URI", text: `${BASE_HEAD}#EXT-X-KEY:METHOD=AES-128\n${BASE_SEGMENT}`, rule: extXKeyRules.uriRequired },
         { name: "a second EXT-X-MAP before one URI", text: `${BASE_HEAD}#EXT-X-MAP:URI="a"\n#EXT-X-MAP:URI="b"\n${BASE_SEGMENT}`, rule: mediaSegmentTagRules.singlePerSegment },
+        { name: "an EXT-X-KEY after its Parent Segment's first part", text: `${BASE_HEAD}#EXT-X-PART-INF:PART-TARGET=5\n#EXT-X-SERVER-CONTROL:PART-HOLD-BACK=10\n#EXT-X-PART:DURATION=5,URI="p"\n#EXT-X-KEY:METHOD=NONE\n${BASE_SEGMENT}`, rule: extXPartRules.parentTagsPrecedeParts },
+        { name: "a part longer than the Part Target Duration", text: `${BASE_HEAD}#EXT-X-PART-INF:PART-TARGET=5\n#EXT-X-SERVER-CONTROL:PART-HOLD-BACK=10\n#EXT-X-PART:DURATION=6,URI="p"\n${BASE_SEGMENT}`, rule: extXPartRules.durationMax },
     ] as const;
 
     test.each(malformed)("reports $name as malformed", ({ text, rule }) => {
@@ -357,3 +411,7 @@ describe("HLS.safeParse variable substitution", () => {
         });
     });
 });
+
+function isNotPartInf(line: string) {
+    return !line.startsWith("#EXT-X-PART-INF");
+}

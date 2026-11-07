@@ -13,6 +13,11 @@ export const extXPartInfRules = {
         severity: Severity.malformed,
         requirement: "The EXT-X-PART-INF tag's attribute-list has a decimal-floating-point PART-TARGET.",
     },
+    requiredWithParts: {
+        section: SECTION,
+        severity: Severity.malformed,
+        requirement: "A playlist containing one or more EXT-X-PART tags has an EXT-X-PART-INF tag.",
+    },
 } as const satisfies Record<string, Rule>;
 
 /** Converts EXT-X-PART-INF's attributes: PART-TARGET, the Part Target Duration in seconds. */

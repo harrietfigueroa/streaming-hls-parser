@@ -30,6 +30,7 @@ import {
     extXDiscontinuitySequenceRules,
 } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.3-ext-x-discontinuity-sequence.js";
 import { EXT_X_DISCONTINUITY_TAG_NAME } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.3-ext-x-discontinuity.js";
+import { EXT_X_PART_TAG_NAME, extXPartRules } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.9-ext-x-part.js";
 import type { IgnoreReason } from "../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
 import { assertCondition, unreachable } from "./assert.js";
 import { Limit, type Limits } from "./options.js";
@@ -77,7 +78,12 @@ export type RawUnit = {
 
 export type RawSegment = RawUnit & { readonly uri: string };
 
-export type RawPlaylist = RawUnit & { readonly segments: readonly RawSegment[] };
+/**
+ * The playlist as scanned. Segment tags written after the last URI form the pending Parent Segment
+ * when they include an EXT-X-PART, as at the end of a live Low-Latency playlist, and the ignored lines
+ * after the last URI then go with it.
+ */
+export type RawPlaylist = RawUnit & { readonly segments: readonly RawSegment[]; readonly pendingSegment?: RawUnit };
 
 export const ScanKind = { scanned: "scanned", malformed: "malformed", limitExceeded: "limitExceeded" } as const;
 export type ScanKind = (typeof ScanKind)[keyof typeof ScanKind];
@@ -348,6 +354,8 @@ export function scanPlaylist(options: {
                 const isAfterSegments = segments.length > 0;
                 const isMisplaced = precedesSegmentsRule !== undefined && isAfterSegments;
                 const isSequenceAfterDiscontinuity = hasDiscontinuity && line.name === EXT_X_DISCONTINUITY_SEQUENCE_TAG_NAME;
+                const hasParts = tags.has(EXT_X_PART_TAG_NAME);
+                const isAfterParts = entry.precedesParts !== undefined && hasParts;
                 let issue: Issue | undefined;
                 if (isDuplicate) {
                     issue = { rule: occurrence.duplicate, detail: `Line ${lineNumber}: ${line.name} repeats.` };
@@ -356,6 +364,9 @@ export function scanPlaylist(options: {
                 } else if (isSequenceAfterDiscontinuity) {
                     const detail = `Line ${lineNumber}: ${line.name} follows an EXT-X-DISCONTINUITY.`;
                     issue = { rule: extXDiscontinuitySequenceRules.precedesDiscontinuity, detail };
+                } else if (isAfterParts) {
+                    const detail = `Line ${lineNumber}: ${line.name} follows its Parent Segment's first EXT-X-PART.`;
+                    issue = { rule: extXPartRules.parentTagsPrecedeParts, detail };
                 } else if (read.kind === ReadKind.malformed) {
                     issue = atLine(read.issue, lineNumber);
                 } else {
@@ -405,6 +416,12 @@ export function scanPlaylist(options: {
             return malformedScan(issue);
         }
         violations.push(issue);
+    }
+    if (segmentTags.has(EXT_X_PART_TAG_NAME)) {
+        const pendingSegment = { tags: segmentTags, ignored };
+        const withPending: RawPlaylist = { tags: playlistTags, segments, ignored: [], pendingSegment };
+        const scannedWithPending: Scan = { kind: ScanKind.scanned, playlist: withPending, violations };
+        return scannedWithPending;
     }
     if (segmentTags.size > 0) {
         const names = Array.from(segmentTags.keys());

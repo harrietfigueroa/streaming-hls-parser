@@ -8,6 +8,8 @@ import { checkSegmentDuration } from "../4-playlists/4.4-playlist-tags/4.4.3-med
 import { checkServerControl } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.8-ext-x-server-control.js";
 import { checkByteRangeOffsets } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.2-ext-x-byterange.js";
 import { checkKey } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.4-ext-x-key.js";
+import { checkPartDurations } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.9-ext-x-part.js";
+import { extXPartInfRules } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.7-ext-x-part-inf.js";
 import { assertCondition } from "./assert.js";
 import { type Limit, type ParseOptions, resolveLimits } from "./options.js";
 import { defaultPolicy, type Policy } from "./policy.js";
@@ -42,15 +44,17 @@ const ignoredLinesSchema = z
     .readonly();
 
 function buildSchemas(tables: TagTables) {
-    const segmentSchema = z
-        .object({ ...tables.segment.shape, uri: z.string(), ignored: ignoredLinesSchema })
-        .readonly();
+    const segmentObjectSchema = z.object({ ...tables.segment.shape, uri: z.string(), ignored: ignoredLinesSchema });
+    const segmentSchema = segmentObjectSchema.readonly();
+    // The pending Parent Segment has no URI yet, and none of a segment's tags is required of it.
+    const pendingSegmentSchema = segmentObjectSchema.omit({ uri: true }).partial().required({ ignored: true }).readonly();
     const segmentsSchema = z.array(segmentSchema).readonly();
     const mediaPlaylistSchema = z
         .object({
             ...tables.playlist.shape,
             kind: z.literal(PlaylistKind.media),
             segments: segmentsSchema,
+            pendingSegment: pendingSegmentSchema.optional(),
             ignored: ignoredLinesSchema,
         })
         .readonly();
@@ -134,32 +138,82 @@ function toPlaylistInput(options: { readonly playlist: RawPlaylist } & EntriesMa
         segments.push({ ...segmentValues, uri: segment.uri, ignored: segment.ignored });
     }
     const values = toTagValues(playlist.tags, playlistTagEntries);
-    return { ...values, kind: PlaylistKind.media, segments, ignored: playlist.ignored };
+    const pending = playlist.pendingSegment;
+    if (pending === undefined) {
+        return { ...values, kind: PlaylistKind.media, segments, ignored: playlist.ignored };
+    }
+    const pendingValues = toTagValues(pending.tags, segmentTagEntries);
+    const pendingSegment = { ...pendingValues, ignored: pending.ignored };
+    return { ...values, kind: PlaylistKind.media, segments, pendingSegment, ignored: playlist.ignored };
+}
+
+type PendingSegment = NonNullable<MediaPlaylist["pendingSegment"]>;
+
+/** Finds the broken rules within one segment's tags, the pending segment's included, without its location. */
+function findUnitIssues(options: {
+    readonly unit: MediaSegment | PendingSegment;
+    readonly partTarget: number | undefined;
+}) {
+    const { unit, partTarget } = options;
+    const issues: Issue[] = [];
+    const keys = unit["EXT-X-KEY"];
+    if (keys !== undefined) {
+        for (const key of keys) {
+            const keyIssues = checkKey(key);
+            for (const issue of keyIssues) {
+                issues.push(issue);
+            }
+        }
+    }
+    const parts = unit["EXT-X-PART"];
+    if (parts === undefined) {
+        return issues;
+    }
+    if (partTarget === undefined) {
+        issues.push({ rule: extXPartInfRules.requiredWithParts, detail: "It has EXT-X-PART, and the playlist no EXT-X-PART-INF." });
+        return issues;
+    }
+    const partIssues = checkPartDurations({ parts, partTarget });
+    for (const issue of partIssues) {
+        issues.push(issue);
+    }
+    return issues;
 }
 
 /** Finds every broken rule that spans a converted playlist's tags or units. */
 function findPlaylistIssues(playlist: MediaPlaylist) {
     const issues: Issue[] = [];
     const targetDuration = playlist["EXT-X-TARGETDURATION"];
+    const partTarget = playlist["EXT-X-PART-INF"]?.["PART-TARGET"];
+    const units: { readonly unit: MediaSegment | PendingSegment; readonly where: string }[] = [];
     for (const [segmentIndex, segment] of playlist.segments.entries()) {
         const duration = segment.EXTINF.duration;
         const check = checkSegmentDuration({ targetDuration, duration, segmentIndex });
         if (check.kind === CheckKind.failed) {
             issues.push(check.issue);
         }
-        const keys = segment["EXT-X-KEY"];
-        if (keys === undefined) {
-            continue;
-        }
-        for (const key of keys) {
-            const keyIssues = checkKey(key);
-            for (const issue of keyIssues) {
-                issues.push({ rule: issue.rule, detail: `Segment ${segmentIndex + 1}: ${issue.detail}` });
+        units.push({ unit: segment, where: `Segment ${segmentIndex + 1}` });
+    }
+    if (playlist.pendingSegment !== undefined) {
+        units.push({ unit: playlist.pendingSegment, where: "The pending segment" });
+    }
+    // A missing EXT-X-PART-INF is one broken rule however many segments have parts, so it is reported once.
+    let hasReportedPartInf = false;
+    for (const { unit, where } of units) {
+        const unitIssues = findUnitIssues({ unit, partTarget });
+        for (const issue of unitIssues) {
+            const isPartInfIssue = issue.rule === extXPartInfRules.requiredWithParts;
+            const isRepeat = isPartInfIssue && hasReportedPartInf;
+            if (isRepeat) {
+                continue;
             }
+            if (isPartInfIssue) {
+                hasReportedPartInf = true;
+            }
+            issues.push({ rule: issue.rule, detail: `${where}: ${issue.detail}` });
         }
     }
     const serverControl = playlist["EXT-X-SERVER-CONTROL"];
-    const partTarget = playlist["EXT-X-PART-INF"]?.["PART-TARGET"];
     const serverControlIssues = checkServerControl({ serverControl, targetDuration, partTarget });
     for (const issue of serverControlIssues) {
         issues.push(issue);

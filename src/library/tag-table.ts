@@ -82,6 +82,7 @@ import { EXT_X_GAP_TAG_NAME, extXGapRules, extXGapSchema } from "../4-playlists/
 import { EXT_X_BITRATE_TAG_NAME, extXBitrateRules, extXBitrateSchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.8-ext-x-bitrate.js";
 import { EXT_X_KEY_TAG_NAME, extXKeyRules, extXKeySchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.4-ext-x-key.js";
 import { EXT_X_MAP_TAG_NAME, extXMapRules, extXMapSchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.5-ext-x-map.js";
+import { EXT_X_PART_TAG_NAME, extXPartRules, extXPartSchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.9-ext-x-part.js";
 import type { Rule } from "./rule.js";
 
 /** How the scanner reads a tag's raw value: as the text after ':', or as an attribute-list. */
@@ -110,6 +111,8 @@ export type TagEntry = {
     readonly required?: Rule;
     /** Broken when the tag appears after the playlist's first Media Segment. */
     readonly precedesSegments?: Rule;
+    /** Broken when the tag appears after its Parent Segment's first EXT-X-PART. */
+    readonly precedesParts?: Rule;
 };
 
 type UnitEntries<Shape> = { readonly [Name in keyof Shape]: TagEntry };
@@ -212,6 +215,7 @@ const mediaSegmentShape = {
     [EXT_X_BITRATE_TAG_NAME]: extXBitrateSchema.optional(),
     [EXT_X_KEY_TAG_NAME]: z.array(extXKeySchema).readonly().optional(),
     [EXT_X_MAP_TAG_NAME]: extXMapSchema.optional(),
+    [EXT_X_PART_TAG_NAME]: z.array(extXPartSchema).readonly().optional(),
 } as const;
 
 const mediaSegmentEntries = {
@@ -230,11 +234,13 @@ const mediaSegmentEntries = {
         form: ValueForm.text,
         format: extXDiscontinuityRules.format,
         occurrence: { kind: OccurrenceKind.once, duplicate: mediaSegmentTagRules.singlePerSegment },
+        precedesParts: extXPartRules.parentTagsPrecedeParts,
     },
     [EXT_X_PROGRAM_DATE_TIME_TAG_NAME]: {
         form: ValueForm.text,
         format: extXProgramDateTimeRules.format,
         occurrence: { kind: OccurrenceKind.once, duplicate: mediaSegmentTagRules.singlePerSegment },
+        precedesParts: extXPartRules.parentTagsPrecedeParts,
     },
     [EXT_X_GAP_TAG_NAME]: {
         form: ValueForm.text,
@@ -250,11 +256,18 @@ const mediaSegmentEntries = {
         form: ValueForm.attributeList,
         format: extXKeyRules.format,
         occurrence: { kind: OccurrenceKind.repeated },
+        precedesParts: extXPartRules.parentTagsPrecedeParts,
     },
     [EXT_X_MAP_TAG_NAME]: {
         form: ValueForm.attributeList,
         format: extXMapRules.format,
         occurrence: { kind: OccurrenceKind.once, duplicate: mediaSegmentTagRules.singlePerSegment },
+        precedesParts: extXPartRules.parentTagsPrecedeParts,
+    },
+    [EXT_X_PART_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXPartRules.format,
+        occurrence: { kind: OccurrenceKind.repeated },
     },
 } as const satisfies UnitEntries<typeof mediaSegmentShape>;
 
