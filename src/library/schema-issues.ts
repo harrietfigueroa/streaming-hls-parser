@@ -260,6 +260,43 @@ function joinIgnored(options: { readonly leading: readonly IgnoredLine[]; readon
     return joined;
 }
 
+export const UnitIgnoreKind = { kept: "kept", dropped: "dropped" } as const;
+export type UnitIgnoreKind = (typeof UnitIgnoreKind)[keyof typeof UnitIgnoreKind];
+
+type UnitIgnorePayloads = {
+    /** The unit's remaining tags, and its ignored lines with the ignored tags among them in position. */
+    [UnitIgnoreKind.kept]: { readonly tags: RawTags; readonly ignored: readonly IgnoredLine[] };
+    /** The unit's ignored lines with its ignored tag among them, and the reason its URI line is ignored too. */
+    [UnitIgnoreKind.dropped]: { readonly ignored: readonly IgnoredLine[]; readonly reason: IgnoreReason };
+};
+type UnitIgnoreMember<K extends UnitIgnoreKind> = { readonly kind: K } & UnitIgnorePayloads[K];
+export type UnitIgnore = { [K in UnitIgnoreKind]: UnitIgnoreMember<K> }[UnitIgnoreKind];
+
+/**
+ * Removes one unit's ignorable tags and keeps each in position among its ignored lines, as
+ * withIgnoredTags does across a playlist; a tag that ignores its URI line drops the unit.
+ */
+export function withIgnoredUnitTags(options: { readonly unit: RawUnit; readonly ignorables: readonly IgnorableTag[] }) {
+    const { unit, ignorables } = options;
+    const removed = new Set<RawTag>();
+    let uriReason: IgnoreReason | undefined;
+    for (const ignorable of ignorables) {
+        removed.add(ignorable.tag);
+        if (ignorable.entry.ignoresUri !== undefined) {
+            uriReason = ignorable.entry.ignoresUri;
+        }
+    }
+    const tags = withoutTags(unit.tags, removed);
+    const ignored = mergeIgnored(unit.ignored, ignorables);
+    if (uriReason !== undefined) {
+        assertCondition(tags.size === 0, `A dropped unit keeps ${tags.size} tags.`);
+        const dropped: UnitIgnore = { kind: UnitIgnoreKind.dropped, ignored, reason: uriReason };
+        return dropped;
+    }
+    const kept: UnitIgnore = { kind: UnitIgnoreKind.kept, tags, ignored };
+    return kept;
+}
+
 /**
  * Returns `playlist` with each ignorable tag removed from its unit and kept in position among the
  * ignored lines. A unit whose ignored tag ignores its URI line too is dropped: its ignored lines,

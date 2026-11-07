@@ -19,10 +19,12 @@ import {
 import { resolveSegmentFields } from "./resolve.js";
 import { revive, type Reviver } from "./revive.js";
 import { stringify } from "./stringify.js";
+import { parseStream, type RevivedStreamPart, type StreamPart, StreamPartKind } from "./parse-stream.js";
 import { type Issue, Severity } from "./rule.js";
-import { type RawPlaylist, type RawTag, type RawTags, ScanKind, scanPlaylist } from "./scan.js";
+import { type RawPlaylist, type RawTag, ScanKind, scanPlaylist } from "./scan.js";
 import {
     buildSchemas,
+    toTagValues,
     type ConvertedMediaPlaylist,
     type ConvertedPlaylist,
     type ConvertedMultivariantPlaylist,
@@ -35,7 +37,7 @@ import {
     UNITS_KEYS,
     withIgnoredTags,
 } from "./schema-issues.js";
-import { type EntriesByKind, OccurrenceKind, PlaylistKind, type TagEntry, type TagTables } from "./tag-table.js";
+import { type EntriesByKind, PlaylistKind, type TagEntry, type TagTables } from "./tag-table.js";
 
 export { PlaylistKind } from "./tag-table.js";
 
@@ -63,6 +65,14 @@ export type Parse = ParseOf<Playlist>;
 export type RevivedParse = ParseOf<unknown>;
 
 export type { Reviver } from "./revive.js";
+export { type RevivedStreamPart, type StreamPart, StreamPartKind } from "./parse-stream.js";
+export type { PlaylistTag } from "./output.js";
+
+type FailedPartKind = typeof StreamPartKind.malformed | typeof StreamPartKind.limitExceeded;
+/** A part a streaming HLS.parse yields, which throws in place of a failure part. */
+export type ParsedStreamPart = Exclude<StreamPart, { readonly kind: FailedPartKind }>;
+/** A part a streaming HLS.parse with a reviver yields. */
+export type RevivedParsedStreamPart = Exclude<RevivedStreamPart, { readonly kind: FailedPartKind }>;
 
 const ConversionKind = { converted: "converted", failed: "failed" } as const;
 type ConversionKind = (typeof ConversionKind)[keyof typeof ConversionKind];
@@ -94,28 +104,6 @@ function toEntriesMap(unit: {
     }
     assertCondition(entriesMap.size === Object.keys(unit.shape).length, "The entries map names a tag the shape lacks.");
     return entriesMap;
-}
-
-function valueOf(tag: RawTag) {
-    return tag.value;
-}
-
-/** Gives each tag name its raw value, or a repeated tag's raw values in line order. */
-function toTagValues(tags: RawTags, entries: ReadonlyMap<string, TagEntry>) {
-    const values: Record<string, unknown> = {};
-    for (const [name, written] of tags) {
-        const entry = entries.get(name);
-        assertCondition(entry !== undefined, `Scanned tag ${name} has no entry.`);
-        if (entry.occurrence.kind === OccurrenceKind.repeated) {
-            values[name] = Array.from(written, valueOf);
-            continue;
-        }
-        const [tag] = written;
-        assertCondition(written.length === 1, `Tag ${name} appears ${written.length} times and may appear once.`);
-        assertCondition(tag !== undefined, `Tag ${name} was scanned with no value.`);
-        values[name] = tag.value;
-    }
-    return values;
 }
 
 function toPlaylistInput(playlist: RawPlaylist, entries: EntriesByKind) {
@@ -176,18 +164,16 @@ function findPlaylistIssues(playlist: ConvertedPlaylist) {
     }
 }
 
+type FailedParse = Exclude<Parse, { readonly kind: typeof ParseKind.parsed }>;
+
 /**
- * The playlist of a parsed outcome. Every other outcome throws, because HLS.parse keeps JSON.parse's
- * contract of returning the value or throwing; HLS.safeParse is the path that returns each outcome.
- * A malformed playlist is a SyntaxError, as JSON.parse reports bad text, and an exceeded limit is a
- * RangeError, a bound the caller set rather than a fault in the text. Each error's cause carries the
- * outcome's data.
+ * Throws a failed outcome, because HLS.parse keeps JSON.parse's contract of returning the value or
+ * throwing; HLS.safeParse is the path that returns each outcome. A malformed playlist is a
+ * SyntaxError, as JSON.parse reports bad text, and an exceeded limit is a RangeError, a bound the
+ * caller set rather than a fault in the text. Each error's cause carries the outcome's data.
  */
-function playlistOf<P>(outcome: ParseOf<P>) {
+function throwFailure(outcome: FailedParse): never {
     switch (outcome.kind) {
-        case ParseKind.parsed: {
-            return outcome.playlist;
-        }
         case ParseKind.malformed: {
             const [first] = outcome.issues;
             assertCondition(first !== undefined, "A malformed outcome carries no issue.");
@@ -204,6 +190,71 @@ function playlistOf<P>(outcome: ParseOf<P>) {
         }
     }
 }
+
+/** The playlist of a parsed outcome; every other outcome throws. */
+function playlistOf<P>(outcome: ParseOf<P>) {
+    if (outcome.kind === ParseKind.parsed) {
+        return outcome.playlist;
+    }
+    return throwFailure(outcome);
+}
+
+/** Yields each part of `parts` but a failure, which it throws as HLS.parse throws the static outcome. */
+async function* throwingParts<Part extends StreamPart | RevivedStreamPart>(parts: AsyncIterable<Part>) {
+    // The parse bounds the parts: one per unit or playlist tag it reads, under its limits.
+    for await (const part of parts) {
+        if (part.kind === StreamPartKind.malformed) {
+            const malformed = malformedParse(part.issues);
+            throwFailure(malformed);
+        }
+        if (part.kind === StreamPartKind.limitExceeded) {
+            const exceeded: FailedParse = { kind: ParseKind.limitExceeded, limit: part.limit, value: part.value };
+            throwFailure(exceeded);
+        }
+        yield part;
+    }
+}
+
+/** Runs `reviver` over the output object a part carries; the end and failure parts carry none and are kept. */
+function revivePart(part: StreamPart, reviver: Reviver) {
+    switch (part.kind) {
+        case StreamPartKind.playlistTag: {
+            const revived: RevivedStreamPart = { kind: part.kind, playlistTag: revive({ value: part.playlistTag, reviver }) };
+            return revived;
+        }
+        case StreamPartKind.segment: {
+            const revived: RevivedStreamPart = { kind: part.kind, segment: revive({ value: part.segment, reviver }) };
+            return revived;
+        }
+        case StreamPartKind.pendingSegment: {
+            const revived: RevivedStreamPart = { kind: part.kind, pendingSegment: revive({ value: part.pendingSegment, reviver }) };
+            return revived;
+        }
+        case StreamPartKind.variant: {
+            const revived: RevivedStreamPart = { kind: part.kind, variant: revive({ value: part.variant, reviver }) };
+            return revived;
+        }
+        case StreamPartKind.end:
+        case StreamPartKind.malformed:
+        case StreamPartKind.limitExceeded: {
+            return part;
+        }
+        default: {
+            part satisfies never;
+            return unreachable(part);
+        }
+    }
+}
+
+async function* reviveParts(parts: AsyncIterable<StreamPart>, reviver: Reviver) {
+    // The parse bounds the parts: one per unit or playlist tag it reads, under its limits.
+    for await (const part of parts) {
+        yield revivePart(part, reviver);
+    }
+}
+
+/** A stream of string chunks or of UTF-8 byte chunks. */
+export type Chunks = AsyncIterable<string> | AsyncIterable<Uint8Array>;
 
 /** Runs `reviver` over a parsed outcome's playlist; every other outcome carries no playlist and is returned as it is. */
 function reviveOutcome(outcome: Parse, reviver: Reviver) {
@@ -308,6 +359,18 @@ function checkPlaylist(options: {
 // A Multivariant Playlist with no EXT-X-DEFINE declares no variable, so every IMPORT against it fails.
 const NO_VARIABLES: ReadonlyMap<string, string> = new Map();
 
+/** The variables an IMPORT reads: those of the Multivariant Playlist the options give, when they give one. */
+function importedVariablesOf(options: ParseOptions) {
+    let imported: ReadonlyMap<string, string> | undefined;
+    if (options.multivariant !== undefined) {
+        imported = NO_VARIABLES;
+        if (options.multivariant.variables !== undefined) {
+            imported = options.multivariant.variables;
+        }
+    }
+    return imported;
+}
+
 /** Creates the HLS namespace over `tables`, whose schemas are either as declared or compiled. */
 export function createHLS(tables: TagTables) {
     const schemas = buildSchemas(tables);
@@ -367,13 +430,7 @@ export function createHLS(tables: TagTables) {
 
     function parseText(text: string, options: ParseOptions = {}) {
         const limits = resolveLimits(options);
-        let imported: ReadonlyMap<string, string> | undefined;
-        if (options.multivariant !== undefined) {
-            imported = NO_VARIABLES;
-            if (options.multivariant.variables !== undefined) {
-                imported = options.multivariant.variables;
-            }
-        }
+        const imported = importedVariablesOf(options);
         const scan = scanPlaylist({ text, entries, policy, limits, uri: options.uri, imported });
         if (scan.kind === ScanKind.malformed) {
             return malformedParse([scan.issue]);
@@ -403,9 +460,31 @@ export function createHLS(tables: TagTables) {
      * Parses `text`, returning each outcome. A reviver passed second runs over a parsed playlist as
      * JSON.parse runs one over its value, and the options then go third.
      */
+    function parseChunks(chunks: Chunks, options: ParseOptions = {}) {
+        const limits = resolveLimits(options);
+        const imported = importedVariablesOf(options);
+        const scannerOptions = { entries, policy, limits, uri: options.uri, imported };
+        return parseStream({ chunks, context: { tables, schemas, scannerOptions } });
+    }
+
+    /**
+     * Parses `text`, returning each outcome, or a stream of chunks, yielding each part as it completes
+     * and a failure as its last part. A reviver passed second runs over a parsed playlist, or over each
+     * part's output object, as JSON.parse runs one over its value, and the options then go third.
+     */
     function safeParse(text: string, options?: ParseOptions): Parse;
     function safeParse(text: string, reviver: Reviver, options?: ParseOptions): RevivedParse;
-    function safeParse(text: string, reviverOrOptions?: Reviver | ParseOptions, revivedOptions?: ParseOptions) {
+    function safeParse(chunks: Chunks, options?: ParseOptions): AsyncGenerator<StreamPart, void>;
+    function safeParse(chunks: Chunks, reviver: Reviver, options?: ParseOptions): AsyncGenerator<RevivedStreamPart, void>;
+    function safeParse(input: string | Chunks, reviverOrOptions?: Reviver | ParseOptions, revivedOptions?: ParseOptions) {
+        if (typeof input !== "string") {
+            if (typeof reviverOrOptions === "function") {
+                const parts = parseChunks(input, revivedOptions);
+                return reviveParts(parts, reviverOrOptions);
+            }
+            return parseChunks(input, reviverOrOptions);
+        }
+        const text = input;
         if (typeof reviverOrOptions === "function") {
             const outcome = parseText(text, revivedOptions);
             return reviveOutcome(outcome, reviverOrOptions);
@@ -413,10 +492,24 @@ export function createHLS(tables: TagTables) {
         return parseText(text, reviverOrOptions);
     }
 
-    /** Parses `text` as safeParse does, returning the playlist, or the reviver's return, and throwing for any other outcome. */
+    /**
+     * Parses as safeParse does: `text` to the playlist, or the reviver's return, and a stream to its
+     * parts. Every other outcome throws, and a stream throws in place of its failure part.
+     */
     function parse(text: string, options?: ParseOptions): Playlist;
     function parse(text: string, reviver: Reviver, options?: ParseOptions): unknown;
-    function parse(text: string, reviverOrOptions?: Reviver | ParseOptions, revivedOptions?: ParseOptions) {
+    function parse(chunks: Chunks, options?: ParseOptions): AsyncGenerator<ParsedStreamPart, void>;
+    function parse(chunks: Chunks, reviver: Reviver, options?: ParseOptions): AsyncGenerator<RevivedParsedStreamPart, void>;
+    function parse(input: string | Chunks, reviverOrOptions?: Reviver | ParseOptions, revivedOptions?: ParseOptions) {
+        if (typeof input !== "string") {
+            if (typeof reviverOrOptions === "function") {
+                const revivedParts = safeParse(input, reviverOrOptions, revivedOptions);
+                return throwingParts(revivedParts);
+            }
+            const parts = safeParse(input, reviverOrOptions);
+            return throwingParts(parts);
+        }
+        const text = input;
         if (typeof reviverOrOptions === "function") {
             const revived = safeParse(text, reviverOrOptions, revivedOptions);
             return playlistOf(revived);

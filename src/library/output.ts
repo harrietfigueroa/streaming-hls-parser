@@ -125,6 +125,24 @@ export class PlaylistMethods {
 
 type Method = (...parameters: never[]) => unknown;
 
+/** The methods of a playlist tag read from a stream, whose text is its line as written. */
+export class TagMethods {
+    /** The tag's text exactly as written: its line and the lines before it, or empty among a unit's tags. */
+    toHLS() {
+        return unitTextOf(this);
+    }
+
+    /** The tag's text exactly as written, as toHLS returns it. */
+    toString() {
+        return unitTextOf(this);
+    }
+
+    /** The tag's data with each bigint written as its decimal string. */
+    toJSON<T>(this: T) {
+        return jsonify(this);
+    }
+}
+
 /** `T` without its methods at any level: the shape of a spread, or of a value built by hand. */
 export type DataOf<T> = T extends ReadonlyMap<unknown, unknown>
     ? T
@@ -136,6 +154,7 @@ export type DataOf<T> = T extends ReadonlyMap<unknown, unknown>
 
 Object.freeze(UnitMethods.prototype);
 Object.freeze(PlaylistMethods.prototype);
+Object.freeze(TagMethods.prototype);
 
 function playlistSourceOf(playlist: object) {
     const playlistSource = playlistSources.get(playlist);
@@ -183,4 +202,18 @@ export function createPlaylist<Data extends object>(options: { readonly data: Da
     const playlist = Object.assign(new PlaylistMethods(), options.data);
     playlistSources.set(playlist, { source: options.source, units: options.units });
     return Object.freeze(playlist);
+}
+
+/**
+ * A playlist tag read from a stream: its name and its converted value, which is a repeated tag's one
+ * occurrence. The value's type depends on the name, which a stream learns only as it reads.
+ */
+export type PlaylistTag = { readonly name: string; readonly value: unknown } & TagMethods;
+
+/** Builds a frozen playlist tag on the tag prototype, its text `text`. */
+export function createPlaylistTag(options: { readonly name: string; readonly value: unknown; readonly text: string }) {
+    const { name, value, text } = options;
+    const tag = Object.assign(new TagMethods(), { name, value });
+    unitSources.set(tag, { source: text, range: { start: 0, end: text.length } });
+    return Object.freeze(tag) satisfies PlaylistTag;
 }

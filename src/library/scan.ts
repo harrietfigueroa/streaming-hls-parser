@@ -129,8 +129,8 @@ type ScanMember<K extends ScanKind> = { readonly kind: K } & ScanPayloads[K];
 export type Scan = { [K in ScanKind]: ScanMember<K> }[ScanKind];
 
 type ScanEndPayloads = {
-    /** The playlist without its units, and where its trailing text starts: after the last unit or playlist tag kept. */
-    [ScanKind.scanned]: { readonly playlist: RawPlaylistHead; readonly violations: readonly Issue[]; readonly boundary: number };
+    /** The playlist without its units. */
+    [ScanKind.scanned]: { readonly playlist: RawPlaylistHead; readonly violations: readonly Issue[] };
     [ScanKind.malformed]: { readonly issue: Issue };
 };
 type ScanEndKind = keyof ScanEndPayloads;
@@ -710,17 +710,20 @@ export function createScanner(options: ScannerOptions) {
     }
 
     /**
-     * Records a playlist tag the conversion ignores whole, in place of the tag kept, at the end of the
-     * ignored lines so far; its text then leads the next unit's, as a tag ignored at scan does.
+     * Records a playlist tag the conversion ignores whole in place of the tag kept: among the ignored
+     * lines so far, at their end, and no longer among the playlist's tags.
      */
-    function ignorePlaylistTag(options: { readonly tag: RawTag; readonly reason: IgnoreReason }) {
-        const { tag, reason } = options;
+    function ignorePlaylistTag(options: { readonly name: string; readonly tag: RawTag; readonly reason: IgnoreReason }) {
+        const { name, tag, reason } = options;
         assertCondition(tag.ignoredIndex === ignored.length, `Line ${tag.lineNumber} is ignored after later lines were scanned.`);
         ignored.push({ kind: IgnoredKind.ignoredTag, line: tag.line, reason });
-        const isOutsideUnit = tag.range.start < tag.range.end;
-        if (isOutsideUnit) {
-            assertCondition(boundary === tag.range.end, `Line ${tag.lineNumber}'s text is not the last kept.`);
-            boundary = tag.range.start;
+        const written = playlistTags.get(name);
+        assertCondition(written !== undefined, `Line ${tag.lineNumber}'s ${name} was not kept.`);
+        const last = written[written.length - 1];
+        assertCondition(last === tag, `Line ${tag.lineNumber} is not the last ${name} kept.`);
+        written.pop();
+        if (written.length === 0) {
+            playlistTags.delete(name);
         }
     }
 
@@ -742,7 +745,7 @@ export function createScanner(options: ScannerOptions) {
             assertCondition(unitStart !== undefined, "The pending segment has tags and no start.");
             const pendingSegment = { tags: unitTags, ignored, range: { start: unitStart, end: unitEnd } };
             const withPending: RawPlaylistHead = { kind: playlistKind, tags: playlistTags, ignored: [], pendingSegment, variables };
-            const scannedWithPending: ScanEnd = { kind: ScanKind.scanned, playlist: withPending, violations, boundary: unitEnd };
+            const scannedWithPending: ScanEnd = { kind: ScanKind.scanned, playlist: withPending, violations };
             return scannedWithPending;
         }
         if (unitTags.size > 0) {
@@ -754,11 +757,20 @@ export function createScanner(options: ScannerOptions) {
             }
         }
         const playlist: RawPlaylistHead = { kind: playlistKind, tags: playlistTags, ignored, variables };
-        const scanned: ScanEnd = { kind: ScanKind.scanned, playlist, violations, boundary };
+        const scanned: ScanEnd = { kind: ScanKind.scanned, playlist, violations };
         return scanned;
     }
 
-    return { scanLine, ignorePlaylistTag, finish };
+    /** The playlist's kind as settled so far, which is multivariant until a tag of one kind settles it, per section 4.4. */
+    function playlistKind() {
+        let kind: PlaylistKind = PlaylistKind.multivariant;
+        if (settledKind !== undefined) {
+            kind = settledKind;
+        }
+        return kind;
+    }
+
+    return { scanLine, ignorePlaylistTag, finish, playlistKind };
 }
 
 function malformedScanEnd(issue: Issue) {

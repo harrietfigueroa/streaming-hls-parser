@@ -8,6 +8,7 @@ import {
     resolveByteRange,
 } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.2-ext-x-byterange.js";
 import { applyKeys } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.4-ext-x-key.js";
+import { assertCondition } from "./assert.js";
 import type { ConvertedMediaPlaylist, ConvertedMediaSegment, ConvertedPendingSegment } from "./schemas.js";
 
 type WrittenKey = NonNullable<ConvertedMediaSegment["EXT-X-KEY"]>[number];
@@ -104,15 +105,20 @@ function resolveSegmentRange(options: { readonly segment: ConvertedMediaSegment;
     return { byteRange: resolution.byteRange, previousRange: { uri: segment.uri, end } };
 }
 
-/** Resolves the fields of each segment of `playlist`, in order, and of its pending Parent Segment. */
-export function resolveSegmentFields(playlist: ConvertedMediaPlaylist) {
+/**
+ * Creates a resolver over a Media Playlist's sequence tags, which precede its segments. Each segment
+ * is resolved in order, then the pending Parent Segment, from the tags carried from those before it.
+ */
+export function createSegmentResolver(
+    tags: Pick<ConvertedMediaPlaylist, "EXT-X-MEDIA-SEQUENCE" | "EXT-X-DISCONTINUITY-SEQUENCE">,
+) {
     let mediaSequenceNumber = IMPLICIT_FIRST_SEQUENCE_NUMBER;
-    if (playlist["EXT-X-MEDIA-SEQUENCE"] !== undefined) {
-        mediaSequenceNumber = playlist["EXT-X-MEDIA-SEQUENCE"];
+    if (tags["EXT-X-MEDIA-SEQUENCE"] !== undefined) {
+        mediaSequenceNumber = tags["EXT-X-MEDIA-SEQUENCE"];
     }
     let discontinuitySequenceNumber = IMPLICIT_FIRST_SEQUENCE_NUMBER;
-    if (playlist["EXT-X-DISCONTINUITY-SEQUENCE"] !== undefined) {
-        discontinuitySequenceNumber = playlist["EXT-X-DISCONTINUITY-SEQUENCE"];
+    if (tags["EXT-X-DISCONTINUITY-SEQUENCE"] !== undefined) {
+        discontinuitySequenceNumber = tags["EXT-X-DISCONTINUITY-SEQUENCE"];
     }
     let carried: Carried = {
         keys: NO_KEYS,
@@ -122,21 +128,42 @@ export function resolveSegmentFields(playlist: ConvertedMediaPlaylist) {
         discontinuitySequenceNumber,
         previousRange: undefined,
     };
-    const segments: ResolvedFields[] = [];
-    for (const segment of playlist.segments) {
+    let hasPending = false;
+
+    function resolveSegment(segment: ConvertedMediaSegment) {
+        assertCondition(!hasPending, "A segment was resolved after the pending segment.");
         const { fields, next } = resolveUnit({ unit: segment, carried });
         const range = resolveSegmentRange({ segment, previousRange: carried.previousRange });
         if (range.byteRange !== undefined) {
             fields.byteRange = range.byteRange;
         }
-        segments.push(fields);
         carried = { ...next, previousRange: range.previousRange };
+        return fields satisfies ResolvedFields;
+    }
+
+    // The pending segment has no URI yet, so its byte range has no resource to resolve against.
+    function resolvePending(pending: ConvertedPendingSegment) {
+        assertCondition(!hasPending, "A second pending segment was resolved.");
+        hasPending = true;
+        const { fields } = resolveUnit({ unit: pending, carried });
+        return fields satisfies ResolvedFields;
+    }
+
+    return { resolveSegment, resolvePending };
+}
+
+/** Resolves the fields of each segment of `playlist`, in order, and of its pending Parent Segment. */
+export function resolveSegmentFields(playlist: ConvertedMediaPlaylist) {
+    const resolver = createSegmentResolver(playlist);
+    const segments: ResolvedFields[] = [];
+    for (const segment of playlist.segments) {
+        const fields = resolver.resolveSegment(segment);
+        segments.push(fields);
     }
     const pending = playlist.pendingSegment;
     if (pending === undefined) {
         return { segments, pendingSegment: undefined };
     }
-    // The pending segment has no URI yet, so its byte range has no resource to resolve against.
-    const { fields } = resolveUnit({ unit: pending, carried });
-    return { segments, pendingSegment: fields };
+    const pendingSegment = resolver.resolvePending(pending);
+    return { segments, pendingSegment };
 }
