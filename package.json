@@ -1,0 +1,31 @@
+{
+    "name": "streaming-hls-parser",
+    "version": "0.2.0",
+    "description": "An HLS Parser that supports both streaming and string input, compatible with browsers and Node.js",
+    "type": "module",
+    "license": "ISC",
+    "author": "harriet.f.figueroa@gmail.com",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/harrietfigueroa/streaming-hls-parser.git"
+    },
+    "bugs": {
+        "url": "https://github.com/harrietfigueroa/streaming-hls-parser/issues"
+    },
+    "engines": {
+        "node": ">=22.12.0"
+    },
+    "scripts": {
+        "bench": "vitest bench --run",
+        "test": "vitest run",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "zod": "^4.6.7"
+    },
+    "devDependencies": {
+        "@types/node": "~22.20.5",
+        "typescript": "^7.0.2",
+        "vitest": "^5.1.0"
+    }
+}
