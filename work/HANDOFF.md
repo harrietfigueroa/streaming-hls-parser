@@ -1,10 +1,10 @@
 # Handoff: streaming-hls-parser rebuild
 
-This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-parser`, published as `streaming-hls-parser` 0.2.0. Design is complete. Every Media Playlist tag of sections 4.4.1 to 4.4.5 parses through `HLS.safeParse`, and so do Multivariant Playlists with their `EXT-X-STREAM-INF` variants and `EXT-X-I-FRAME-STREAM-INF` streams. The rest of section 4.4.6 (`EXT-X-MEDIA`, `EXT-X-SESSION-DATA`, `EXT-X-SESSION-KEY`, `EXT-X-CONTENT-STEERING`) is next. Read this file first, then `work/decisions/decisions.jsonl` for the reasoning behind any rule below.
+This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-parser`, published as `streaming-hls-parser` 0.2.0. Design is complete. Every tag of section 4.4 parses through `HLS.safeParse`, in Media Playlists and Multivariant Playlists alike, and an `IMPORT` resolves against the `multivariant` option. The `src/library/` features of the next steps come next. Read this file first, then `work/decisions/decisions.jsonl` for the reasoning behind any rule below.
 
 ## Where things stand
 
-The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 523 tests pass, `tsc --noEmit` is clean, `npm run lint` (oxlint) is clean, and `style-lint` is clean on every committed file.
+The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 633 tests pass, `tsc --noEmit` is clean, and `npm run lint` (oxlint) is clean. `style-lint` is clean on every committed file but one line: `create-hls.ts`'s `z.map(z.string(), z.string())`, which `style/prefer-array-from` reports because the rule matches any `.map(...)` method call, zod's included (see the open questions).
 
 | Commit | Content |
 | --- | --- |
@@ -20,11 +20,15 @@ The work is on the branch `rebuild`, created from `origin/main`, and is open as 
 | `41b9ec6` | The section modules for `EXT-X-STREAM-INF` and `EXT-X-I-FRAME-STREAM-INF`, the mixing rules, and ignore reasons carried in a custom issue's `params.ignoreReason`. |
 | `8c90177` | Multivariant Playlists: the tag table split by playlist kind, kind detection in the scanner, `variants`, I-frame streams, and ignored variants carried as `ignoredTag` and `ignoredUri` lines (decision 62). |
 | `df8334a` | The repository's own lint run, oxlint with the local plugin under `lint/`, its two rules, and every existing design-log mention and schema brought into line with them (decision 63). |
+| `f3150f6` | Section 4.4.6.2 moved into a directory for its subsection 4.4.6.2.1, and decision 64. |
+| `bbbf048` | `EXT-X-MEDIA`, its Rendition Groups, a SUBTITLES Rendition's URI, and the Groups each variant names (decision 64). |
+| `b7d3aa3` | `EXT-X-SESSION-DATA`, `EXT-X-SESSION-KEY` on EXT-X-KEY's exported attribute table, and `EXT-X-CONTENT-STEERING` (decision 65). |
+| `d54b1ef` | The Multivariant Playlist's `variables` Map, the `multivariant` option, and `IMPORT` (decision 66). |
 
 ## Where to look
 
 - `spec/draft-pantos-hls-rfc8216bis-22.txt` is the pinned spec (decision 1). Code mirrors its section numbering.
-- `work/decisions/decisions.jsonl` holds 63 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
+- `work/decisions/decisions.jsonl` holds 66 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
 - `work/backlog/backlog.jsonl` is append-only too. The latest line for an `id` gives that item's current state.
 - `lint/` holds the oxlint plugin (`plugin.ts`) and its rules under `lint/rules/`. `.oxlintrc.json` enables them, and `tests/lint/` tests them through oxlint's `RuleTester`.
 - `src/<n>-<heading>/<n.n>-<heading>/…` holds one file per spec section (decision 33). A section that is a directory keeps its section-wide rules in a file named after it inside the directory (decision 54). `src/library/` holds code that belongs to no section.
@@ -37,22 +41,21 @@ A parse runs in three passes, each in its own module under `src/library/`:
 
 1. `scan.ts` walks the lines once. It applies sections 4.1 and 4.4.1.1's line rules, parses attribute lists, substitutes variables, and resolves each `EXT-X-DEFINE` as it is read. It settles the playlist's kind at the first tag only one kind's table holds (`placeInUnsettledKind`, then `placeInSettledKind`), and groups each tag's raw value into the playlist, a unit (a segment or a variant), or the pending segment. Positional rules live here too: the out-of-kind rules, `precedesSegments`, `precedesParts`, and the discontinuity sequence's order.
 2. `create-hls.ts` converts the raw playlist with one `safeParse` of its kind's playlist schema, built from `tag-table.ts`. `schema-issues.ts` maps each zod issue to its tag's format or required rule, or to an ignore reason. Ignored tags move into the ignored lines in position, a unit whose ignored tag has `ignoresUri` is dropped with its URI line, and the playlist converts once more (decision 55).
-3. `findPlaylistIssues` in `create-hls.ts` runs the rules that span tags or units over the typed playlist, by its kind; the multivariant arm has none yet. Every issue resolves through `policy.ts` (decision 8).
+3. `findPlaylistIssues` in `create-hls.ts` runs the rules that span tags or units over the typed playlist, by its kind: `findMediaPlaylistIssues` or `findMultivariantPlaylistIssues`. Every issue resolves through `policy.ts` (decision 8).
 
 `tag-table.ts` is the one place a tag is registered, in the table of its playlist kind: `media` (units are segments) or `multivariant` (units are variants), with sections 4.4.1 and 4.4.2's tags in both. Each entry gives its value form, its format rule, its occurrence, and any required, `precedesSegments`, `precedesParts`, `ignoreOnFormatFailure`, or `ignoresUri` rule. Each kind's table also names the rules its tags break in a playlist of the other kind. `createHLS` asserts at startup that a required rule is present exactly when the tag's schema rejects absence.
 
 ## Next steps
 
-1. Finish section 4.4.6. The playlist kinds, `EXT-X-STREAM-INF`, and `EXT-X-I-FRAME-STREAM-INF` are built. Next come `EXT-X-MEDIA` with its Rendition Group rules, `EXT-X-SESSION-DATA`, `EXT-X-SESSION-KEY`, and `EXT-X-CONTENT-STEERING`, which are playlist-level entries in the `multivariant` table, then the rules spanning tags in `findPlaylistIssues`'s multivariant arm, and finally `IMPORT` through decision 15's `multivariant` option. That option needs the Multivariant Playlist's resolved Variable Values, which the output does not yet carry.
-2. Extend `src/library/` with the rest:
+1. Extend `src/library/` with the rest:
    - `HLS.parse` (decision 7);
    - the precompiled entry (decisions 17 and 18);
    - the streaming scanner (decisions 6 and 21);
    - prototypes and `toHLS` (decisions 42 and 43);
    - resolved fields (decision 26);
    - the reviver (decision 20).
-3. Extract the spec's 15 embedded playlists into `tests/fixtures/` with a TypeScript script, and add one negative fixture per rule with a test that every rule has one (decision 32). Several examples are excerpts with `...` lines, which parse as URIs, so the script has to drop or mark them.
-4. Add section barrels (decision 33) when a module outside a section first imports through a public surface. None exist yet.
+2. Extract the spec's 15 embedded playlists into `tests/fixtures/` with a TypeScript script, and add one negative fixture per rule with a test that every rule has one (decision 32). Several examples are excerpts with `...` lines, which parse as URIs, so the script has to drop or mark them. Section 9.11's example breaks section 4.4.6.1.1 (see the open questions), and sections 9.6 and 9.7 write `CODECS="..."`, which parses as a quoted-string.
+3. Add section barrels (decision 33) when a module outside a section first imports through a public surface. None exist yet.
 
 Backlog items 2, 4 to 25, 30 to 39, and 45 to 49 remain open. Items 7 (performance checks) and 10 (lenient policy) most affect the build order. Items 11 to 14 are section 4 rules waiting on something else: section 8's version table, the raw `EXTINF` text, the line order between `EXT-X-KEY` and `EXT-X-MAP`, and Date Range Following Range resolution. Three groups came from background research on 2026-11-06:
 
@@ -83,6 +86,14 @@ Backlog items 2, 4 to 25, 30 to 39, and 45 to 49 remain open. Items 7 (performan
   - when a serializer is required;
   - whether plugins wait for the precompiled entry.
 - **Decision 62 records readings Claude made without gating:** an unsettled playlist is multivariant, as section 4.4's SHOULD says, and a second `EXT-X-STREAM-INF` before one URI breaks `uriRequired`.
+- **Decisions 64, 65, and 66 record readings Claude made without gating.** They cover:
+  - Rendition Group members matched across Groups by NAME, an absent attribute differing from a written default;
+  - CHANNELS and CHARACTERISTICS split into parameters;
+  - `METHOD=NONE` on a session key as a broken rule rather than an ignored tag;
+  - a variant without PATHWAY-ID on the default Pathway `.`;
+  - the Multivariant Playlist's `variables` Map, the one output change among them.
+- **Section 9.11's Content Steering example breaks section 4.4.6.1.1.** Its two AUDIO Groups name their members "English" and "ENGLISH". NAME is not among the attributes corresponding members may differ in, so the example is malformed under any matching of members, and the parser reports it. Either the example is in error or the rule compares NAME case-insensitively, which the spec does not say.
+- **`style/prefer-array-from` reports zod's `z.map`.** The rule in the dotfiles' `packages/style-lint/src/rules/prefer-array-from.ts` matches every `.map(...)` call, so `z.map(z.string(), z.string())` in `create-hls.ts` fails the commit hook. The repository does not run `style-lint`, so no disable comment may name the rule. The fix belongs in the rule, which without types cannot tell an array's `.map` from zod's, for example by skipping a `.map` whose receiver is a namespace imported from `zod`.
 
 ## Conventions this codebase follows
 
