@@ -1,10 +1,14 @@
 # Handoff: streaming-hls-parser rebuild
 
-This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-parser`, published as `streaming-hls-parser` 0.2.0. Design is complete. Every tag of section 4.4 parses through `HLS.safeParse`, in Media Playlists and Multivariant Playlists alike, and an `IMPORT` resolves against the `multivariant` option. The `src/library/` features of the next steps come next. Read this file first, then `work/decisions/decisions.jsonl` for the reasoning behind any rule below.
+This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-parser`, published as `streaming-hls-parser` 0.2.0. Design is complete. Every tag of section 4.4 parses through `HLS.safeParse`, in Media Playlists and Multivariant Playlists alike, and an `IMPORT` resolves against the `multivariant` option. The precompiled entry, resolved fields, and the reviver are built; prototypes with `toHLS` and the streaming scanner come next. Read this file first, then `work/decisions/decisions.jsonl` for the reasoning behind any rule below.
 
 ## Where things stand
 
-The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 637 tests pass, `tsc --noEmit` is clean, and `npm run lint` (oxlint) is clean. `style-lint` is clean on every committed file but the `HLS.parse(...)` calls in `tests/index.test.ts`, which `style/no-schema-parse` reports because it reads every `.parse(...)` call as zod's; the user chose to leave those findings open, and no disable comment names the rule, since the repository does not run `style-lint`.
+The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 701 tests pass, `tsc --noEmit` is clean, and `npm run lint` (oxlint) is clean. `style-lint` is clean on every committed file except three kinds of finding, and no disable comment names a rule, since the repository does not run `style-lint`:
+
+- `style/no-schema-parse` on the `HLS.parse(...)` calls in `tests/index.test.ts`, which it reads as zod's `.parse`. The user chose to leave these open.
+- `style/positional-parameters-max` on the `(text, reviver, options)` overloads of `safeParse` and `parse` in `create-hls.ts`. Decision 15, which the user decided, declares this shape an exception. Claude left these open without asking.
+- `style/no-nullish-return` on the two revivers in `tests/library/revive.test.ts` that return `undefined`, which is how JSON.parse's reviver contract removes a property. Claude left these open without asking.
 
 | Commit | Content |
 | --- | --- |
@@ -24,11 +28,15 @@ The work is on the branch `rebuild`, created from `origin/main`, and is open as 
 | `bbbf048` | `EXT-X-MEDIA`, its Rendition Groups, a SUBTITLES Rendition's URI, and the Groups each variant names (decision 64). |
 | `b7d3aa3` | `EXT-X-SESSION-DATA`, `EXT-X-SESSION-KEY` on EXT-X-KEY's exported attribute table, and `EXT-X-CONTENT-STEERING` (decision 65). |
 | `d54b1ef` | The Multivariant Playlist's `variables` Map, the `multivariant` option, and `IMPORT` (decision 66). |
+| `0d7d150` | `HLS.parse` over `safeParse`, throwing a SyntaxError or a RangeError (decision 67). |
+| `b2208d7` | The precompiled entry `src/precompiled.ts`, `createTagTables(prepare)`, the shared `public-surface.ts`, and the entry benchmark (decision 68). |
+| `c8ad635` | Resolved fields on each segment and the pending segment, in `resolve.ts`, with the converted schema types moved to `schemas.ts` (decision 69). |
+| `69e69f9` | The reviver, `revive.ts`, through `safeParse` and `parse` overloads (decision 70). |
 
 ## Where to look
 
 - `spec/draft-pantos-hls-rfc8216bis-22.txt` is the pinned spec (decision 1). Code mirrors its section numbering.
-- `work/decisions/decisions.jsonl` holds 66 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
+- `work/decisions/decisions.jsonl` holds 70 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
 - `work/backlog/backlog.jsonl` is append-only too. The latest line for an `id` gives that item's current state.
 - `lint/` holds the oxlint plugin (`plugin.ts`) and its rules under `lint/rules/`. `.oxlintrc.json` enables them, and `tests/lint/` tests them through oxlint's `RuleTester`.
 - `src/<n>-<heading>/<n.n>-<heading>/…` holds one file per spec section (decision 33). A section that is a directory keeps its section-wide rules in a file named after it inside the directory (decision 54). `src/library/` holds code that belongs to no section.
@@ -40,21 +48,19 @@ The work is on the branch `rebuild`, created from `origin/main`, and is open as 
 A parse runs in three passes, each in its own module under `src/library/`:
 
 1. `scan.ts` walks the lines once. It applies sections 4.1 and 4.4.1.1's line rules, parses attribute lists, substitutes variables, and resolves each `EXT-X-DEFINE` as it is read. It settles the playlist's kind at the first tag only one kind's table holds (`placeInUnsettledKind`, then `placeInSettledKind`), and groups each tag's raw value into the playlist, a unit (a segment or a variant), or the pending segment. Positional rules live here too: the out-of-kind rules, `precedesSegments`, `precedesParts`, and the discontinuity sequence's order.
-2. `create-hls.ts` converts the raw playlist with one `safeParse` of its kind's playlist schema, built from `tag-table.ts`. `schema-issues.ts` maps each zod issue to its tag's format or required rule, or to an ignore reason. Ignored tags move into the ignored lines in position, a unit whose ignored tag has `ignoresUri` is dropped with its URI line, and the playlist converts once more (decision 55).
-3. `findPlaylistIssues` in `create-hls.ts` runs the rules that span tags or units over the typed playlist, by its kind: `findMediaPlaylistIssues` or `findMultivariantPlaylistIssues`. Every issue resolves through `policy.ts` (decision 8).
+2. `create-hls.ts` converts the raw playlist with one `safeParse` of its kind's playlist schema, built by `schemas.ts` from `tag-table.ts`. `schema-issues.ts` maps each zod issue to its tag's format or required rule, or to an ignore reason. Ignored tags move into the ignored lines in position, a unit whose ignored tag has `ignoresUri` is dropped with its URI line, and the playlist converts once more (decision 55).
+3. `findPlaylistIssues` in `create-hls.ts` runs the rules that span tags or units over the typed playlist, by its kind: `findMediaPlaylistIssues` or `findMultivariantPlaylistIssues`. Every issue resolves through `policy.ts` (decision 8). Once they pass, `resolve.ts` gives a Media Playlist's segments their resolved fields (decision 69), and a reviver, when passed, runs over the result through `revive.ts` (decision 70).
 
-`tag-table.ts` is the one place a tag is registered, in the table of its playlist kind: `media` (units are segments) or `multivariant` (units are variants), with sections 4.4.1 and 4.4.2's tags in both. Each entry gives its value form, its format rule, its occurrence, and any required, `precedesSegments`, `precedesParts`, `ignoreOnFormatFailure`, or `ignoresUri` rule. Each kind's table also names the rules its tags break in a playlist of the other kind. `createHLS` asserts at startup that a required rule is present exactly when the tag's schema rejects absence.
+`tag-table.ts` is the one place a tag is registered, in the table of its playlist kind, which `createTagTables(prepare)` builds with each schema as declared or compiled (decision 68): `media` (units are segments) or `multivariant` (units are variants), with sections 4.4.1 and 4.4.2's tags in both. Each entry gives its value form, its format rule, its occurrence, and any required, `precedesSegments`, `precedesParts`, `ignoreOnFormatFailure`, or `ignoresUri` rule. Each kind's table also names the rules its tags break in a playlist of the other kind. `createHLS` asserts at startup that a required rule is present exactly when the tag's schema rejects absence.
 
 ## Next steps
 
-1. Extend `src/library/` with the rest:
-   - the precompiled entry (decisions 17 and 18);
-   - the streaming scanner (decisions 6 and 21);
-   - prototypes and `toHLS` (decisions 42 and 43);
-   - resolved fields (decision 26);
-   - the reviver (decision 20).
+1. Extend `src/library/` with the rest, in this order, since streamed units carry the prototypes and run the reviver:
+   - prototypes and `toHLS` (decisions 37, 38, 40 to 43; backlog item 2). Two built modules change with them: `resolve.ts` builds each segment with an object spread, which drops a prototype, so resolution has to move before the prototype copy or build the prototype object itself; and `revive.ts` walks plain objects and arrays only, so it has to walk prototype objects too, copying their own enumerable data. Exact `toHLS` needs the raw lines and their line terminators, which `splitLines` drops today.
+   - the streaming scanner (decisions 6 and 21). The static path converts the whole playlist in one `safeParse`, and `schema-issues.ts` classifies issues against the whole raw playlist, so streaming needs a per-unit conversion path, and the spanning checks in `findMediaPlaylistIssues` need either the retained units or incremental forms.
 2. Extract the spec's 15 embedded playlists into `tests/fixtures/` with a TypeScript script, and add one negative fixture per rule with a test that every rule has one (decision 32). Several examples are excerpts with `...` lines, which parse as URIs, so the script has to drop or mark them. Section 9.11's example breaks section 4.4.6.1.1 (see the open questions), and sections 9.6 and 9.7 write `CODECS="..."`, which parses as a quoted-string.
 3. Add section barrels (decision 33) when a module outside a section first imports through a public surface. None exist yet.
+4. Packaging: `package.json` has no `exports` map, `main`, or build script, so neither entry is importable from the published package yet. Decision 46's esbuild bundles and the `./precompiled` export path are unbuilt.
 
 Backlog items 2, 4 to 25, 30 to 39, and 45 to 49 remain open. Items 7 (performance checks) and 10 (lenient policy) most affect the build order. Items 11 to 14 are section 4 rules waiting on something else: section 8's version table, the raw `EXTINF` text, the line order between `EXT-X-KEY` and `EXT-X-MAP`, and Date Range Following Range resolution. Three groups came from background research on 2026-11-06:
 
@@ -93,6 +99,12 @@ Backlog items 2, 4 to 25, 30 to 39, and 45 to 49 remain open. Items 7 (performan
   - the Multivariant Playlist's `variables` Map, the one output change among them.
 - **Section 9.11's Content Steering example breaks section 4.4.6.1.1.** Its two AUDIO Groups name their members "English" and "ENGLISH". NAME is not among the attributes corresponding members may differ in, so the example is malformed under any matching of members, and the parser reports it. Either the example is in error or the rule compares NAME case-insensitively, which the spec does not say.
 - **`HLS.parse` throws a RangeError for an exceeded limit (decision 67).** Decision 7 named only the SyntaxError, before the `limitExceeded` outcome existed.
+- **Decisions 68, 69, and 70 record readings Claude made without gating.** They cover:
+  - `createTagTables(prepare)` in place of decision 18's mapped type, and the precompiled entry compiling with `strict: false` so a refused schema falls back rather than failing the import;
+  - the precompiled entry's measured gain, about 4% on the large fixture, which is far below the per-tag benchmark's;
+  - `keys` as an always-present array, empty when unencrypted, with METHOD=NONE ending every key;
+  - `byteRange` as a new object rather than a shared reference, and absent from the pending segment;
+  - the reviver leaving values it returns unfrozen, walking plain objects and arrays only, and its one holder difference from JSON.parse.
 
 ## Conventions this codebase follows
 
