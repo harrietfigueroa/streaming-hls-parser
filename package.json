@@ -19,7 +19,8 @@
         "bench": "vitest bench --run",
         "lint": "oxlint",
         "test": "vitest run",
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "extract-fixtures": "node scripts/extract-spec-playlists.ts"
     },
     "dependencies": {
         "zod": "^4.6.7"

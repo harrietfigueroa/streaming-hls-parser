@@ -1,0 +1,14 @@
+#EXTM3U
+#EXT-X-VERSION:4
+#EXT-X-SESSION-DATA:DATA-ID="_hls.media-presentation-settings",FORMAT=JSON,URI="media_selection.json"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="english-home-tv",DEFAULT=NO,AUTOSELECT=YES,LANGUAGE="en",URI="english/home_tv/prog_index.m3u8",CHARACTERISTICS="com.example.broadcast-source.home-team,com.example.broadcast-medium.television"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="english-home-radio",DEFAULT=NO,AUTOSELECT=YES,LANGUAGE="en",URI="english/home_radio/prog_index.m3u8",CHARACTERISTICS="com.example.broadcast-source.home-team,com.example.broadcast-medium.radio"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="english-away-tv",DEFAULT=NO,AUTOSELECT=YES,LANGUAGE="en",URI="english/away_tv/prog_index.m3u8",CHARACTERISTICS="com.example.broadcast-source.away-team,com.example.broadcast-medium.television"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="english-network-tv",DEFAULT=YES,AUTOSELECT=YES,LANGUAGE="en",URI="english/network_tv/prog_index.m3u8",CHARACTERISTICS="com.example.broadcast-source.national-network,com.example.broadcast-medium.television"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="english-network-radio",DEFAULT=NO,AUTOSELECT=YES,LANGUAGE="en",URI="english/network_radio/prog_index.m3u8",CHARACTERISTICS="com.example.broadcast-source.national-network,com.example.broadcast-medium.radio"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="spanish-away-tv",DEFAULT=NO,AUTOSELECT=YES,LANGUAGE="es",URI="spanish/away_tv/prog_index.m3u8",CHARACTERISTICS="com.example.broadcast-source.away-team,com.example.broadcast-medium.television"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="spanish-away-radio",DEFAULT=NO,AUTOSELECT=YES,LANGUAGE="es",URI="spanish/away_radio/prog_index.m3u8",CHARACTERISTICS="com.example.broadcast-source.away-team,com.example.broadcast-medium.radio"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="spanish-network-tv",DEFAULT=YES,AUTOSELECT=YES,LANGUAGE="es",URI="spanish/network_tv/prog_index.m3u8",CHARACTERISTICS="com.example.broadcast-source.national-network,com.example.broadcast-medium.television"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="spanish-network-radio",DEFAULT=NO,AUTOSELECT=YES,LANGUAGE="es",URI="spanish/network_radio/prog_index.m3u8",CHARACTERISTICS="com.example.broadcast-source.national-network,com.example.broadcast-medium.radio"
+#EXT-X-STREAM-INF:AVERAGE-BANDWIDTH=1127500,BANDWIDTH=1124765,VIDEO-RANGE=SDR,CODECS="avc1.64001f,mp4a.40.2",RESOLUTION=1280x720,FRAME-RATE=29.97,CLOSED-CAPTIONS=NONE,AUDIO="audio"
+video/prog_index_4min.m3u8
