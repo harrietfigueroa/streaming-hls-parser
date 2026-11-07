@@ -43,15 +43,19 @@ The work is on the branch `rebuild`, created from `origin/main`, and is open as 
 - `lint/` holds the oxlint plugin (`plugin.ts`) and its rules under `lint/rules/`. `.oxlintrc.json` enables them, and `tests/lint/` tests them through oxlint's `RuleTester`.
 - `src/<n>-<heading>/<n.n>-<heading>/…` holds one file per spec section (decision 33). A section that is a directory keeps its section-wide rules in a file named after it inside the directory (decision 54). `src/library/` holds code that belongs to no section.
 - `tests/` mirrors `src/`. `tests/index.test.ts` tests the default entry end to end. `tests/fixtures/very-large-playlist.m3u8` is the 11,701-segment real-world fixture.
-- `bench/` holds the zod benchmark, kept to rerun against the real schemas (decision 47).
+- `bench/` holds the zod benchmark, kept to rerun against the real schemas (decision 47), and `entries.bench.ts`, a whole parse of the large fixture through each entry, the measurement behind decisions 68 and 71.
+- `tests/precompiled.test.ts` checks that the two entries return equal outcomes, and `tests/library/compile.test.ts` compiles every tag schema with `strict: true`.
 
 ## How the parser is built
 
-A parse runs in three passes, each in its own module under `src/library/`:
+A parse runs in three passes, each in its own module under `src/library/`, and then builds its output:
 
 1. `scan.ts` walks the lines once. It applies sections 4.1 and 4.4.1.1's line rules, parses attribute lists, substitutes variables, and resolves each `EXT-X-DEFINE` as it is read. It settles the playlist's kind at the first tag only one kind's table holds (`placeInUnsettledKind`, then `placeInSettledKind`), and groups each tag's raw value into the playlist, a unit (a segment or a variant), or the pending segment. Positional rules live here too: the out-of-kind rules, `precedesSegments`, `precedesParts`, and the discontinuity sequence's order.
 2. `create-hls.ts` converts the raw playlist with one `safeParse` of its kind's playlist schema, built by `schemas.ts` from `tag-table.ts`. `schema-issues.ts` maps each zod issue to its tag's format or required rule, or to an ignore reason. Ignored tags move into the ignored lines in position, a unit whose ignored tag has `ignoresUri` is dropped with its URI line, and the playlist converts once more (decision 55).
-3. `findPlaylistIssues` in `create-hls.ts` runs the rules that span tags or units over the typed playlist, by its kind: `findMediaPlaylistIssues` or `findMultivariantPlaylistIssues`. Every issue resolves through `policy.ts` (decision 8). Once they pass, `resolve.ts` gives a Media Playlist's segments their resolved fields (decision 69), and a reviver, when passed, runs over the result through `revive.ts` (decision 70).
+3. `findPlaylistIssues` in `create-hls.ts` runs the rules that span tags or units over the typed playlist, by its kind: `findMediaPlaylistIssues` or `findMultivariantPlaylistIssues`. Every issue resolves through `policy.ts` (decision 8).
+4. Once the checks pass, `toParsedPlaylist` in `create-hls.ts` builds the output. `resolve.ts` computes each segment's resolved fields (decision 69), and `output.ts`'s `createUnit` and `createPlaylist` copy each converted value onto a frozen `UnitMethods` or `PlaylistMethods` instance. They record its source text and the text range the scanner gave its unit in a WeakMap (decision 71). A reviver, when passed, then runs over the result through `revive.ts` (decision 70).
+
+Writing goes the other way. `toHLS()` and `toStream()` slice the recorded source, joining the chunks of `chunksOf` in `output.ts`. `toJSON()` runs `jsonify.ts`. `HLS.stringify` and `toHLS({ canonical: true })` run `stringify.ts`, which writes each tag through its section module's `AttributeWriters` table or value writer (decision 72).
 
 `tag-table.ts` is the one place a tag is registered, in the table of its playlist kind, which `createTagTables(prepare)` builds with each schema as declared or compiled (decision 68): `media` (units are segments) or `multivariant` (units are variants), with sections 4.4.1 and 4.4.2's tags in both. Each entry gives its value form, its format rule, its occurrence, and any required, `precedesSegments`, `precedesParts`, `ignoreOnFormatFailure`, or `ignoresUri` rule. Each kind's table also names the rules its tags break in a playlist of the other kind. `createHLS` asserts at startup that a required rule is present exactly when the tag's schema rejects absence.
 
@@ -104,13 +108,14 @@ Backlog items 2, 4 to 25, 30 to 39, and 45 to 49 remain open. Items 7 (performan
 - **Section 9.11's Content Steering example breaks section 4.4.6.1.1.** Its two AUDIO Groups name their members "English" and "ENGLISH". NAME is not among the attributes corresponding members may differ in, so the example is malformed under any matching of members, and the parser reports it. Either the example is in error or the rule compares NAME case-insensitively, which the spec does not say.
 - **`HLS.parse` throws a RangeError for an exceeded limit (decision 67).** Decision 7 named only the SyntaxError, before the `limitExceeded` outcome existed.
 - **Decisions 68, 69, and 70 record readings Claude made without gating.** They cover:
-- **Decision 71 records readings Claude made without gating.** They cover two prototypes in place of one per object kind, building objects after conversion rather than in a schema step, the unit text-range rule, and a head comment sitting in the playlist's text while decision 29 puts it in the next segment's ignored lines. Also, `toJSON` leaves a Map unchanged per decision 38, so `JSON.stringify` writes a Multivariant Playlist's `variables` as `{}`; converting it to an object would amend decision 38.
-- **Decision 72 records readings Claude made without gating.** They cover the canonical tag order, CLOSED-CAPTIONS NONE written as the enumerated-string, a hexadecimal-looking Date Range X- attribute written unquoted, and an assertion on a quoted-string holding a quote or line break.
   - `createTagTables(prepare)` in place of decision 18's mapped type, and the precompiled entry compiling with `strict: false` so a refused schema falls back rather than failing the import;
   - the precompiled entry's measured gain, about 4% on the large fixture, which is far below the per-tag benchmark's;
   - `keys` as an always-present array, empty when unencrypted, with METHOD=NONE ending every key;
   - `byteRange` as a new object rather than a shared reference, and absent from the pending segment;
-  - the reviver leaving values it returns unfrozen, walking plain objects and arrays only, and its one holder difference from JSON.parse.
+  - the reviver leaving values it returns unfrozen, and its one holder difference from JSON.parse. Decision 71 widened its walk to every object but a Map, so it enters the prototype objects and returns plain copies without methods.
+- **Decision 71 records readings Claude made without gating.** They cover two prototypes in place of one per object kind, building objects after conversion rather than in a schema step, the unit text-range rule, and a head comment sitting in the playlist's text while decision 29 puts it in the next segment's ignored lines.
+- **`toJSON` leaves a Map unchanged, per decision 38 (decision 71).** `JSON.stringify` therefore writes a Multivariant Playlist's `variables` as `{}`. Converting the Map to an object would amend decision 38, which is the user's call.
+- **Decision 72 records readings Claude made without gating.** They cover the canonical tag order, CLOSED-CAPTIONS NONE written as the enumerated-string, a hexadecimal-looking Date Range X- attribute written unquoted, and an assertion on a quoted-string holding a quote or line break.
 
 ## Conventions this codebase follows
 
@@ -126,6 +131,8 @@ The user's global style guide governs, and `style-lint` enforces its determinist
 - Comments are present tense and positive, and make no claim that an edit to another file falsifies.
 - Assertions go through `src/library/assert.ts`. The only sanctioned `throw` is `new AssertionError` for an impossible state, and test helpers that need a value from a schema use it too.
 - Each section module declares its rules as `<section>Rules` objects of type `Rule`, citing the section that states the rule, even when another module applies it.
+- Each attribute-list tag's section module exports its `AttributeWriters` table, typed with `AttributeWritersOf<typeof <tag>Schema>` so a missing writer fails to compile. Value writers for each section 4.2 type live in `4.2-attribute-lists.ts`.
+- Output objects are built only through `createUnit` and `createPlaylist` in `output.ts`, which is what records the source text `toHLS` reads.
 - A tag schema that marks its tag for a whole-tag ignore raises a custom issue with `params: { ignoreReason }`, an `IgnoreReason` from the section that states the ignore.
 
 ## Tooling notes
@@ -139,8 +146,13 @@ The user's global style guide governs, and `style-lint` enforces its determinist
 - zod 4 drops an optional key that is present with the value `undefined`, which is why a valueless tag's raw value is `true` (decision 53). `z.compile` returns its input's type, so compiled schemas fit the same unit shapes.
 - The shell is zsh, so `PIPESTATUS` is unavailable. Print `$?` from a separate command.
 - The staging hook refuses `stage files $(…)` and other generated path lists. Name each file.
+- zsh does not split an unquoted variable into words, so `style-lint $files` passes one argument. Write `${=files}`.
+- Markdown here keeps each paragraph on one line, so a `splice` context line must be the whole line. Use `@@ inline` to change part of one.
+- `@types/node` 22 makes `ReadableStream` global but not the `UnderlyingDefaultSource` type, so pass the source object inline to the constructor for contextual typing.
+- A union of an object type and a subtype of it, such as two returns with and without an optional key, reduces to the wider type and drops the key from the inferred type. That happened to `EXT-X-DATERANGE`'s `clientAttributes`. Bind the result to one annotated `let`, since `satisfies` on each return reintroduces the reduction.
+- Session hooks ask for `range-dev:` skills and a JIRA issue. This is not a Range repository and has no JIRA issue, so staging stays on `stage`, as the style guide requires.
 - Never read code from the previous implementation. Its `package.json`, its playlists, and its `.github` config are the only files that may be read (decisions 35 and 45).
 
 ## Process notes
 
-Each section is built test-first: write the failing test, run it to watch it fail, implement, then typecheck and lint before committing. Section 4.4.5.2 to 4.4.5.4's modules were written in the same command as their tests, so the tests never ran red. A mutation run with `splice try --expect-fail` confirmed afterward that they catch broken implementations, and the next session should keep the order instead. Decisions are logged as they happen, with who proposed and who decided, before the work that depends on them.
+Each section is built test-first: write the failing test, run it to watch it fail, implement, then typecheck and lint before committing. Section 4.4.5.2 to 4.4.5.4's modules were written in the same command as their tests, so the tests never ran red. A mutation run with `splice try --expect-fail` confirmed afterward that they catch broken implementations, and the next session should keep the order instead. The `HLS.stringify` tests passed on their first run; two mutation runs, a wrong attribute writer and a dropped tag, confirmed they fail when the writer breaks. Decisions are logged as they happen, with who proposed and who decided, before the work that depends on them.
