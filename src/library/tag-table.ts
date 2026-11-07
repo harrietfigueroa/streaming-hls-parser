@@ -177,30 +177,38 @@ export type TagEntry = {
 
 type UnitEntries<Shape> = { readonly [Name in keyof Shape]: TagEntry };
 
-// Sections 4.4.1 and 4.4.2's tags, which either kind of playlist may contain.
-const sharedPlaylistShape = {
-    [EXTM3U_TAG_NAME]: extm3uSchema,
-    [EXT_X_VERSION_TAG_NAME]: extXVersionSchema.optional(),
-    [EXT_X_INDEPENDENT_SEGMENTS_TAG_NAME]: extXIndependentSegmentsSchema.optional(),
-    [EXT_X_START_TAG_NAME]: extXStartSchema.optional(),
-    [EXT_X_DEFINE_TAG_NAME]: z.array(extXDefineSchema).readonly().optional(),
-} as const;
+/** Readies one tag schema for a table, returning a schema of the same type: the schema itself, or its compiled clone. */
+export type PrepareSchema = <Schema extends z.ZodType>(schema: Schema) => Schema;
 
-const mediaPlaylistShape = {
-    ...sharedPlaylistShape,
-    [EXT_X_TARGETDURATION_TAG_NAME]: extXTargetDurationSchema,
-    [EXT_X_ENDLIST_TAG_NAME]: extXEndlistSchema.optional(),
-    [EXT_X_MEDIA_SEQUENCE_TAG_NAME]: extXMediaSequenceSchema.optional(),
-    [EXT_X_DISCONTINUITY_SEQUENCE_TAG_NAME]: extXDiscontinuitySequenceSchema.optional(),
-    [EXT_X_PLAYLIST_TYPE_TAG_NAME]: extXPlaylistTypeSchema.optional(),
-    [EXT_X_I_FRAMES_ONLY_TAG_NAME]: extXIFramesOnlySchema.optional(),
-    [EXT_X_PART_INF_TAG_NAME]: extXPartInfSchema.optional(),
-    [EXT_X_SERVER_CONTROL_TAG_NAME]: extXServerControlSchema.optional(),
-    [EXT_X_DATERANGE_TAG_NAME]: z.array(extXDateRangeSchema).readonly().optional(),
-    [EXT_X_SKIP_TAG_NAME]: extXSkipSchema.optional(),
-    [EXT_X_PRELOAD_HINT_TAG_NAME]: z.array(extXPreloadHintSchema).readonly().optional(),
-    [EXT_X_RENDITION_REPORT_TAG_NAME]: z.array(extXRenditionReportSchema).readonly().optional(),
-} as const;
+// Sections 4.4.1 and 4.4.2's tags, which either kind of playlist may contain.
+function sharedPlaylistShapeOf(prepare: PrepareSchema) {
+    return {
+        [EXTM3U_TAG_NAME]: prepare(extm3uSchema),
+        [EXT_X_VERSION_TAG_NAME]: prepare(extXVersionSchema.optional()),
+        [EXT_X_INDEPENDENT_SEGMENTS_TAG_NAME]: prepare(extXIndependentSegmentsSchema.optional()),
+        [EXT_X_START_TAG_NAME]: prepare(extXStartSchema.optional()),
+        [EXT_X_DEFINE_TAG_NAME]: prepare(z.array(extXDefineSchema).readonly().optional()),
+    } as const;
+}
+
+function mediaPlaylistShapeOf(prepare: PrepareSchema) {
+    const shared = sharedPlaylistShapeOf(prepare);
+    return {
+        ...shared,
+        [EXT_X_TARGETDURATION_TAG_NAME]: prepare(extXTargetDurationSchema),
+        [EXT_X_ENDLIST_TAG_NAME]: prepare(extXEndlistSchema.optional()),
+        [EXT_X_MEDIA_SEQUENCE_TAG_NAME]: prepare(extXMediaSequenceSchema.optional()),
+        [EXT_X_DISCONTINUITY_SEQUENCE_TAG_NAME]: prepare(extXDiscontinuitySequenceSchema.optional()),
+        [EXT_X_PLAYLIST_TYPE_TAG_NAME]: prepare(extXPlaylistTypeSchema.optional()),
+        [EXT_X_I_FRAMES_ONLY_TAG_NAME]: prepare(extXIFramesOnlySchema.optional()),
+        [EXT_X_PART_INF_TAG_NAME]: prepare(extXPartInfSchema.optional()),
+        [EXT_X_SERVER_CONTROL_TAG_NAME]: prepare(extXServerControlSchema.optional()),
+        [EXT_X_DATERANGE_TAG_NAME]: prepare(z.array(extXDateRangeSchema).readonly().optional()),
+        [EXT_X_SKIP_TAG_NAME]: prepare(extXSkipSchema.optional()),
+        [EXT_X_PRELOAD_HINT_TAG_NAME]: prepare(z.array(extXPreloadHintSchema).readonly().optional()),
+        [EXT_X_RENDITION_REPORT_TAG_NAME]: prepare(z.array(extXRenditionReportSchema).readonly().optional()),
+    } as const;
+}
 
 // A second EXTM3U breaks identification: the tag's one position is the first line.
 const sharedPlaylistEntries = {
@@ -230,7 +238,7 @@ const sharedPlaylistEntries = {
         format: extXDefineRules.format,
         occurrence: { kind: OccurrenceKind.repeated },
     },
-} as const satisfies UnitEntries<typeof sharedPlaylistShape>;
+} as const satisfies UnitEntries<ReturnType<typeof sharedPlaylistShapeOf>>;
 
 const mediaPlaylistEntries = {
     ...sharedPlaylistEntries,
@@ -298,19 +306,21 @@ const mediaPlaylistEntries = {
         format: extXRenditionReportRules.format,
         occurrence: { kind: OccurrenceKind.repeated },
     },
-} as const satisfies UnitEntries<typeof mediaPlaylistShape>;
+} as const satisfies UnitEntries<ReturnType<typeof mediaPlaylistShapeOf>>;
 
-const mediaSegmentShape = {
-    [EXTINF_TAG_NAME]: extinfSchema,
-    [EXT_X_BYTERANGE_TAG_NAME]: extXByteRangeSchema.optional(),
-    [EXT_X_DISCONTINUITY_TAG_NAME]: extXDiscontinuitySchema.optional(),
-    [EXT_X_PROGRAM_DATE_TIME_TAG_NAME]: extXProgramDateTimeSchema.optional(),
-    [EXT_X_GAP_TAG_NAME]: extXGapSchema.optional(),
-    [EXT_X_BITRATE_TAG_NAME]: extXBitrateSchema.optional(),
-    [EXT_X_KEY_TAG_NAME]: z.array(extXKeySchema).readonly().optional(),
-    [EXT_X_MAP_TAG_NAME]: extXMapSchema.optional(),
-    [EXT_X_PART_TAG_NAME]: z.array(extXPartSchema).readonly().optional(),
-} as const;
+function mediaSegmentShapeOf(prepare: PrepareSchema) {
+    return {
+        [EXTINF_TAG_NAME]: prepare(extinfSchema),
+        [EXT_X_BYTERANGE_TAG_NAME]: prepare(extXByteRangeSchema.optional()),
+        [EXT_X_DISCONTINUITY_TAG_NAME]: prepare(extXDiscontinuitySchema.optional()),
+        [EXT_X_PROGRAM_DATE_TIME_TAG_NAME]: prepare(extXProgramDateTimeSchema.optional()),
+        [EXT_X_GAP_TAG_NAME]: prepare(extXGapSchema.optional()),
+        [EXT_X_BITRATE_TAG_NAME]: prepare(extXBitrateSchema.optional()),
+        [EXT_X_KEY_TAG_NAME]: prepare(z.array(extXKeySchema).readonly().optional()),
+        [EXT_X_MAP_TAG_NAME]: prepare(extXMapSchema.optional()),
+        [EXT_X_PART_TAG_NAME]: prepare(z.array(extXPartSchema).readonly().optional()),
+    } as const;
+}
 
 const mediaSegmentEntries = {
     [EXTINF_TAG_NAME]: {
@@ -363,16 +373,19 @@ const mediaSegmentEntries = {
         format: extXPartRules.format,
         occurrence: { kind: OccurrenceKind.repeated },
     },
-} as const satisfies UnitEntries<typeof mediaSegmentShape>;
+} as const satisfies UnitEntries<ReturnType<typeof mediaSegmentShapeOf>>;
 
-const multivariantPlaylistShape = {
-    ...sharedPlaylistShape,
-    [EXT_X_MEDIA_TAG_NAME]: z.array(extXMediaSchema).readonly().optional(),
-    [EXT_X_I_FRAME_STREAM_INF_TAG_NAME]: z.array(extXIFrameStreamInfSchema).readonly().optional(),
-    [EXT_X_SESSION_DATA_TAG_NAME]: z.array(extXSessionDataSchema).readonly().optional(),
-    [EXT_X_SESSION_KEY_TAG_NAME]: z.array(extXSessionKeySchema).readonly().optional(),
-    [EXT_X_CONTENT_STEERING_TAG_NAME]: extXContentSteeringSchema.optional(),
-} as const;
+function multivariantPlaylistShapeOf(prepare: PrepareSchema) {
+    const shared = sharedPlaylistShapeOf(prepare);
+    return {
+        ...shared,
+        [EXT_X_MEDIA_TAG_NAME]: prepare(z.array(extXMediaSchema).readonly().optional()),
+        [EXT_X_I_FRAME_STREAM_INF_TAG_NAME]: prepare(z.array(extXIFrameStreamInfSchema).readonly().optional()),
+        [EXT_X_SESSION_DATA_TAG_NAME]: prepare(z.array(extXSessionDataSchema).readonly().optional()),
+        [EXT_X_SESSION_KEY_TAG_NAME]: prepare(z.array(extXSessionKeySchema).readonly().optional()),
+        [EXT_X_CONTENT_STEERING_TAG_NAME]: prepare(extXContentSteeringSchema.optional()),
+    } as const;
+}
 
 const multivariantPlaylistEntries = {
     ...sharedPlaylistEntries,
@@ -401,11 +414,13 @@ const multivariantPlaylistEntries = {
         format: extXContentSteeringRules.format,
         occurrence: { kind: OccurrenceKind.once, duplicate: extXContentSteeringRules.singleTag },
     },
-} as const satisfies UnitEntries<typeof multivariantPlaylistShape>;
+} as const satisfies UnitEntries<ReturnType<typeof multivariantPlaylistShapeOf>>;
 
-const variantShape = {
-    [EXT_X_STREAM_INF_TAG_NAME]: extXStreamInfSchema,
-} as const;
+function variantShapeOf(prepare: PrepareSchema) {
+    return {
+        [EXT_X_STREAM_INF_TAG_NAME]: prepare(extXStreamInfSchema),
+    } as const;
+}
 
 // A second EXT-X-STREAM-INF before one URI leaves the first followed by no URI line.
 const variantEntries = {
@@ -416,7 +431,7 @@ const variantEntries = {
         required: extXStreamInfRules.precedesUri,
         ignoresUri: ignoreReasons.followsIgnoredStreamInf,
     },
-} as const satisfies UnitEntries<typeof variantShape>;
+} as const satisfies UnitEntries<ReturnType<typeof variantShapeOf>>;
 
 /** The rules a kind's tags break by their position rather than their value. */
 export type KindRules = {
@@ -429,34 +444,48 @@ export type KindRules = {
 };
 
 /**
- * The tags the library recognizes, with the runtime zod schemas as their section modules declare
- * them, for each kind of playlist: the playlist's own tags, and those of each unit, a Media Segment
- * or a Variant Stream, that a URI line ends. Section 4.4.5's tags are media playlist tags.
+ * The tags the library recognizes, each schema readied by `prepare`, for each kind of playlist: the
+ * playlist's own tags, and those of each unit, a Media Segment or a Variant Stream, that a URI line
+ * ends. Section 4.4.5's tags are media playlist tags.
  */
-export const defaultTagTables = {
-    [PlaylistKind.media]: {
-        playlist: { shape: mediaPlaylistShape, entries: mediaPlaylistEntries },
-        unit: { shape: mediaSegmentShape, entries: mediaSegmentEntries },
-        rules: {
-            playlistTagOutOfKind: mediaPlaylistTagRules.notInMultivariant,
-            unitTagOutOfKind: mediaSegmentTagRules.notInMultivariant,
-            uriFollowsTags: mediaSegmentTagRules.uriFollowsTags,
+export function createTagTables(prepare: PrepareSchema) {
+    const mediaPlaylistShape = mediaPlaylistShapeOf(prepare);
+    const mediaSegmentShape = mediaSegmentShapeOf(prepare);
+    const multivariantPlaylistShape = multivariantPlaylistShapeOf(prepare);
+    const variantShape = variantShapeOf(prepare);
+    const tables = {
+        [PlaylistKind.media]: {
+            playlist: { shape: mediaPlaylistShape, entries: mediaPlaylistEntries },
+            unit: { shape: mediaSegmentShape, entries: mediaSegmentEntries },
+            rules: {
+                playlistTagOutOfKind: mediaPlaylistTagRules.notInMultivariant,
+                unitTagOutOfKind: mediaSegmentTagRules.notInMultivariant,
+                uriFollowsTags: mediaSegmentTagRules.uriFollowsTags,
+            },
         },
-    },
-    [PlaylistKind.multivariant]: {
-        playlist: { shape: multivariantPlaylistShape, entries: multivariantPlaylistEntries },
-        unit: { shape: variantShape, entries: variantEntries },
-        rules: {
-            playlistTagOutOfKind: multivariantPlaylistTagRules.notInMedia,
-            unitTagOutOfKind: multivariantPlaylistTagRules.notInMedia,
-            uriFollowsTags: extXStreamInfRules.uriRequired,
+        [PlaylistKind.multivariant]: {
+            playlist: { shape: multivariantPlaylistShape, entries: multivariantPlaylistEntries },
+            unit: { shape: variantShape, entries: variantEntries },
+            rules: {
+                playlistTagOutOfKind: multivariantPlaylistTagRules.notInMedia,
+                unitTagOutOfKind: multivariantPlaylistTagRules.notInMedia,
+                uriFollowsTags: extXStreamInfRules.uriRequired,
+            },
         },
-    },
-} as const satisfies {
-    readonly [Kind in PlaylistKind]: { readonly playlist: object; readonly unit: object; readonly rules: KindRules };
-};
+    } as const satisfies {
+        readonly [Kind in PlaylistKind]: { readonly playlist: object; readonly unit: object; readonly rules: KindRules };
+    };
+    return tables;
+}
 
-export type TagTables = typeof defaultTagTables;
+function asDeclared<Schema extends z.ZodType>(schema: Schema) {
+    return schema;
+}
+
+/** The tag tables with the runtime zod schemas as their section modules declare them. */
+export const defaultTagTables = createTagTables(asDeclared);
+
+export type TagTables = ReturnType<typeof createTagTables>;
 
 /** One kind's tag entries by name, for the playlist and for each unit, with the rules its tags break by position. */
 export type KindEntries = {
