@@ -338,7 +338,8 @@ describe("the streaming parse", () => {
         );
     });
 
-    // A source read through a lazy chain of async generators closes only if each layer forwards return().
+    // Each entry's parts are a lazy chain over the source, so stopping after the first part closes the
+    // source through every layer of the chain.
     test.each(streamParsers)("$name closes the source when the consumer stops after the first part", async ({ parseStream }) => {
         const source = createClosingSource(cut(SIMPLE_MEDIA_PLAYLIST, 5));
         const parts = parseStream(source.chunks);
