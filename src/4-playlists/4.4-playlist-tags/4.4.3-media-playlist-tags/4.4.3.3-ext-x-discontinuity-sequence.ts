@@ -18,6 +18,11 @@ export const extXDiscontinuitySequenceRules = {
         severity: Severity.malformed,
         requirement: "The EXT-X-DISCONTINUITY-SEQUENCE tag appears before the first Media Segment.",
     },
+    precedesDiscontinuity: {
+        section: SECTION,
+        severity: Severity.malformed,
+        requirement: "The EXT-X-DISCONTINUITY-SEQUENCE tag appears before any EXT-X-DISCONTINUITY tag.",
+    },
 } as const satisfies Record<string, Rule>;
 
 /** Converts the Discontinuity Sequence Number of the playlist's first Media Segment to a bigint. */

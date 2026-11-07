@@ -14,6 +14,7 @@ import { extXMediaSequenceRules } from "../src/4-playlists/4.4-playlist-tags/4.4
 import { extXDiscontinuitySequenceRules } from "../src/4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.3-ext-x-discontinuity-sequence.js";
 import { PlaylistType } from "../src/4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.5-ext-x-playlist-type.js";
 import { extXServerControlRules } from "../src/4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.8-ext-x-server-control.js";
+import { extXByteRangeRules } from "../src/4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.2-ext-x-byterange.js";
 import { definitionRules } from "../src/4-playlists/4.1-definition-of-a-playlist.js";
 import { extm3uRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.1-extm3u.js";
 import { extXVersionRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.2-ext-x-version.js";
@@ -115,6 +116,38 @@ describe("HLS.safeParse", () => {
         });
     });
 
+    test("converts the segment tags each segment carries", () => {
+        const text = [
+            "#EXTM3U",
+            "#EXT-X-TARGETDURATION:10",
+            "#EXT-X-BITRATE:1500",
+            "#EXT-X-PROGRAM-DATE-TIME:2010-02-19T14:54:23.031+08:00",
+            "#EXT-X-BYTERANGE:100@0",
+            "#EXTINF:10,",
+            "a.ts",
+            "#EXT-X-DISCONTINUITY",
+            "#EXT-X-GAP",
+            "#EXT-X-BYTERANGE:100",
+            "#EXTINF:10,",
+            "a.ts",
+            "",
+        ].join("\n");
+        const outcome = HLS.safeParse(text);
+        expect(outcome).toMatchObject({
+            kind: ParseKind.parsed,
+            playlist: {
+                segments: [
+                    {
+                        "EXT-X-BITRATE": 1500n,
+                        "EXT-X-PROGRAM-DATE-TIME": "2010-02-19T14:54:23.031+08:00",
+                        "EXT-X-BYTERANGE": { length: 100n, offset: 0n },
+                    },
+                    { "EXT-X-DISCONTINUITY": true, "EXT-X-GAP": true, "EXT-X-BYTERANGE": { length: 100n } },
+                ],
+            },
+        });
+    });
+
     test("skips blank lines", () => {
         const text = "#EXTM3U\n\n#EXT-X-TARGETDURATION:10\n\n#EXTINF:1,\n\na.ts\n";
         const outcome = HLS.safeParse(text);
@@ -189,6 +222,9 @@ describe("HLS.safeParse", () => {
         { name: "an EXT-X-DISCONTINUITY-SEQUENCE after a segment", text: `${BASE_HEAD}${BASE_SEGMENT}#EXT-X-DISCONTINUITY-SEQUENCE:1\n`, rule: extXDiscontinuitySequenceRules.precedesSegments },
         { name: "EXT-X-PART-INF without PART-HOLD-BACK", text: `${BASE_HEAD}#EXT-X-PART-INF:PART-TARGET=1\n${BASE_SEGMENT}`, rule: extXServerControlRules.partHoldBackRequired },
         { name: "a HOLD-BACK under three Target Durations", text: `${BASE_HEAD}#EXT-X-SERVER-CONTROL:HOLD-BACK=29\n${BASE_SEGMENT}`, rule: extXServerControlRules.holdBack },
+        { name: "an EXT-X-DISCONTINUITY-SEQUENCE after an EXT-X-DISCONTINUITY", text: `${BASE_HEAD}#EXT-X-DISCONTINUITY\n#EXT-X-DISCONTINUITY-SEQUENCE:1\n${BASE_SEGMENT}`, rule: extXDiscontinuitySequenceRules.precedesDiscontinuity },
+        { name: "an offset-less EXT-X-BYTERANGE on the first segment", text: `${BASE_HEAD}#EXT-X-BYTERANGE:100\n${BASE_SEGMENT}`, rule: extXByteRangeRules.offsetFollowsSubRange },
+        { name: "a second EXT-X-GAP before one URI", text: `${BASE_HEAD}#EXT-X-GAP\n#EXT-X-GAP\n${BASE_SEGMENT}`, rule: mediaSegmentTagRules.singlePerSegment },
     ] as const;
 
     test.each(malformed)("reports $name as malformed", ({ text, rule }) => {

@@ -8,4 +8,5 @@ export const HLS = createHLS(defaultTagTables);
 export { type MediaPlaylist, type MediaSegment, type Parse, ParseKind, PlaylistKind } from "./library/create-hls.js";
 export type { Issue, Rule, Severity } from "./library/rule.js";
 export { Limit, type Limits, type ParseOptions } from "./library/options.js";
+export { type DateTime, type TemporalNamespace, toDate, toEpochMilliseconds, toInstant } from "./library/date-time.js";
 export { type IgnoredLine, IgnoredKind } from "./library/scan.js";

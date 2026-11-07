@@ -10,4 +10,10 @@ export const mediaSegmentTagRules = {
         severity: Severity.malformed,
         requirement: "Each Media Segment is specified by a series of Media Segment tags followed by a URI.",
     },
+    singlePerSegment: {
+        section: SECTION,
+        severity: Severity.malformed,
+        requirement:
+            "A Media Segment tag that applies to the next Media Segment, or until another of its kind, appears at most once before that segment's URI.",
+    },
 } as const satisfies Record<string, Rule>;

@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { checkSegmentDuration } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.1-ext-x-targetduration.js";
 import { checkServerControl } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.8-ext-x-server-control.js";
+import { checkByteRangeOffsets } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.2-ext-x-byterange.js";
 import { assertCondition } from "./assert.js";
 import { type Limit, type ParseOptions, resolveLimits } from "./options.js";
 import { defaultPolicy, type Policy } from "./policy.js";
@@ -150,6 +151,10 @@ function findPlaylistIssues(playlist: MediaPlaylist) {
     const partTarget = playlist["EXT-X-PART-INF"]?.["PART-TARGET"];
     const serverControlIssues = checkServerControl({ serverControl, targetDuration, partTarget });
     for (const issue of serverControlIssues) {
+        issues.push(issue);
+    }
+    const byteRangeIssues = checkByteRangeOffsets(playlist.segments);
+    for (const issue of byteRangeIssues) {
         issues.push(issue);
     }
     return issues;

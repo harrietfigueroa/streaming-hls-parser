@@ -66,6 +66,20 @@ import {
     extXServerControlSchema,
 } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.8-ext-x-server-control.js";
 import { EXTINF_TAG_NAME, extinfRules, extinfSchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.1-extinf.js";
+import { mediaSegmentTagRules } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4-media-segment-tags.js";
+import { EXT_X_BYTERANGE_TAG_NAME, extXByteRangeRules, extXByteRangeSchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.2-ext-x-byterange.js";
+import {
+    EXT_X_DISCONTINUITY_TAG_NAME,
+    extXDiscontinuityRules,
+    extXDiscontinuitySchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.3-ext-x-discontinuity.js";
+import {
+    EXT_X_PROGRAM_DATE_TIME_TAG_NAME,
+    extXProgramDateTimeRules,
+    extXProgramDateTimeSchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.6-ext-x-program-date-time.js";
+import { EXT_X_GAP_TAG_NAME, extXGapRules, extXGapSchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.7-ext-x-gap.js";
+import { EXT_X_BITRATE_TAG_NAME, extXBitrateRules, extXBitrateSchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.8-ext-x-bitrate.js";
 import type { Rule } from "./rule.js";
 
 /** How the scanner reads a tag's raw value: as the text after ':', or as an attribute-list. */
@@ -189,6 +203,11 @@ const mediaPlaylistEntries = {
 
 const mediaSegmentShape = {
     [EXTINF_TAG_NAME]: extinfSchema,
+    [EXT_X_BYTERANGE_TAG_NAME]: extXByteRangeSchema.optional(),
+    [EXT_X_DISCONTINUITY_TAG_NAME]: extXDiscontinuitySchema.optional(),
+    [EXT_X_PROGRAM_DATE_TIME_TAG_NAME]: extXProgramDateTimeSchema.optional(),
+    [EXT_X_GAP_TAG_NAME]: extXGapSchema.optional(),
+    [EXT_X_BITRATE_TAG_NAME]: extXBitrateSchema.optional(),
 } as const;
 
 const mediaSegmentEntries = {
@@ -197,6 +216,31 @@ const mediaSegmentEntries = {
         format: extinfRules.format,
         occurrence: { kind: OccurrenceKind.once, duplicate: extinfRules.singlePerSegment },
         required: extinfRules.required,
+    },
+    [EXT_X_BYTERANGE_TAG_NAME]: {
+        form: ValueForm.text,
+        format: extXByteRangeRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: mediaSegmentTagRules.singlePerSegment },
+    },
+    [EXT_X_DISCONTINUITY_TAG_NAME]: {
+        form: ValueForm.text,
+        format: extXDiscontinuityRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: mediaSegmentTagRules.singlePerSegment },
+    },
+    [EXT_X_PROGRAM_DATE_TIME_TAG_NAME]: {
+        form: ValueForm.text,
+        format: extXProgramDateTimeRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: mediaSegmentTagRules.singlePerSegment },
+    },
+    [EXT_X_GAP_TAG_NAME]: {
+        form: ValueForm.text,
+        format: extXGapRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: mediaSegmentTagRules.singlePerSegment },
+    },
+    [EXT_X_BITRATE_TAG_NAME]: {
+        form: ValueForm.text,
+        format: extXBitrateRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: mediaSegmentTagRules.singlePerSegment },
     },
 } as const satisfies UnitEntries<typeof mediaSegmentShape>;
 

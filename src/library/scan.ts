@@ -25,6 +25,11 @@ import {
     resolveDefinition,
 } from "../4-playlists/4.4-playlist-tags/4.4.2-media-or-multivariant-playlist-tags/4.4.2.3-ext-x-define.js";
 import { mediaSegmentTagRules } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4-media-segment-tags.js";
+import {
+    EXT_X_DISCONTINUITY_SEQUENCE_TAG_NAME,
+    extXDiscontinuitySequenceRules,
+} from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.3-ext-x-discontinuity-sequence.js";
+import { EXT_X_DISCONTINUITY_TAG_NAME } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.3-ext-x-discontinuity.js";
 import type { IgnoreReason } from "../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
 import { assertCondition, unreachable } from "./assert.js";
 import { Limit, type Limits } from "./options.js";
@@ -257,6 +262,7 @@ export function scanPlaylist(options: {
     let segmentTags = new Map<string, RawTag[]>();
     let ignored: IgnoredLine[] = [];
     let lineCount = 0;
+    let hasDiscontinuity = false;
     // The loop is bounded by the text length, since splitLines yields at most one line per character.
     for (const rawLine of splitLines(text)) {
         const lineIndex = lineCount;
@@ -341,11 +347,15 @@ export function scanPlaylist(options: {
                 const precedesSegmentsRule = entry.precedesSegments;
                 const isAfterSegments = segments.length > 0;
                 const isMisplaced = precedesSegmentsRule !== undefined && isAfterSegments;
+                const isSequenceAfterDiscontinuity = hasDiscontinuity && line.name === EXT_X_DISCONTINUITY_SEQUENCE_TAG_NAME;
                 let issue: Issue | undefined;
                 if (isDuplicate) {
                     issue = { rule: occurrence.duplicate, detail: `Line ${lineNumber}: ${line.name} repeats.` };
                 } else if (isMisplaced) {
                     issue = { rule: precedesSegmentsRule, detail: `Line ${lineNumber}: ${line.name} follows a segment.` };
+                } else if (isSequenceAfterDiscontinuity) {
+                    const detail = `Line ${lineNumber}: ${line.name} follows an EXT-X-DISCONTINUITY.`;
+                    issue = { rule: extXDiscontinuitySequenceRules.precedesDiscontinuity, detail };
                 } else if (read.kind === ReadKind.malformed) {
                     issue = atLine(read.issue, lineNumber);
                 } else {
@@ -371,6 +381,9 @@ export function scanPlaylist(options: {
                         tags.set(line.name, [rawTag]);
                     } else {
                         written.push(rawTag);
+                    }
+                    if (line.name === EXT_X_DISCONTINUITY_TAG_NAME) {
+                        hasDiscontinuity = true;
                     }
                     break;
                 }
