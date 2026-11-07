@@ -11,6 +11,8 @@ import { checkKey } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-t
 import { checkPartDurations } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.9-ext-x-part.js";
 import { extXPartInfRules } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.7-ext-x-part-inf.js";
 import { checkDateRanges } from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.1-ext-x-daterange.js";
+import { extXPreloadHintRules } from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.3-ext-x-preload-hint.js";
+import { checkRenditionReport } from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.4-ext-x-rendition-report.js";
 import { assertCondition } from "./assert.js";
 import { type Limit, type ParseOptions, resolveLimits } from "./options.js";
 import { defaultPolicy, type Policy } from "./policy.js";
@@ -229,6 +231,19 @@ function findPlaylistIssues(playlist: MediaPlaylist) {
         const dateRangeIssues = checkDateRanges({ dateRanges, hasProgramDateTime });
         for (const issue of dateRangeIssues) {
             issues.push(issue);
+        }
+    }
+    const isEndedWithHints = playlist["EXT-X-ENDLIST"] === true && playlist["EXT-X-PRELOAD-HINT"] !== undefined;
+    if (isEndedWithHints) {
+        issues.push({ rule: extXPreloadHintRules.notWithEndList, detail: "The playlist has EXT-X-ENDLIST and EXT-X-PRELOAD-HINT." });
+    }
+    const renditionReports = playlist["EXT-X-RENDITION-REPORT"];
+    if (renditionReports !== undefined) {
+        for (const report of renditionReports) {
+            const reportIssues = checkRenditionReport(report);
+            for (const issue of reportIssues) {
+                issues.push(issue);
+            }
         }
     }
     return issues;

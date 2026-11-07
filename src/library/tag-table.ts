@@ -90,6 +90,17 @@ import {
     extXDateRangeSchema,
 } from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.1-ext-x-daterange.js";
 import type { IgnoreReason } from "../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
+import { EXT_X_SKIP_TAG_NAME, extXSkipRules, extXSkipSchema } from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.2-ext-x-skip.js";
+import {
+    EXT_X_PRELOAD_HINT_TAG_NAME,
+    extXPreloadHintRules,
+    extXPreloadHintSchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.3-ext-x-preload-hint.js";
+import {
+    EXT_X_RENDITION_REPORT_TAG_NAME,
+    extXRenditionReportRules,
+    extXRenditionReportSchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.4-ext-x-rendition-report.js";
 import type { Rule } from "./rule.js";
 
 /** How the scanner reads a tag's raw value: as the text after ':', or as an attribute-list. */
@@ -141,6 +152,9 @@ const mediaPlaylistShape = {
     [EXT_X_PART_INF_TAG_NAME]: extXPartInfSchema.optional(),
     [EXT_X_SERVER_CONTROL_TAG_NAME]: extXServerControlSchema.optional(),
     [EXT_X_DATERANGE_TAG_NAME]: z.array(extXDateRangeSchema).readonly().optional(),
+    [EXT_X_SKIP_TAG_NAME]: extXSkipSchema.optional(),
+    [EXT_X_PRELOAD_HINT_TAG_NAME]: z.array(extXPreloadHintSchema).readonly().optional(),
+    [EXT_X_RENDITION_REPORT_TAG_NAME]: z.array(extXRenditionReportSchema).readonly().optional(),
 } as const;
 
 // A second EXTM3U breaks identification: the tag's one position is the first line.
@@ -219,6 +233,21 @@ const mediaPlaylistEntries = {
         format: extXDateRangeRules.format,
         occurrence: { kind: OccurrenceKind.repeated },
         ignoreOnFormatFailure: extXDateRangeIgnoreReason,
+    },
+    [EXT_X_SKIP_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXSkipRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: extXSkipRules.singleTag },
+    },
+    [EXT_X_PRELOAD_HINT_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXPreloadHintRules.format,
+        occurrence: { kind: OccurrenceKind.repeated },
+    },
+    [EXT_X_RENDITION_REPORT_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXRenditionReportRules.format,
+        occurrence: { kind: OccurrenceKind.repeated },
     },
 } as const satisfies UnitEntries<typeof mediaPlaylistShape>;
 

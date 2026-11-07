@@ -22,6 +22,8 @@ import {
     extXDateRangeIgnoreReason,
     extXDateRangeRules,
 } from "../src/4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.1-ext-x-daterange.js";
+import { extXSkipRules } from "../src/4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.2-ext-x-skip.js";
+import { extXPreloadHintRules } from "../src/4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.3-ext-x-preload-hint.js";
 import { definitionRules } from "../src/4-playlists/4.1-definition-of-a-playlist.js";
 import { extm3uRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.1-extm3u.js";
 import { extXVersionRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.2-ext-x-version.js";
@@ -223,6 +225,8 @@ describe("HLS.safeParse", () => {
                     { uri: "midRoll273.mp4", "EXT-X-DISCONTINUITY": true },
                 ],
                 pendingSegment: { "EXT-X-PART": [{ URI: "midRoll274.0.mp4", DURATION: 2.00004, INDEPENDENT: "YES" }] },
+                "EXT-X-PRELOAD-HINT": [{ TYPE: "PART", URI: "midRoll274.1.mp4" }],
+                "EXT-X-RENDITION-REPORT": [{ URI: "/1M/LL-HLS.m3u8", "LAST-MSN": 274n, "LAST-PART": 1n }],
             },
         });
     });
@@ -350,6 +354,8 @@ describe("HLS.safeParse", () => {
         { name: "an EXT-X-KEY after its Parent Segment's first part", text: `${BASE_HEAD}#EXT-X-PART-INF:PART-TARGET=5\n#EXT-X-SERVER-CONTROL:PART-HOLD-BACK=10\n#EXT-X-PART:DURATION=5,URI="p"\n#EXT-X-KEY:METHOD=NONE\n${BASE_SEGMENT}`, rule: extXPartRules.parentTagsPrecedeParts },
         { name: "a part longer than the Part Target Duration", text: `${BASE_HEAD}#EXT-X-PART-INF:PART-TARGET=5\n#EXT-X-SERVER-CONTROL:PART-HOLD-BACK=10\n#EXT-X-PART:DURATION=6,URI="p"\n${BASE_SEGMENT}`, rule: extXPartRules.durationMax },
         { name: "a Date Range without EXT-X-PROGRAM-DATE-TIME", text: `${BASE_HEAD}#EXT-X-DATERANGE:ID="a",START-DATE="2014-03-05T11:15:00Z"\n${BASE_SEGMENT}`, rule: extXDateRangeRules.programDateTimeRequired },
+        { name: "a second EXT-X-SKIP", text: `${BASE_HEAD}#EXT-X-SKIP:SKIPPED-SEGMENTS=1\n#EXT-X-SKIP:SKIPPED-SEGMENTS=1\n${BASE_SEGMENT}`, rule: extXSkipRules.singleTag },
+        { name: "an EXT-X-PRELOAD-HINT with EXT-X-ENDLIST", text: `${BASE_HEAD}${BASE_SEGMENT}#EXT-X-PRELOAD-HINT:TYPE=PART,URI="p"\n#EXT-X-ENDLIST\n`, rule: extXPreloadHintRules.notWithEndList },
     ] as const;
 
     test.each(malformed)("reports $name as malformed", ({ text, rule }) => {
