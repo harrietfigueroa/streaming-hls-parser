@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { checkSegmentDuration } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.1-ext-x-targetduration.js";
 import { assertCondition } from "./assert.js";
+import { type Limit, type ParseOptions, resolveLimits } from "./options.js";
 import { defaultPolicy, type Policy } from "./policy.js";
 import { CheckKind, type Issue, Severity } from "./rule.js";
 import { IgnoredKind, type RawPlaylist, type RawSegment, type RawTag, ScanKind, scanPlaylist } from "./scan.js";
@@ -15,7 +16,7 @@ import type { TagEntry, TagTables } from "./tag-table.js";
 export const PlaylistKind = { media: "media" } as const;
 export type PlaylistKind = (typeof PlaylistKind)[keyof typeof PlaylistKind];
 
-export const ParseKind = { parsed: "parsed", malformed: "malformed" } as const;
+export const ParseKind = { parsed: "parsed", malformed: "malformed", limitExceeded: "limitExceeded" } as const;
 export type ParseKind = (typeof ParseKind)[keyof typeof ParseKind];
 
 const ignoreReasonSchema = z.object({ section: z.string(), requirement: z.string() }).readonly();
@@ -56,6 +57,7 @@ export type MediaSegment = z.output<ReturnType<typeof buildSchemas>["segmentSche
 type ParsePayloads = {
     [ParseKind.parsed]: { readonly playlist: MediaPlaylist; readonly violations: readonly Issue[] };
     [ParseKind.malformed]: { readonly issues: readonly Issue[] };
+    [ParseKind.limitExceeded]: { readonly limit: Limit; readonly value: number };
 };
 type ParseMember<K extends ParseKind> = { readonly kind: K } & ParsePayloads[K];
 /** The outcome of HLS.safeParse, per decision 7. */
@@ -173,10 +175,15 @@ export function createHLS(tables: TagTables) {
         return failed;
     }
 
-    function safeParse(text: string) {
-        const scan = scanPlaylist({ text, playlistTagEntries, segmentTagEntries, policy });
+    function safeParse(text: string, options: ParseOptions = {}) {
+        const limits = resolveLimits(options);
+        const scan = scanPlaylist({ text, playlistTagEntries, segmentTagEntries, policy, limits });
         if (scan.kind === ScanKind.malformed) {
             return malformedParse([scan.issue]);
+        }
+        if (scan.kind === ScanKind.limitExceeded) {
+            const exceeded: Parse = { kind: ParseKind.limitExceeded, limit: scan.limit, value: scan.value };
+            return exceeded;
         }
         const first = convert(scan.playlist);
         if (first.kind === ConversionKind.converted) {

@@ -3,7 +3,8 @@
 // position, and each malformed case breaks exactly one rule of a valid base.
 import { describe, expect, test } from "vitest";
 
-import { HLS, IgnoredKind, type MediaPlaylist, ParseKind, PlaylistKind } from "../src/index.js";
+import { HLS, IgnoredKind, Limit, type MediaPlaylist, ParseKind, PlaylistKind } from "../src/index.js";
+import { AssertionError } from "../src/library/assert.js";
 import { attributeListRules } from "../src/4-playlists/4.2-attribute-lists.js";
 import { extXStartRules } from "../src/4-playlists/4.4-playlist-tags/4.4.2-media-or-multivariant-playlist-tags/4.4.2.2-ext-x-start.js";
 import { ignoreReasons } from "../src/6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
@@ -155,5 +156,43 @@ describe("HLS.safeParse", () => {
     test.each(malformed)("reports $name as malformed", ({ text, rule }) => {
         const outcome = HLS.safeParse(text);
         expect(outcome).toMatchObject({ kind: ParseKind.malformed, issues: [{ rule }] });
+    });
+});
+
+describe("HLS.safeParse limits", () => {
+    const PLAYLIST = "#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXTINF:1,\na.ts\n#EXTINF:1,\nb.ts\n";
+    const LINE_BYTES_MAX = 16;
+    const UNIT_COUNT_MAX = 2;
+
+    test("reports a line longer than lineBytesMax", () => {
+        const outcome = HLS.safeParse(PLAYLIST, { limits: { lineBytesMax: LINE_BYTES_MAX } });
+        expect(outcome).toEqual({ kind: ParseKind.limitExceeded, limit: Limit.lineBytesMax, value: LINE_BYTES_MAX });
+    });
+
+    // Each U+1F3B5 is 2 UTF-16 code units and 4 UTF-8 bytes, so the URI is 19 code units and 35 bytes.
+    test("counts a line's bytes, not its code units", () => {
+        const BYTES_BETWEEN_CODE_UNITS_AND_BYTES = 30;
+        const uri = `${"\u{1F3B5}".repeat(8)}.ts`;
+        const text = `#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXTINF:1,\n${uri}\n`;
+        const outcome = HLS.safeParse(text, { limits: { lineBytesMax: BYTES_BETWEEN_CODE_UNITS_AND_BYTES } });
+        expect(outcome).toMatchObject({ kind: ParseKind.limitExceeded, limit: Limit.lineBytesMax });
+    });
+
+    test("reports more units than unitCountMax, counting the playlist as one", () => {
+        const outcome = HLS.safeParse(PLAYLIST, { limits: { unitCountMax: UNIT_COUNT_MAX } });
+        expect(outcome).toEqual({ kind: ParseKind.limitExceeded, limit: Limit.unitCountMax, value: UNIT_COUNT_MAX });
+    });
+
+    test("parses a playlist exactly at its limits", () => {
+        const limits = { lineBytesMax: "#EXT-X-TARGETDURATION:10".length, unitCountMax: UNIT_COUNT_MAX + 1 };
+        const outcome = HLS.safeParse(PLAYLIST, { limits });
+        expect(outcome.kind).toBe(ParseKind.parsed);
+    });
+
+    test.each([0, -1, 1.5, Number.NaN])("rejects the limit %d as a programmer error", (lineBytesMax) => {
+        function parseWithLimit() {
+            return HLS.safeParse(PLAYLIST, { limits: { lineBytesMax } });
+        }
+        expect(parseWithLimit).toThrow(AssertionError);
     });
 });

@@ -17,9 +17,11 @@ import { checkIdentification, extm3uRules } from "../4-playlists/4.4-playlist-ta
 import { mediaSegmentTagRules } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4-media-segment-tags.js";
 import type { IgnoreReason } from "../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
 import { unreachable } from "./assert.js";
+import { Limit, type Limits } from "./options.js";
 import type { Policy } from "./policy.js";
 import { type Issue, Severity } from "./rule.js";
 import { type TagEntry, ValueForm } from "./tag-table.js";
+import { utf8ByteLength } from "./utf8.js";
 
 export const IgnoredKind = { comment: "comment", unrecognizedTag: "unrecognizedTag", ignoredTag: "ignoredTag" } as const;
 export type IgnoredKind = (typeof IgnoredKind)[keyof typeof IgnoredKind];
@@ -59,12 +61,13 @@ export type RawSegment = RawUnit & { readonly uri: string };
 
 export type RawPlaylist = RawUnit & { readonly segments: readonly RawSegment[] };
 
-export const ScanKind = { scanned: "scanned", malformed: "malformed" } as const;
+export const ScanKind = { scanned: "scanned", malformed: "malformed", limitExceeded: "limitExceeded" } as const;
 export type ScanKind = (typeof ScanKind)[keyof typeof ScanKind];
 
 type ScanPayloads = {
     [ScanKind.scanned]: { readonly playlist: RawPlaylist; readonly violations: readonly Issue[] };
     [ScanKind.malformed]: { readonly issue: Issue };
+    [ScanKind.limitExceeded]: { readonly limit: Limit; readonly value: number };
 };
 type ScanMember<K extends ScanKind> = { readonly kind: K } & ScanPayloads[K];
 export type Scan = { [K in ScanKind]: ScanMember<K> }[ScanKind];
@@ -84,6 +87,11 @@ type TagLine = Extract<Line, { readonly kind: typeof LineKind.tag }>;
 function malformedScan(issue: Issue) {
     const malformed: Scan = { kind: ScanKind.malformed, issue };
     return malformed;
+}
+
+function limitExceededScan(limit: Limit, limits: Limits) {
+    const exceeded: Scan = { kind: ScanKind.limitExceeded, limit, value: limits[limit] };
+    return exceeded;
 }
 
 function atLine(issue: Issue, lineNumber: number) {
@@ -128,15 +136,17 @@ function readRawValue(tag: TagLine, form: ValueForm) {
  * Groups `text`'s tags into the playlist and its segments by the tag names in each entries map,
  * keeping comments and unrecognized tags on the next segment, or on the playlist after the last
  * one. Each issue is resolved through `policy`: the first malformed one stops the scan, and
- * violations are collected while it continues, without the tag that broke the rule.
+ * violations are collected while it continues, without the tag that broke the rule. A line or a
+ * unit count past `limits` stops the scan as `limitExceeded`.
  */
 export function scanPlaylist(options: {
     readonly text: string;
     readonly playlistTagEntries: ReadonlyMap<string, TagEntry>;
     readonly segmentTagEntries: ReadonlyMap<string, TagEntry>;
     readonly policy: Policy;
+    readonly limits: Limits;
 }) {
-    const { text, playlistTagEntries, segmentTagEntries, policy } = options;
+    const { text, playlistTagEntries, segmentTagEntries, policy, limits } = options;
     const playlistTags = new Map<string, RawTag>();
     const segments: RawSegment[] = [];
     const violations: Issue[] = [];
@@ -148,6 +158,10 @@ export function scanPlaylist(options: {
         const lineIndex = lineCount;
         const lineNumber = lineIndex + 1;
         lineCount += 1;
+        const lineBytes = utf8ByteLength(rawLine);
+        if (lineBytes > limits.lineBytesMax) {
+            return limitExceededScan(Limit.lineBytesMax, limits);
+        }
         const lineCheck = checkRawLine(rawLine, lineIndex);
         if (lineCheck.kind === LineCheckKind.malformed) {
             const issue = atLine(lineCheck.issue, lineNumber);
@@ -176,6 +190,11 @@ export function scanPlaylist(options: {
                 break;
             }
             case LineKind.uri: {
+                // The playlist is a unit too, so the segment about to be added makes the count segments + 2.
+                const unitCount = segments.length + 2;
+                if (unitCount > limits.unitCountMax) {
+                    return limitExceededScan(Limit.unitCountMax, limits);
+                }
                 segments.push({ tags: segmentTags, uri: line.uri, ignored });
                 segmentTags = new Map();
                 ignored = [];
