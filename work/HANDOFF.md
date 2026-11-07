@@ -4,7 +4,7 @@ This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-p
 
 ## Where things stand
 
-The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 456 tests pass, `tsc --noEmit` is clean, and `style-lint` is clean on every committed file.
+The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 523 tests pass, `tsc --noEmit` is clean, `npm run lint` (oxlint) is clean, and `style-lint` is clean on every committed file.
 
 | Commit | Content |
 | --- | --- |
@@ -18,13 +18,15 @@ The work is on the branch `rebuild`, created from `origin/main`, and is open as 
 | `69dd4c5`, `897feb6`, `eb6fa24` | Every section 4.4.4 tag, decision 28's `DateTime` and its conversion functions, and the `pendingSegment` of a live Low-Latency playlist (decisions 59 and 60). |
 | `b79aafd`, `4a182ba` | Every section 4.4.5 tag, with Date Range X- attributes kept in `clientAttributes` and illegal Date Ranges ignored (decision 61). |
 | `41b9ec6` | The section modules for `EXT-X-STREAM-INF` and `EXT-X-I-FRAME-STREAM-INF`, the mixing rules, and ignore reasons carried in a custom issue's `params.ignoreReason`. |
+| `8c90177` | Multivariant Playlists: the tag table split by playlist kind, kind detection in the scanner, `variants`, I-frame streams, and ignored variants carried as `ignoredTag` and `ignoredUri` lines (decision 62). |
+| `df8334a` | The repository's own lint run, oxlint with the local plugin under `lint/`, its two rules, and every existing design-log mention and schema brought into line with them (decision 63). |
 
 ## Where to look
 
 - `spec/draft-pantos-hls-rfc8216bis-22.txt` is the pinned spec (decision 1). Code mirrors its section numbering.
-- `work/decisions/decisions.jsonl` holds 61 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
+- `work/decisions/decisions.jsonl` holds 63 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
 - `work/backlog/backlog.jsonl` is append-only too. The latest line for an `id` gives that item's current state.
-- `work/pending/multivariant-end-to-end-tests.patch` holds the end-to-end tests for the Multivariant work in progress, written and run red but not committed, since nothing makes them pass yet. It applies to `tests/index.test.ts` at HEAD with `git apply`.
+- `lint/` holds the oxlint plugin (`plugin.ts`) and its rules under `lint/rules/`. `.oxlintrc.json` enables them, and `tests/lint/` tests them through oxlint's `RuleTester`.
 - `src/<n>-<heading>/<n.n>-<heading>/…` holds one file per spec section (decision 33). A section that is a directory keeps its section-wide rules in a file named after it inside the directory (decision 54). `src/library/` holds code that belongs to no section.
 - `tests/` mirrors `src/`. `tests/index.test.ts` tests the default entry end to end. `tests/fixtures/very-large-playlist.m3u8` is the 11,701-segment real-world fixture.
 - `bench/` holds the zod benchmark, kept to rerun against the real schemas (decision 47).
@@ -37,19 +39,11 @@ A parse runs in three passes, each in its own module under `src/library/`:
 2. `create-hls.ts` converts the raw playlist with one `safeParse` of a unit schema built from `tag-table.ts`. `schema-issues.ts` maps each zod issue to its tag's format or required rule, or to an ignore reason. Ignored tags move into the ignored lines in position, and the playlist converts once more (decision 55).
 3. `findPlaylistIssues` in `create-hls.ts` runs the rules that span tags or units over the typed playlist. Every issue resolves through `policy.ts` (decision 8).
 
-`tag-table.ts` is the one place a tag is registered. Each entry gives its value form, its format rule, its occurrence, and any required, `precedesSegments`, `precedesParts`, or `ignoreOnFormatFailure` rule. `createHLS` asserts at startup that a required rule is present exactly when the tag's schema rejects absence.
+`tag-table.ts` is the one place a tag is registered, in the table of its playlist kind: `media` (units are segments) or `multivariant` (units are variants), with sections 4.4.1 and 4.4.2's tags in both. Each entry gives its value form, its format rule, its occurrence, and any required, `precedesSegments`, `precedesParts`, `ignoreOnFormatFailure`, or `ignoresUri` rule. Each kind's table also names the rules its tags break in a playlist of the other kind. `createHLS` asserts at startup that a required rule is present exactly when the tag's schema rejects absence.
 
 ## Next steps
 
-1. Finish section 4.4.6. The playlist-kind architecture is designed and not yet built:
-   - **Tag table:** split it by kind, `media` (`playlist`, unit `segment`) and `multivariant` (`playlist`, unit `variant`), with the 4.4.1 and 4.4.2 tags shared by both.
-   - **Kind detection:** the scanner settles the kind from the first kind-specific tag. A tag of the other kind is malformed, citing `mediaPlaylistTagRules.notInMultivariant`, `mediaSegmentTagRules.notInMultivariant`, or `multivariantPlaylistTagRules.notInMedia`. Section 4.4.5's tags count as media for this.
-   - **Units:** the raw playlist holds one `units` list, which becomes `segments` or `variants` in the output, and the outcome's playlist becomes `MediaPlaylist | MultivariantPlaylist`.
-   - **Ignored variants:** a variant whose `EXT-X-STREAM-INF` is ignored becomes ignored lines: its tag as `ignoredTag` and its URI line as a new `ignoredUri` kind citing `ignoreReasons.followsIgnoredStreamInf`, carried to the next unit's ignored lines.
-   - **Rules to apply:** a trailing `EXT-X-STREAM-INF` breaks `extXStreamInfRules.uriRequired`, and a URI with no `EXT-X-STREAM-INF` breaks `precedesUri`.
-   - **Tests:** apply `work/pending/multivariant-end-to-end-tests.patch` first.
-
-   Then `EXT-X-MEDIA` with its Rendition Group rules, `EXT-X-SESSION-DATA`, `EXT-X-SESSION-KEY`, and `EXT-X-CONTENT-STEERING`, and finally `IMPORT` through decision 15's `multivariant` option. That option needs the Multivariant Playlist's resolved Variable Values, which the output does not yet carry.
+1. Finish section 4.4.6. The playlist kinds, `EXT-X-STREAM-INF`, and `EXT-X-I-FRAME-STREAM-INF` are built. Next come `EXT-X-MEDIA` with its Rendition Group rules, `EXT-X-SESSION-DATA`, `EXT-X-SESSION-KEY`, and `EXT-X-CONTENT-STEERING`, which are playlist-level entries in the `multivariant` table, then the rules spanning tags in `findPlaylistIssues`'s multivariant arm, and finally `IMPORT` through decision 15's `multivariant` option. That option needs the Multivariant Playlist's resolved Variable Values, which the output does not yet carry.
 2. Extend `src/library/` with the rest:
    - `HLS.parse` (decision 7);
    - the precompiled entry (decisions 17 and 18);
@@ -60,7 +54,11 @@ A parse runs in three passes, each in its own module under `src/library/`:
 3. Extract the spec's 15 embedded playlists into `tests/fixtures/` with a TypeScript script, and add one negative fixture per rule with a test that every rule has one (decision 32). Several examples are excerpts with `...` lines, which parse as URIs, so the script has to drop or mark them.
 4. Add section barrels (decision 33) when a module outside a section first imports through a public surface. None exist yet.
 
-Backlog items 2 and 4 to 14 remain open. Items 7 (performance checks) and 10 (lenient policy) most affect the build order. Items 11 to 14 are section 4 rules waiting on something else: section 8's version table, the raw `EXTINF` text, the line order between `EXT-X-KEY` and `EXT-X-MAP`, and Date Range Following Range resolution.
+Backlog items 2, 4 to 25, 30 to 39, and 45 to 49 remain open. Items 7 (performance checks) and 10 (lenient policy) most affect the build order. Items 11 to 14 are section 4 rules waiting on something else: section 8's version table, the raw `EXTINF` text, the line order between `EXT-X-KEY` and `EXT-X-MAP`, and Date Range Following Range resolution. Three groups came from background research on 2026-11-06:
+
+- **Items 15 to 25, vendor ad markers:** `EXT-X-CUE-OUT`, `EXT-X-CUE-OUT-CONT`, `EXT-X-CUE-IN`, `EXT-OATCLS-SCTE35`, `EXT-X-ASSET`, `EXT-X-SPLICEPOINT-SCTE35`, `EXT-X-SCTE35`, Adobe's `EXT-X-CUE`, vendor departures in SCTE-35 Date Ranges, and SCTE-35 payload decoding. Vendors disagree on several of these syntaxes, which the items record. The Adobe details come from search excerpts only.
+- **Items 30 to 39, other tags outside the spec:** `EXT-X-ALLOW-CACHE`, the Image Media Playlist tags, the LHLS and Twitch prefetch and informational tags, Adobe's `EXT-X-FAXS-CM`, extended M3U and IPTV lines, and fixtures for vendor lines.
+- **Items 45 to 49, plugin support for new tags:** the plugin's tag definition and startup checks, merging into the per-kind tables, widened output types, plugin checks spanning tags, and the precompiled entry with `HLS.stringify`. They depend on decision 62's tables and carry open questions for the user (see below).
 
 ## Open questions for the user
 
@@ -71,6 +69,20 @@ Backlog items 2 and 4 to 14 remain open. Items 7 (performance checks) and 10 (le
   - the pending segment;
   - `clientAttributes`;
   - `EXT-X-SERVER-CONTROL`'s `NO` values ignoring the tag.
+- **Draft 22 has expired.** Its datatracker page dates its expiry 2 November 2026, and newer drafts may exist. Decision 1 pins draft 22, and every schema description links it, so moving the pin is the user's call, and the lint rule's link pattern would move with it.
+- **Plugin support (items 45 to 49) waits on 11 questions:**
+  - how a plugin rule cites a non-spec source;
+  - whether a plugin may override a spec tag;
+  - whether a plugin tag failing its schema is malformed or ignored;
+  - whether the API is `createHLS({ plugins })` or `HLS.extend`;
+  - whether a plugin tag settles the playlist kind;
+  - what an out-of-kind plugin tag breaks;
+  - the type helpers' names and the generic's scale;
+  - whether plugin checks are asserted to cite their own rules and get raw lines;
+  - the compiled entry's handling of uncompilable plugin schemas;
+  - when a serializer is required;
+  - whether plugins wait for the precompiled entry.
+- **Decision 62 records readings Claude made without gating:** an unsettled playlist is multivariant, as section 4.4's SHOULD says, and a second `EXT-X-STREAM-INF` before one URI breaks `uriRequired`.
 
 ## Conventions this codebase follows
 
@@ -79,7 +91,9 @@ The user's global style guide governs, and `style-lint` enforces its determinist
 - Every union is keyed by `kind`, its kinds declared once as an `as const` object, with constructed values bound to an intermediate annotated with the union and returned by name.
 - Scalar module constants are SCREAMING_CASE, and every meaningful literal is a named constant, including `-1` from `indexOf` (named `NOT_FOUND`).
 - Callbacks are hoisted named functions, never closure-free arrows. That includes Vitest bench test bodies, which take a `TestContext`.
-- No type assertions, and no disable comments: this repository runs no ESLint of its own, so a disable would name a rule nobody here can look up.
+- No type assertions, and no disable comments. The repository's own lint is oxlint with the `hls` plugin, so a disable of any other ESLint rule names a rule nobody here can look up.
+- Code names no design-log entry, in a comment or a string: it states the rationale itself (`hls/no-design-log-reference`). This handoff and the logs under `work/` are outside the rule.
+- Every module-level `*Schema` binding in a spec section module carries a doc comment line `Section N: <link>` and ends in `.describe("<label>, section N: <link>")`, both linking `https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-N` (`hls/schema-spec-link`).
 - A nullable parameter, two parameters of one type, or three or more parameters go through an options object.
 - Comments are present tense and positive, and make no claim that an edit to another file falsifies.
 - Assertions go through `src/library/assert.ts`. The only sanctioned `throw` is `new AssertionError` for an impossible state, and test helpers that need a value from a schema use it too.
@@ -90,6 +104,8 @@ The user's global style guide governs, and `style-lint` enforces its determinist
 
 - Vitest 5.1 has no top-level `bench`. A benchmark is a `test` whose `TestContext` provides `bench`, run through `bench.compare(...registrations, runOptions)`, and its results print only with `--reporter=verbose`.
 - TypeScript is 7.0.2, and `@types/node` is pinned to 22.x to match the oldest supported Node (decision 22).
+- ESLint cannot parse this repository: typescript-eslint supports TypeScript below 6.1. oxlint parses TypeScript itself and runs the `lint/` rules, which are TypeScript files Node runs with its type stripping, imported with `.ts` extensions (`allowImportingTsExtensions`). oxlint's plugin API exports only `RuleTester`, so `lint/rules/rule.ts` reads the rule and node types from its `run` signature.
+- `z.preprocess` runs its function on any input, `undefined` included, so `attributeListTagSchema`'s preprocess passes non-record input through for the tag schema to reject.
 - `splice` matches every hunk in one script against the file before any hunk applies, so overlapping edits (two renames on one line) go in separate calls. A hunk of context lines alone is refused; insert by placing `+` lines beside a context line. `@@ regex` supports `${1}` captures.
 - An unquoted heredoc (`<<EOF`) expands `$(…)` inside it, which broke a chained `style-lint $(git ls-files …)`. Run that command on its own line.
 - zod 4 drops an optional key that is present with the value `undefined`, which is why a valueless tag's raw value is `true` (decision 53). `z.compile` returns its input's type, so compiled schemas fit the same unit shapes.
