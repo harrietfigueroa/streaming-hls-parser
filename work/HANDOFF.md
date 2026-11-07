@@ -1,6 +1,6 @@
 # Handoff: streaming-hls-parser rebuild
 
-This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-parser`, published as `streaming-hls-parser` 0.2.0. Design is complete. Every Media Playlist tag of sections 4.4.1 to 4.4.5 parses through `HLS.safeParse`, and section 4.4.6's Multivariant Playlist work is under way. Read this file first, then `work/decisions/decisions.jsonl` for the reasoning behind any rule below.
+This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-parser`, published as `streaming-hls-parser` 0.2.0. Design is complete. Every Media Playlist tag of sections 4.4.1 to 4.4.5 parses through `HLS.safeParse`, and so do Multivariant Playlists with their `EXT-X-STREAM-INF` variants and `EXT-X-I-FRAME-STREAM-INF` streams. The rest of section 4.4.6 (`EXT-X-MEDIA`, `EXT-X-SESSION-DATA`, `EXT-X-SESSION-KEY`, `EXT-X-CONTENT-STEERING`) is next. Read this file first, then `work/decisions/decisions.jsonl` for the reasoning behind any rule below.
 
 ## Where things stand
 
@@ -35,9 +35,9 @@ The work is on the branch `rebuild`, created from `origin/main`, and is open as 
 
 A parse runs in three passes, each in its own module under `src/library/`:
 
-1. `scan.ts` walks the lines once. It applies sections 4.1 and 4.4.1.1's line rules, parses attribute lists, substitutes variables, resolves each `EXT-X-DEFINE` as it is read, and groups each tag's raw value into the playlist, a segment, or the pending segment. Positional rules live here too: `precedesSegments`, `precedesParts`, and the discontinuity sequence's order.
-2. `create-hls.ts` converts the raw playlist with one `safeParse` of a unit schema built from `tag-table.ts`. `schema-issues.ts` maps each zod issue to its tag's format or required rule, or to an ignore reason. Ignored tags move into the ignored lines in position, and the playlist converts once more (decision 55).
-3. `findPlaylistIssues` in `create-hls.ts` runs the rules that span tags or units over the typed playlist. Every issue resolves through `policy.ts` (decision 8).
+1. `scan.ts` walks the lines once. It applies sections 4.1 and 4.4.1.1's line rules, parses attribute lists, substitutes variables, and resolves each `EXT-X-DEFINE` as it is read. It settles the playlist's kind at the first tag only one kind's table holds (`placeInUnsettledKind`, then `placeInSettledKind`), and groups each tag's raw value into the playlist, a unit (a segment or a variant), or the pending segment. Positional rules live here too: the out-of-kind rules, `precedesSegments`, `precedesParts`, and the discontinuity sequence's order.
+2. `create-hls.ts` converts the raw playlist with one `safeParse` of its kind's playlist schema, built from `tag-table.ts`. `schema-issues.ts` maps each zod issue to its tag's format or required rule, or to an ignore reason. Ignored tags move into the ignored lines in position, a unit whose ignored tag has `ignoresUri` is dropped with its URI line, and the playlist converts once more (decision 55).
+3. `findPlaylistIssues` in `create-hls.ts` runs the rules that span tags or units over the typed playlist, by its kind; the multivariant arm has none yet. Every issue resolves through `policy.ts` (decision 8).
 
 `tag-table.ts` is the one place a tag is registered, in the table of its playlist kind: `media` (units are segments) or `multivariant` (units are variants), with sections 4.4.1 and 4.4.2's tags in both. Each entry gives its value form, its format rule, its occurrence, and any required, `precedesSegments`, `precedesParts`, `ignoreOnFormatFailure`, or `ignoresUri` rule. Each kind's table also names the rules its tags break in a playlist of the other kind. `createHLS` asserts at startup that a required rule is present exactly when the tag's schema rejects absence.
 
