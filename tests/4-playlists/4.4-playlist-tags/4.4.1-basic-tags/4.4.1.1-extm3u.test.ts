@@ -1,5 +1,6 @@
-// These tests pin section 4.4.1.1: the EXTM3U tag converts to true and takes
-// no value, and a playlist is identified only when EXTM3U is its first line.
+// These tests pin section 4.4.1.1: the EXTM3U tag's raw value, true for a tag
+// written without a value, converts to true, and a playlist is identified only
+// when EXTM3U is its first line.
 // Invalid cases each break exactly one of the section's rules.
 import { describe, expect, test } from "vitest";
 
@@ -12,8 +13,8 @@ import {
 } from "../../../../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.1-extm3u.js";
 
 describe("extm3uSchema", () => {
-    test("converts the absent value to true", () => {
-        const result = extm3uSchema.safeParse(undefined);
+    test("converts the valueless tag to true", () => {
+        const result = extm3uSchema.safeParse(true);
         expect(result).toEqual({ success: true, data: true });
     });
 

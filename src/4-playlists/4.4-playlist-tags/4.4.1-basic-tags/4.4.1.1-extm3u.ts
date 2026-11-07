@@ -1,6 +1,6 @@
 // Section 4.4.1.1, EXTM3U. This module is pure: it declares the tag's schema,
-// which converts the tag's absent value to true, and checks that a playlist's
-// first line is the tag.
+// which accepts only a valueless tag, and checks that a playlist's first line
+// is the tag.
 import { z } from "zod";
 
 import { type Line, type LineCheck, LineCheckKind, LineKind } from "../../4.1-definition-of-a-playlist.js";
@@ -23,12 +23,8 @@ export const extm3uRules = {
     },
 } as const satisfies Record<string, Rule>;
 
-function toPresent() {
-    return true as const;
-}
-
-/** Converts the EXTM3U tag's value, which is absent, to true per decision 23. */
-export const extm3uSchema = z.undefined().transform(toPresent);
+/** Accepts the raw value of a tag written without a value, true, which is the tag's value per decision 23. */
+export const extm3uSchema = z.literal(true);
 
 /** Checks that a playlist's classified first line is the EXTM3U tag; the tag's value is the schema's to check. */
 export function checkIdentification(firstLine: Line) {
