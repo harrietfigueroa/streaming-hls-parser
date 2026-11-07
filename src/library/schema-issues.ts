@@ -1,7 +1,8 @@
 // Maps the zod issues of a unit schema back to the spec. This module is pure:
 // it locates each issue's tag from the issue's path, classifies the issue as a
 // broken rule or as a tag section 6.3.1 ignores whole, and moves ignored tags
-// from their unit into the ignored lines, in position.
+// from their unit into the ignored lines, in position, dropping a unit whose
+// ignored tag takes its URI line with it.
 import type { z } from "zod";
 
 import {
@@ -15,15 +16,15 @@ import {
     IgnoredKind,
     type IgnoredLine,
     type RawPlaylist,
-    type RawSegment,
     type RawTag,
     type RawTags,
     type RawUnit,
+    type RawUriUnit,
 } from "./scan.js";
-import { OccurrenceKind, type TagEntry, ValueForm } from "./tag-table.js";
+import { type EntriesByKind, OccurrenceKind, PlaylistKind, type TagEntry, ValueForm } from "./tag-table.js";
 
-/** A tag 6.3.1 ignores whole, and the 6.3.1 rule that ignores it. */
-export type IgnorableTag = { readonly tag: RawTag; readonly reason: IgnoreReason };
+/** A tag 6.3.1 ignores whole, its entry, and the rule that ignores it. */
+export type IgnorableTag = { readonly tag: RawTag; readonly entry: TagEntry; readonly reason: IgnoreReason };
 
 export const SchemaIssueKind = { broken: "broken", ignorable: "ignorable" } as const;
 export type SchemaIssueKind = (typeof SchemaIssueKind)[keyof typeof SchemaIssueKind];
@@ -45,58 +46,56 @@ type IgnorePayloads = {
 type IgnoreMember<K extends IgnoreKind> = { readonly kind: K } & IgnorePayloads[K];
 type Ignore = { [K in IgnoreKind]: IgnoreMember<K> }[IgnoreKind];
 
-const SEGMENTS_KEY = "segments";
+/** The output key of each kind's units. */
+export const UNITS_KEYS = { [PlaylistKind.media]: "segments", [PlaylistKind.multivariant]: "variants" } as const;
 const PENDING_SEGMENT_KEY = "pendingSegment";
+const UNIT_NAMES = { [PlaylistKind.media]: "Segment", [PlaylistKind.multivariant]: "Variant" } as const;
 const PLAYLIST_TAG_DEPTH = 1;
-// A segment tag's path is ["segments", segmentIndex, tagName, ...].
-const SEGMENT_TAG_DEPTH = 3;
-const SEGMENT_INDEX_POSITION = 1;
-const SEGMENT_TAG_NAME_POSITION = 2;
+// A unit tag's path is [unitsKey, unitIndex, tagName, ...].
+const UNIT_TAG_DEPTH = 3;
+const UNIT_INDEX_POSITION = 1;
+const UNIT_TAG_NAME_POSITION = 2;
 // A pending segment tag's path is ["pendingSegment", tagName, ...].
 const PENDING_SEGMENT_TAG_DEPTH = 2;
 // An attribute's issue sits one step below its tag.
 const ATTRIBUTE_DEPTH = 1;
 
-/** The tag entries of each unit, by tag name. */
-export type EntriesMaps = {
-    readonly playlistTagEntries: ReadonlyMap<string, TagEntry>;
-    readonly segmentTagEntries: ReadonlyMap<string, TagEntry>;
-};
-
-function locateTag(options: { readonly path: readonly PropertyKey[]; readonly playlist: RawPlaylist } & EntriesMaps) {
-    const { path, playlist, playlistTagEntries, segmentTagEntries } = options;
+function locateTag(options: { readonly path: readonly PropertyKey[]; readonly playlist: RawPlaylist; readonly entries: EntriesByKind }) {
+    const { path, playlist } = options;
+    const kindEntries = options.entries[playlist.kind];
+    const unitsKey = UNITS_KEYS[playlist.kind];
     const [head] = path;
     const isStringHead = typeof head === "string";
     if (head === PENDING_SEGMENT_KEY) {
         const [, name] = path;
         assertCondition(typeof name === "string", `Pending segment key ${String(name)} is not a string.`);
-        const entry = segmentTagEntries.get(name);
+        const entry = kindEntries.unit.get(name);
         assertCondition(entry !== undefined, `Schema issue at unknown pending segment key ${name}.`);
         const unit = playlist.pendingSegment;
         assertCondition(unit !== undefined, "Schema issue at a pending segment the scan did not produce.");
         const where = `The pending segment's ${name}`;
         return { unit, name, entry, where, rest: path.slice(PENDING_SEGMENT_TAG_DEPTH) };
     }
-    const isPlaylistTag = isStringHead && head !== SEGMENTS_KEY;
+    const isPlaylistTag = isStringHead && head !== unitsKey;
     if (isPlaylistTag) {
-        const entry = playlistTagEntries.get(head);
+        const entry = kindEntries.playlist.get(head);
         assertCondition(entry !== undefined, `Schema issue at unknown playlist key ${head}.`);
         const unit: RawUnit = playlist;
         const where = head;
         return { unit, name: head, entry, where, rest: path.slice(PLAYLIST_TAG_DEPTH) };
     }
     const pathParts = Array.from(path, String);
-    assertCondition(path.length >= SEGMENT_TAG_DEPTH, `Schema issue at ${pathParts.join(".")}.`);
-    const segmentIndex = path[SEGMENT_INDEX_POSITION];
-    const name = path[SEGMENT_TAG_NAME_POSITION];
-    assertCondition(typeof segmentIndex === "number", `Segment index ${String(segmentIndex)} is not a number.`);
-    assertCondition(typeof name === "string", `Segment key ${String(name)} is not a string.`);
-    const entry = segmentTagEntries.get(name);
-    assertCondition(entry !== undefined, `Schema issue at unknown segment key ${name}.`);
-    const unit = playlist.segments[segmentIndex];
-    assertCondition(unit !== undefined, `Schema issue at missing segment ${segmentIndex}.`);
-    const where = `Segment ${segmentIndex + 1} ${name}`;
-    return { unit, name, entry, where, rest: path.slice(SEGMENT_TAG_DEPTH) };
+    assertCondition(path.length >= UNIT_TAG_DEPTH, `Schema issue at ${pathParts.join(".")}.`);
+    const unitIndex = path[UNIT_INDEX_POSITION];
+    const name = path[UNIT_TAG_NAME_POSITION];
+    assertCondition(typeof unitIndex === "number", `Unit index ${String(unitIndex)} is not a number.`);
+    assertCondition(typeof name === "string", `Unit key ${String(name)} is not a string.`);
+    const entry = kindEntries.unit.get(name);
+    assertCondition(entry !== undefined, `Schema issue at unknown unit key ${name}.`);
+    const unit = playlist.units[unitIndex];
+    assertCondition(unit !== undefined, `Schema issue at missing unit ${unitIndex}.`);
+    const where = `${UNIT_NAMES[playlist.kind]} ${unitIndex + 1} ${name}`;
+    return { unit, name, entry, where, rest: path.slice(UNIT_TAG_DEPTH) };
 }
 
 /**
@@ -127,9 +126,13 @@ function ignoreReasonOf(options: { readonly issue: z.core.$ZodIssue; readonly fo
 }
 
 /** Classifies one zod issue, which the library's own keys never produce, by the tag it concerns. */
-export function classifySchemaIssue(options: { readonly issue: z.core.$ZodIssue; readonly playlist: RawPlaylist } & EntriesMaps) {
-    const { issue, playlist, playlistTagEntries, segmentTagEntries } = options;
-    const location = locateTag({ path: issue.path, playlist, playlistTagEntries, segmentTagEntries });
+export function classifySchemaIssue(options: {
+    readonly issue: z.core.$ZodIssue;
+    readonly playlist: RawPlaylist;
+    readonly entries: EntriesByKind;
+}) {
+    const { issue, playlist, entries } = options;
+    const location = locateTag({ path: issue.path, playlist, entries });
     const written = location.unit.tags.get(location.name);
     if (written === undefined) {
         assertCondition(location.entry.required !== undefined, `${location.where} is absent and has no required rule.`);
@@ -147,17 +150,18 @@ export function classifySchemaIssue(options: { readonly issue: z.core.$ZodIssue;
         depth -= 1;
     }
     assertCondition(tag !== undefined, `${location.where}'s issue names an occurrence that was not written.`);
-    const ignore = ignoreReasonOf({ issue, form: location.entry.form, depth });
+    const entry = location.entry;
+    const ignore = ignoreReasonOf({ issue, form: entry.form, depth });
     if (ignore.kind === IgnoreKind.ignored) {
-        const ignorableIssue: SchemaIssue = { kind: SchemaIssueKind.ignorable, ignorable: { tag, reason: ignore.reason } };
+        const ignorableIssue: SchemaIssue = { kind: SchemaIssueKind.ignorable, ignorable: { tag, entry, reason: ignore.reason } };
         return ignorableIssue;
     }
-    const formatIgnoreReason = location.entry.ignoreOnFormatFailure;
+    const formatIgnoreReason = entry.ignoreOnFormatFailure;
     if (formatIgnoreReason !== undefined) {
-        const ignorableFormat: SchemaIssue = { kind: SchemaIssueKind.ignorable, ignorable: { tag, reason: formatIgnoreReason } };
+        const ignorableFormat: SchemaIssue = { kind: SchemaIssueKind.ignorable, ignorable: { tag, entry, reason: formatIgnoreReason } };
         return ignorableFormat;
     }
-    const issueFormat = { rule: location.entry.format, detail: `Line ${tag.lineNumber}: ${location.where}: ${issue.message}` };
+    const issueFormat = { rule: entry.format, detail: `Line ${tag.lineNumber}: ${location.where}: ${issue.message}` };
     const broken: SchemaIssue = { kind: SchemaIssueKind.broken, issue: issueFormat };
     return broken;
 }
@@ -219,11 +223,31 @@ function groupByOwner(ignorables: readonly IgnorableTag[]) {
     return groups;
 }
 
-/** Returns `playlist` with each ignorable tag removed from its unit and kept in position among the ignored lines. */
+/** The lines of `leading`, then those of `trailing`, as a new array. */
+function joinIgnored(options: { readonly leading: readonly IgnoredLine[]; readonly trailing: readonly IgnoredLine[] }) {
+    const { leading, trailing } = options;
+    const joined = Array.from(leading);
+    for (const line of trailing) {
+        joined.push(line);
+    }
+    return joined;
+}
+
+/**
+ * Returns `playlist` with each ignorable tag removed from its unit and kept in position among the
+ * ignored lines. A unit whose ignored tag ignores its URI line too is dropped: its ignored lines,
+ * the tag among them, and its URI line lead the next unit's ignored lines, or the playlist's after
+ * the last unit.
+ */
 export function withIgnoredTags(playlist: RawPlaylist, ignorables: readonly IgnorableTag[]) {
     const removed = new Set<RawTag>();
+    const uriReasons = new Map<number, IgnoreReason>();
     for (const ignorable of ignorables) {
         removed.add(ignorable.tag);
+        const uriReason = ignorable.entry.ignoresUri;
+        if (uriReason !== undefined) {
+            uriReasons.set(ignorable.tag.ownerIndex, uriReason);
+        }
     }
     const byOwner = groupByOwner(ignorables);
     function rebuildIgnored(ignored: readonly IgnoredLine[], ownerIndex: number) {
@@ -233,24 +257,36 @@ export function withIgnoredTags(playlist: RawPlaylist, ignorables: readonly Igno
         }
         return mergeIgnored(ignored, owned);
     }
-    const segments: RawSegment[] = [];
-    for (const [segmentIndex, segment] of playlist.segments.entries()) {
-        const tags = withoutTags(segment.tags, removed);
-        const ignored = rebuildIgnored(segment.ignored, segmentIndex);
-        segments.push({ tags, uri: segment.uri, ignored });
+    const units: RawUriUnit[] = [];
+    let carried: IgnoredLine[] = [];
+    for (const [unitIndex, unit] of playlist.units.entries()) {
+        const tags = withoutTags(unit.tags, removed);
+        const ignored = rebuildIgnored(unit.ignored, unitIndex);
+        const uriReason = uriReasons.get(unitIndex);
+        if (uriReason !== undefined) {
+            assertCondition(tags.size === 0, `Dropped unit ${unitIndex + 1} keeps ${tags.size} tags.`);
+            carried = joinIgnored({ leading: carried, trailing: ignored });
+            carried.push({ kind: IgnoredKind.ignoredUri, line: unit.uriLine, reason: uriReason });
+            continue;
+        }
+        const withCarried = joinIgnored({ leading: carried, trailing: ignored });
+        carried = [];
+        units.push({ tags, uri: unit.uri, uriLine: unit.uriLine, ignored: withCarried });
     }
     // Lines after the last URI belong to the pending segment when there is one, and to the playlist otherwise.
-    const trailingIndex = playlist.segments.length;
+    const trailingIndex = playlist.units.length;
     const tags = withoutTags(playlist.tags, removed);
     const pending = playlist.pendingSegment;
     if (pending === undefined) {
-        const ignored = rebuildIgnored(playlist.ignored, trailingIndex);
-        const rebuilt: RawPlaylist = { tags, segments, ignored };
+        const trailing = rebuildIgnored(playlist.ignored, trailingIndex);
+        const ignored = joinIgnored({ leading: carried, trailing });
+        const rebuilt: RawPlaylist = { kind: playlist.kind, tags, units, ignored };
         return rebuilt;
     }
     const pendingTags = withoutTags(pending.tags, removed);
-    const pendingIgnored = rebuildIgnored(pending.ignored, trailingIndex);
+    const pendingTrailing = rebuildIgnored(pending.ignored, trailingIndex);
+    const pendingIgnored = joinIgnored({ leading: carried, trailing: pendingTrailing });
     const pendingSegment = { tags: pendingTags, ignored: pendingIgnored };
-    const rebuiltWithPending: RawPlaylist = { tags, segments, ignored: playlist.ignored, pendingSegment };
+    const rebuiltWithPending: RawPlaylist = { kind: playlist.kind, tags, units, ignored: playlist.ignored, pendingSegment };
     return rebuiltWithPending;
 }

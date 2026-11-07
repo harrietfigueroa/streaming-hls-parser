@@ -89,7 +89,21 @@ import {
     extXDateRangeRules,
     extXDateRangeSchema,
 } from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.1-ext-x-daterange.js";
-import type { IgnoreReason } from "../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
+import { multivariantPlaylistTagRules } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6-multivariant-playlist-tags.js";
+import {
+    EXT_X_STREAM_INF_TAG_NAME,
+    extXStreamInfRules,
+    extXStreamInfSchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.2-ext-x-stream-inf.js";
+import {
+    EXT_X_I_FRAME_STREAM_INF_TAG_NAME,
+    extXIFrameStreamInfRules,
+    extXIFrameStreamInfSchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.3-ext-x-i-frame-stream-inf.js";
+import {
+    type IgnoreReason,
+    ignoreReasons,
+} from "../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
 import { EXT_X_SKIP_TAG_NAME, extXSkipRules, extXSkipSchema } from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.2-ext-x-skip.js";
 import {
     EXT_X_PRELOAD_HINT_TAG_NAME,
@@ -102,6 +116,10 @@ import {
     extXRenditionReportSchema,
 } from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.4-ext-x-rendition-report.js";
 import type { Rule } from "./rule.js";
+
+/** The two kinds of playlist section 4.4 distinguishes, each with its own tag table. */
+export const PlaylistKind = { media: "media", multivariant: "multivariant" } as const;
+export type PlaylistKind = (typeof PlaylistKind)[keyof typeof PlaylistKind];
 
 /** How the scanner reads a tag's raw value: as the text after ':', or as an attribute-list. */
 export const ValueForm = { text: "text", attributeList: "attributeList" } as const;
@@ -133,16 +151,23 @@ export type TagEntry = {
     readonly precedesParts?: Rule;
     /** Why a tag whose syntax is illegal is ignored rather than malformed, where its section says so. */
     readonly ignoreOnFormatFailure?: IgnoreReason;
+    /** Why the URI line after the tag is ignored with it, where its section says so; its unit is then dropped. */
+    readonly ignoresUri?: IgnoreReason;
 };
 
 type UnitEntries<Shape> = { readonly [Name in keyof Shape]: TagEntry };
 
-const mediaPlaylistShape = {
+// Sections 4.4.1 and 4.4.2's tags, which either kind of playlist may contain.
+const sharedPlaylistShape = {
     [EXTM3U_TAG_NAME]: extm3uSchema,
     [EXT_X_VERSION_TAG_NAME]: extXVersionSchema.optional(),
     [EXT_X_INDEPENDENT_SEGMENTS_TAG_NAME]: extXIndependentSegmentsSchema.optional(),
     [EXT_X_START_TAG_NAME]: extXStartSchema.optional(),
     [EXT_X_DEFINE_TAG_NAME]: z.array(extXDefineSchema).readonly().optional(),
+} as const;
+
+const mediaPlaylistShape = {
+    ...sharedPlaylistShape,
     [EXT_X_TARGETDURATION_TAG_NAME]: extXTargetDurationSchema,
     [EXT_X_ENDLIST_TAG_NAME]: extXEndlistSchema.optional(),
     [EXT_X_MEDIA_SEQUENCE_TAG_NAME]: extXMediaSequenceSchema.optional(),
@@ -158,7 +183,7 @@ const mediaPlaylistShape = {
 } as const;
 
 // A second EXTM3U breaks identification: the tag's one position is the first line.
-const mediaPlaylistEntries = {
+const sharedPlaylistEntries = {
     [EXTM3U_TAG_NAME]: {
         form: ValueForm.text,
         format: extm3uRules.format,
@@ -180,16 +205,20 @@ const mediaPlaylistEntries = {
         format: extXStartRules.format,
         occurrence: { kind: OccurrenceKind.once, duplicate: extXStartRules.singleTag },
     },
+    [EXT_X_DEFINE_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXDefineRules.format,
+        occurrence: { kind: OccurrenceKind.repeated },
+    },
+} as const satisfies UnitEntries<typeof sharedPlaylistShape>;
+
+const mediaPlaylistEntries = {
+    ...sharedPlaylistEntries,
     [EXT_X_TARGETDURATION_TAG_NAME]: {
         form: ValueForm.text,
         format: extXTargetDurationRules.format,
         occurrence: { kind: OccurrenceKind.once, duplicate: mediaPlaylistTagRules.singleTag },
         required: extXTargetDurationRules.required,
-    },
-    [EXT_X_DEFINE_TAG_NAME]: {
-        form: ValueForm.attributeList,
-        format: extXDefineRules.format,
-        occurrence: { kind: OccurrenceKind.repeated },
     },
     [EXT_X_ENDLIST_TAG_NAME]: {
         form: ValueForm.text,
@@ -316,10 +345,80 @@ const mediaSegmentEntries = {
     },
 } as const satisfies UnitEntries<typeof mediaSegmentShape>;
 
-/** The tags the library recognizes, with the runtime zod schemas as their section modules declare them. */
-export const defaultTagTables = {
-    playlist: { shape: mediaPlaylistShape, entries: mediaPlaylistEntries },
-    segment: { shape: mediaSegmentShape, entries: mediaSegmentEntries },
+const multivariantPlaylistShape = {
+    ...sharedPlaylistShape,
+    [EXT_X_I_FRAME_STREAM_INF_TAG_NAME]: z.array(extXIFrameStreamInfSchema).readonly().optional(),
 } as const;
 
+const multivariantPlaylistEntries = {
+    ...sharedPlaylistEntries,
+    [EXT_X_I_FRAME_STREAM_INF_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXIFrameStreamInfRules.format,
+        occurrence: { kind: OccurrenceKind.repeated },
+    },
+} as const satisfies UnitEntries<typeof multivariantPlaylistShape>;
+
+const variantShape = {
+    [EXT_X_STREAM_INF_TAG_NAME]: extXStreamInfSchema,
+} as const;
+
+// A second EXT-X-STREAM-INF before one URI leaves the first followed by no URI line.
+const variantEntries = {
+    [EXT_X_STREAM_INF_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXStreamInfRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: extXStreamInfRules.uriRequired },
+        required: extXStreamInfRules.precedesUri,
+        ignoresUri: ignoreReasons.followsIgnoredStreamInf,
+    },
+} as const satisfies UnitEntries<typeof variantShape>;
+
+/** The rules a kind's tags break by their position rather than their value. */
+export type KindRules = {
+    /** Broken by one of the kind's playlist tags in a playlist of the other kind. */
+    readonly playlistTagOutOfKind: Rule;
+    /** Broken by one of the kind's unit tags in a playlist of the other kind. */
+    readonly unitTagOutOfKind: Rule;
+    /** Broken by unit tags with no URI line after them. */
+    readonly uriFollowsTags: Rule;
+};
+
+/**
+ * The tags the library recognizes, with the runtime zod schemas as their section modules declare
+ * them, for each kind of playlist: the playlist's own tags, and those of each unit, a Media Segment
+ * or a Variant Stream, that a URI line ends. Section 4.4.5's tags are media playlist tags.
+ */
+export const defaultTagTables = {
+    [PlaylistKind.media]: {
+        playlist: { shape: mediaPlaylistShape, entries: mediaPlaylistEntries },
+        unit: { shape: mediaSegmentShape, entries: mediaSegmentEntries },
+        rules: {
+            playlistTagOutOfKind: mediaPlaylistTagRules.notInMultivariant,
+            unitTagOutOfKind: mediaSegmentTagRules.notInMultivariant,
+            uriFollowsTags: mediaSegmentTagRules.uriFollowsTags,
+        },
+    },
+    [PlaylistKind.multivariant]: {
+        playlist: { shape: multivariantPlaylistShape, entries: multivariantPlaylistEntries },
+        unit: { shape: variantShape, entries: variantEntries },
+        rules: {
+            playlistTagOutOfKind: multivariantPlaylistTagRules.notInMedia,
+            unitTagOutOfKind: multivariantPlaylistTagRules.notInMedia,
+            uriFollowsTags: extXStreamInfRules.uriRequired,
+        },
+    },
+} as const satisfies {
+    readonly [Kind in PlaylistKind]: { readonly playlist: object; readonly unit: object; readonly rules: KindRules };
+};
+
 export type TagTables = typeof defaultTagTables;
+
+/** One kind's tag entries by name, for the playlist and for each unit, with the rules its tags break by position. */
+export type KindEntries = {
+    readonly playlist: ReadonlyMap<string, TagEntry>;
+    readonly unit: ReadonlyMap<string, TagEntry>;
+    readonly rules: KindRules;
+};
+
+export type EntriesByKind = { readonly [Kind in PlaylistKind]: KindEntries };

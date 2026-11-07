@@ -252,6 +252,8 @@ const REQUIRED_ATTRIBUTE_PREFIX = "REQ-";
 
 type AttributesShape = Readonly<Record<string, z.ZodType>>;
 
+const rawAttributesSchema = z.record(z.string(), z.string());
+
 /**
  * Converts an attribute-list tag's raw attributes by `shape`, its attribute table. Unrecognized
  * attributes are kept as written in a frozen `ignored` array, absent when there are none, as
@@ -260,10 +262,15 @@ type AttributesShape = Readonly<Record<string, z.ZodType>>;
  */
 export function attributeListTagSchema<const Shape extends AttributesShape>(shape: Shape) {
     const recognizedNames: ReadonlySet<string> = new Set(Object.keys(shape));
-    function splitUnrecognized(attributes: Readonly<Record<string, string>>, context: z.core.$RefinementCtx) {
+    // An absent tag's undefined is no attribute record, and passes through for the tag schema to reject.
+    function splitUnrecognized(input: unknown, context: z.core.$RefinementCtx) {
+        const raw = rawAttributesSchema.safeParse(input);
+        if (!raw.success) {
+            return input;
+        }
         const recognized: Record<string, string> = {};
         const ignored: string[] = [];
-        for (const [name, value] of Object.entries(attributes)) {
+        for (const [name, value] of Object.entries(raw.data)) {
             if (recognizedNames.has(name)) {
                 recognized[name] = value;
                 continue;
