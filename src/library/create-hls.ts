@@ -17,6 +17,9 @@ import { checkMedia } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-
 import { checkRenditionGroups } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.1-ext-x-media/4.4.6.1.1-rendition-groups.js";
 import { checkRenditionReferences } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.2-ext-x-stream-inf/4.4.6.2-ext-x-stream-inf.js";
 import { checkAlternativeRendition } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.2-ext-x-stream-inf/4.4.6.2.1-alternative-renditions.js";
+import { checkSessionData } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.4-ext-x-session-data.js";
+import { checkSessionKeys } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.5-ext-x-session-key.js";
+import { checkContentSteering } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.6-ext-x-content-steering.js";
 import { assertCondition, unreachable } from "./assert.js";
 import { type Limit, type ParseOptions, resolveLimits } from "./options.js";
 import { defaultPolicy, type Policy } from "./policy.js";
@@ -315,6 +318,27 @@ function findMultivariantPlaylistIssues(playlist: MultivariantPlaylist) {
     const referenceIssues = checkRenditionReferences({ streamInfs, iFrameStreamInfs, media: renditions });
     for (const issue of referenceIssues) {
         issues.push(issue);
+    }
+    const sessionData = playlist["EXT-X-SESSION-DATA"];
+    if (sessionData !== undefined) {
+        const sessionDataIssues = checkSessionData(sessionData);
+        for (const issue of sessionDataIssues) {
+            issues.push(issue);
+        }
+    }
+    const sessionKeys = playlist["EXT-X-SESSION-KEY"];
+    if (sessionKeys !== undefined) {
+        const sessionKeyIssues = checkSessionKeys(sessionKeys);
+        for (const issue of sessionKeyIssues) {
+            issues.push(issue);
+        }
+    }
+    const contentSteering = playlist["EXT-X-CONTENT-STEERING"];
+    if (contentSteering !== undefined) {
+        const steeringIssues = checkContentSteering({ contentSteering, streamInfs });
+        for (const issue of steeringIssues) {
+            issues.push(issue);
+        }
     }
     return issues;
 }

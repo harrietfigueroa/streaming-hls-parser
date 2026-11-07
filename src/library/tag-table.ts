@@ -106,6 +106,21 @@ import {
     extXIFrameStreamInfSchema,
 } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.3-ext-x-i-frame-stream-inf.js";
 import {
+    EXT_X_SESSION_DATA_TAG_NAME,
+    extXSessionDataRules,
+    extXSessionDataSchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.4-ext-x-session-data.js";
+import {
+    EXT_X_SESSION_KEY_TAG_NAME,
+    extXSessionKeyRules,
+    extXSessionKeySchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.5-ext-x-session-key.js";
+import {
+    EXT_X_CONTENT_STEERING_TAG_NAME,
+    extXContentSteeringRules,
+    extXContentSteeringSchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.6-ext-x-content-steering.js";
+import {
     type IgnoreReason,
     ignoreReasons,
 } from "../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
@@ -354,6 +369,9 @@ const multivariantPlaylistShape = {
     ...sharedPlaylistShape,
     [EXT_X_MEDIA_TAG_NAME]: z.array(extXMediaSchema).readonly().optional(),
     [EXT_X_I_FRAME_STREAM_INF_TAG_NAME]: z.array(extXIFrameStreamInfSchema).readonly().optional(),
+    [EXT_X_SESSION_DATA_TAG_NAME]: z.array(extXSessionDataSchema).readonly().optional(),
+    [EXT_X_SESSION_KEY_TAG_NAME]: z.array(extXSessionKeySchema).readonly().optional(),
+    [EXT_X_CONTENT_STEERING_TAG_NAME]: extXContentSteeringSchema.optional(),
 } as const;
 
 const multivariantPlaylistEntries = {
@@ -367,6 +385,21 @@ const multivariantPlaylistEntries = {
         form: ValueForm.attributeList,
         format: extXIFrameStreamInfRules.format,
         occurrence: { kind: OccurrenceKind.repeated },
+    },
+    [EXT_X_SESSION_DATA_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXSessionDataRules.format,
+        occurrence: { kind: OccurrenceKind.repeated },
+    },
+    [EXT_X_SESSION_KEY_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXSessionKeyRules.format,
+        occurrence: { kind: OccurrenceKind.repeated },
+    },
+    [EXT_X_CONTENT_STEERING_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXContentSteeringRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: extXContentSteeringRules.singleTag },
     },
 } as const satisfies UnitEntries<typeof multivariantPlaylistShape>;
 

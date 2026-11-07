@@ -16,6 +16,9 @@ import {
 } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.1-ext-x-media/4.4.6.1-ext-x-media.js";
 import { renditionGroupRules } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.1-ext-x-media/4.4.6.1.1-rendition-groups.js";
 import { alternativeRenditionRules } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.2-ext-x-stream-inf/4.4.6.2.1-alternative-renditions.js";
+import { extXSessionDataRules } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.4-ext-x-session-data.js";
+import { extXSessionKeyRules } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.5-ext-x-session-key.js";
+import { extXContentSteeringRules } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.6-ext-x-content-steering.js";
 import { AssertionError } from "../src/library/assert.js";
 import { attributeListRules } from "../src/4-playlists/4.2-attribute-lists.js";
 import { extXStartRules } from "../src/4-playlists/4.4-playlist-tags/4.4.2-media-or-multivariant-playlist-tags/4.4.2.2-ext-x-start.js";
@@ -589,6 +592,43 @@ main/english-audio.m3u8
         });
     });
 
+    test("keeps section 9.8's session data on the playlist", () => {
+        const text = `#EXTM3U
+#EXT-X-SESSION-DATA:DATA-ID="com.example.lyrics",URI="lyrics.json"
+#EXT-X-SESSION-DATA:DATA-ID="com.example.title",LANGUAGE="en",VALUE="This is an example"
+#EXT-X-SESSION-DATA:DATA-ID="com.example.title",LANGUAGE="es",VALUE="Este es un ejemplo"
+#EXT-X-STREAM-INF:BANDWIDTH=1
+a.m3u8
+`;
+        const sessionData = [
+            { "DATA-ID": "com.example.lyrics", URI: "lyrics.json" },
+            { "DATA-ID": "com.example.title", LANGUAGE: "en", VALUE: "This is an example" },
+            { "DATA-ID": "com.example.title", LANGUAGE: "es", VALUE: "Este es un ejemplo" },
+        ];
+        const outcome = HLS.safeParse(text);
+        expect(outcome).toMatchObject({ kind: ParseKind.parsed, playlist: { "EXT-X-SESSION-DATA": sessionData }, violations: [] });
+    });
+
+    test("keeps session keys and the content steering tag on the playlist", () => {
+        const text = `#EXTM3U
+#EXT-X-CONTENT-STEERING:SERVER-URI="/steering?video=00012",PATHWAY-ID="CDN-A"
+#EXT-X-SESSION-KEY:METHOD=SAMPLE-AES,URI="skd://key",KEYFORMAT="com.apple.streamingkeydelivery"
+#EXT-X-STREAM-INF:BANDWIDTH=1280000,PATHWAY-ID="CDN-A"
+128/video.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=1280000,PATHWAY-ID="CDN-B"
+https://backup.example.com/128/video.m3u8
+`;
+        const outcome = HLS.safeParse(text);
+        expect(outcome).toMatchObject({
+            kind: ParseKind.parsed,
+            playlist: {
+                "EXT-X-CONTENT-STEERING": { "SERVER-URI": "/steering?video=00012", "PATHWAY-ID": "CDN-A" },
+                "EXT-X-SESSION-KEY": [{ METHOD: KeyMethod.sampleAes, URI: "skd://key", KEYFORMAT: "com.apple.streamingkeydelivery" }],
+            },
+            violations: [],
+        });
+    });
+
     const malformed = [
         { name: "a Media Segment tag after a variant", text: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n#EXTINF:1,\nb.ts\n", rule: mediaSegmentTagRules.notInMultivariant },
         { name: "a Media Playlist tag after a variant", text: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n#EXT-X-TARGETDURATION:10\n", rule: mediaPlaylistTagRules.notInMultivariant },
@@ -610,6 +650,19 @@ main/english-audio.m3u8
             rule: renditionGroupRules.distinctNames,
         },
         { name: "an AUDIO naming no Group", text: '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,AUDIO="aac"\na.m3u8\n', rule: extXStreamInfRules.groupReference },
+        { name: "an EXT-X-SESSION-DATA in a Media Playlist", text: '#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXT-X-SESSION-DATA:DATA-ID="a",VALUE="b"\n#EXTINF:1,\na.ts\n', rule: multivariantPlaylistTagRules.notInMedia },
+        { name: "an EXT-X-SESSION-DATA with neither VALUE nor URI", text: '#EXTM3U\n#EXT-X-SESSION-DATA:DATA-ID="a"\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n', rule: extXSessionDataRules.valueOrUri },
+        { name: "an EXT-X-SESSION-KEY with METHOD=NONE", text: "#EXTM3U\n#EXT-X-SESSION-KEY:METHOD=NONE\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n", rule: extXSessionKeyRules.methodNotNone },
+        {
+            name: "two EXT-X-CONTENT-STEERING tags",
+            text: '#EXTM3U\n#EXT-X-CONTENT-STEERING:SERVER-URI="a"\n#EXT-X-CONTENT-STEERING:SERVER-URI="b"\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n',
+            rule: extXContentSteeringRules.singleTag,
+        },
+        {
+            name: "a steering PATHWAY-ID no variant is on",
+            text: '#EXTM3U\n#EXT-X-CONTENT-STEERING:SERVER-URI="a",PATHWAY-ID="CDN-A"\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n',
+            rule: extXContentSteeringRules.pathwayOfVariant,
+        },
     ] as const;
 
     test.each(malformed)("reports $name as malformed", ({ text, rule }) => {

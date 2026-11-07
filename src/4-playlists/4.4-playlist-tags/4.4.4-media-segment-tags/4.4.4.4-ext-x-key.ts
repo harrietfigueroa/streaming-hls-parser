@@ -55,20 +55,23 @@ const IV_DIGIT_COUNT_MAX = 32;
 const IV_LENGTH_MAX = "0x".length + IV_DIGIT_COUNT_MAX;
 const KEYFORMAT_VERSIONS_PATTERN = /^[1-9][0-9]*(?:\/[1-9][0-9]*)*$/;
 
-/**
- * Converts EXT-X-KEY's attributes, each optional one absent when not written.
- * Section 4.4.4.4: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.4
- */
-export const extXKeySchema = attributeListTagSchema({
+/** EXT-X-KEY's attributes, which EXT-X-SESSION-KEY shares (section 4.4.6.5). */
+export const keyAttributes = {
     METHOD: enumeratedStringSchema(keyMethods),
     URI: quotedStringSchema.optional(),
     IV: hexadecimalSequenceSchema.max(IV_LENGTH_MAX).optional(),
     KEYFORMAT: quotedStringSchema.optional(),
     KEYFORMATVERSIONS: quotedStringSchema.pipe(z.string().regex(KEYFORMAT_VERSIONS_PATTERN)).optional(),
-})
-    .describe("EXT-X-KEY, section 4.4.4.4: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.4");
+} as const;
 
-type Key = Readonly<Omit<z.output<typeof extXKeySchema>, "ignored">>;
+/**
+ * Converts EXT-X-KEY's attributes, each optional one absent when not written.
+ * Section 4.4.4.4: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.4
+ */
+export const extXKeySchema = attributeListTagSchema(keyAttributes).describe("EXT-X-KEY, section 4.4.4.4: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.4");
+
+/** One converted EXT-X-KEY or EXT-X-SESSION-KEY, without its unrecognized attributes. */
+export type Key = Readonly<Omit<z.output<typeof extXKeySchema>, "ignored">>;
 
 const IV_FORBIDDEN_METHODS: ReadonlySet<KeyMethod> = new Set([KeyMethod.aes256Gcm, KeyMethod.sampleAesCtr]);
 
