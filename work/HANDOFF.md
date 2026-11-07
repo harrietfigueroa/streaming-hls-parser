@@ -4,7 +4,7 @@ This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-p
 
 ## Where things stand
 
-The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 813 tests pass, `tsc --noEmit` is clean, and `npm run lint` (oxlint) is clean. `style-lint` is clean on every committed file except three kinds of finding, and no disable comment names a rule, since the repository does not run `style-lint`:
+The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 855 tests pass, `tsc --noEmit` is clean, and `npm run lint` (oxlint) is clean. `style-lint` is clean on every committed file except three kinds of finding, and no disable comment names a rule, since the repository does not run `style-lint`:
 
 - `style/no-schema-parse` on the `HLS.parse(...)` calls in `tests/index.test.ts` and `tests/stream.test.ts`, which it reads as zod's `.parse`. The user chose to leave these open.
 - `style/positional-parameters-max` on the `(text, reviver, options)` and `(chunks, reviver, options)` overloads of `safeParse` and `parse` in `create-hls.ts`. Decision 15, which the user decided, declares this shape an exception. Claude left these open without asking, and the commit hook reports them on each commit touching `create-hls.ts`.
@@ -38,11 +38,16 @@ The work is on the branch `rebuild`, created from `origin/main`, and is open as 
 | `0505169` | The line-fed scanner `createScanner`, with `scanPlaylist` driving it; a playlist tag's line counts in the text boundary only once kept. |
 | `a83734e` | The incremental spanning checks in `check-playlist.ts`, and backlog item 50. |
 | `6fcd5ff` | The streaming parse, `parse-stream.ts`, through `HLS.safeParse(chunks)` and `HLS.parse(chunks)` (decision 74). |
+| `c09edd3` | Each unit's text the same in the static and streaming parses, past a dropped variant (decision 75). |
+| `980005e` | The `kind` option and the parse's narrowed types (decision 76). |
+| `c9d8b11`, `28d6f75` | A test that a consumer stopping early closes the stream's source. |
+| `78c9c23` | The spec's example playlists under `tests/fixtures/spec/`, their extraction script, and their outcomes (decision 77). |
+| `cd9ac5f` | Output objects' source text in private fields in place of WeakMaps (decision 78). |
 
 ## Where to look
 
 - `spec/draft-pantos-hls-rfc8216bis-22.txt` is the pinned spec (decision 1). Code mirrors its section numbering.
-- `work/decisions/decisions.jsonl` holds 74 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
+- `work/decisions/decisions.jsonl` holds 78 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
 - `work/backlog/backlog.jsonl` is append-only too. The latest line for an `id` gives that item's current state.
 - `lint/` holds the oxlint plugin (`plugin.ts`) and its rules under `lint/rules/`. `.oxlintrc.json` enables them, and `tests/lint/` tests them through oxlint's `RuleTester`.
 - `src/<n>-<heading>/<n.n>-<heading>/…` holds one file per spec section (decision 33). A section that is a directory keeps its section-wide rules in a file named after it inside the directory (decision 54). `src/library/` holds code that belongs to no section.
@@ -50,6 +55,7 @@ The work is on the branch `rebuild`, created from `origin/main`, and is open as 
 - `bench/` holds the zod benchmark, kept to rerun against the real schemas (decision 47), and `entries.bench.ts`, a whole parse of the large fixture through each entry, the measurement behind decisions 68 and 71.
 - `tests/precompiled.test.ts` checks that the two entries return equal outcomes, and `tests/library/compile.test.ts` compiles every tag schema with `strict: true`.
 - `tests/stream.test.ts` compares every streamed part with the static parse of the same text, and `tests/library/read-lines.test.ts` pins the line reader against each way of cutting a text into chunks.
+- `scripts/spec-playlists.ts` extracts the spec's 14 example playlists, `npm run extract-fixtures` writes them to `tests/fixtures/spec/`, and `tests/spec-examples.test.ts` checks the files against a fresh extraction and pins each example's outcome.
 
 ## How the parser is built
 
@@ -58,7 +64,7 @@ A parse runs in three passes, each in its own module under `src/library/`, and t
 1. `scan.ts`'s `createScanner` takes one line at a time, which `scanPlaylist` feeds from `splitLines` and the streaming parse from `read-lines.ts`. It applies sections 4.1 and 4.4.1.1's line rules, parses attribute lists, substitutes variables, and resolves each `EXT-X-DEFINE` as it is read. It settles the playlist's kind at the first tag only one kind's table holds (`placeInUnsettledKind`, then `placeInSettledKind`), and groups each tag's raw value into the playlist, a unit (a segment or a variant), or the pending segment. Positional rules live here too: the out-of-kind rules, `precedesSegments`, `precedesParts`, and the discontinuity sequence's order.
 2. `create-hls.ts` converts the raw playlist with one `safeParse` of its kind's playlist schema, built by `schemas.ts` from `tag-table.ts`. `schema-issues.ts` maps each zod issue to its tag's format or required rule, or to an ignore reason. Ignored tags move into the ignored lines in position, a unit whose ignored tag has `ignoresUri` is dropped with its URI line, and the playlist converts once more (decision 55).
 3. `findPlaylistIssues` in `create-hls.ts` runs the rules that span tags or units, by the playlist's kind, through `check-playlist.ts`: `createMediaPlaylistChecker`, which takes each segment in order and keeps only the facts the rules read, or `findMultivariantPlaylistIssues`. Every issue resolves through `policy.ts` (decision 8).
-4. Once the checks pass, `toParsedPlaylist` in `create-hls.ts` builds the output. `resolve.ts` computes each segment's resolved fields (decision 69), and `output.ts`'s `createUnit` and `createPlaylist` copy each converted value onto a frozen `UnitMethods` or `PlaylistMethods` instance. They record its source text and the text range the scanner gave its unit in a WeakMap (decision 71). A reviver, when passed, then runs over the result through `revive.ts` (decision 70).
+4. Once the checks pass, `toParsedPlaylist` in `create-hls.ts` builds the output. `resolve.ts` computes each segment's resolved fields (decision 69), and `output.ts`'s `createUnit` and `createPlaylist` copy each converted value onto a frozen `UnitMethods` or `PlaylistMethods` instance. Each constructor stores its source text and the text range the scanner gave its unit in private fields (decision 78). A reviver, when passed, then runs over the result through `revive.ts` (decision 70).
 
 Writing goes the other way. `toHLS()` and `toStream()` slice the recorded source, joining the chunks of `chunksOf` in `output.ts`. `toJSON()` runs `jsonify.ts`. `HLS.stringify` and `toHLS({ canonical: true })` run `stringify.ts`, which writes each tag through its section module's `AttributeWriters` table or value writer (decision 72).
 
@@ -68,20 +74,18 @@ A streaming parse runs the same layers per unit, in `parse-stream.ts` (decisions
 
 ## Next steps
 
-1. Backlog item 51, which the user asked for on 2026-11-07: fix the static parse's text mismatch with the streaming parse, so each unit's text is the same in both. Today `withIgnoredTags` in `schema-issues.ts` carries a dropped variant's range start (`carriedStart`) to the next kept unit even when a kept playlist tag lies between them, while the streaming parse puts the dropped lines in that playlist tag's text. The fix is in the static side: carry `carriedStart` only while the dropped unit's range ends where the next unit's starts, and otherwise leave the dropped lines in the playlist's own text, which the playlist tag's line also sits in. The dropped lines still lead the next variant's ignored lines in both parses, per decision 62. Test first: add a playlist to `tests/stream.test.ts`'s `playlists` table with an ignored variant, then an `EXT-X-MEDIA` line, then a variant, and watch the per-unit text test fail before changing `withIgnoredTags`. Then strike the mismatch from decision 74's readings with a new amending decision.
-2. Backlog item 52, which the user asked for on 2026-11-07: `HLS.parse` takes a type argument, so the caller can assert the playlist's type, as in `HLS.parse<MediaPlaylist>(text)`. A type argument alone is a cast, which the style guide forbids, so the design question below has to be settled before building. Claude's recommendation is to back the type argument with a runtime check.
-3. Streaming follow-ups. Background research the user asked for on 2026-11-07 bears on cleanup:
+1. Decision 32's remainder: one negative fixture per rule, a valid typed base with exactly one line broken, and a test that walks every section module's `Rules` objects and asserts each rule has a fixture producing it. Many rules already have such a case scattered through `tests/`, so the coverage test is the piece to build first, listing the rules it finds uncovered.
+2. Streaming follow-ups. Background research the user asked for on 2026-11-07 bears on cleanup:
    - An async generator's iterator already disposes through `AsyncIterator.prototype[Symbol.asyncDispose]`, which calls `return()`, so a yielded stream works with `await using` where the runtime supports it.
    - `using` syntax and `DisposableStack` are absent from Node 22 and Safari, so shipped code keeps to `try/finally`.
-   - `toStream()` has no `cancel()`, which would call the chunk generator's `return()`.
-   - No test yet checks that a consumer breaking out of the parts closes the source's iterator; `for await` in `readLines` should call `return()` on it, and a test with a counting source would confirm it.
+   - `toStream()` has no `cancel()`. Claude left it out: its chunk generator is synchronous over an in-memory string and holds no outside resource, so closing it changes nothing a caller can observe, and a canceled `ReadableStream` already stops pulling.
+   - The streaming overloads accept the `kind` option for its runtime check but keep their wide part types; narrowing a stream's parts by kind is open.
    - The streaming parse has no benchmark. `bench/entries.bench.ts` is where one belongs, and backlog item 50 asks that it compare with other popular HLS parsers.
-4. Extract the spec's 15 embedded playlists into `tests/fixtures/` with a TypeScript script, and add one negative fixture per rule with a test that every rule has one (decision 32). Several examples are excerpts with `...` lines, which parse as URIs, so the script has to drop or mark them. Section 9.11's example breaks section 4.4.6.1.1 (see the open questions), and sections 9.6 and 9.7 write `CODECS="..."`, which parses as a quoted-string.
-5. Add section barrels (decision 33) when a module outside a section first imports through a public surface. None exist yet.
-6. Packaging: `package.json` has no `exports` map, `main`, or build script, so neither entry is importable from the published package yet. Decision 46's esbuild bundles and the `./precompiled` export path are unbuilt.
-7. Backlog items 7 and 50. The user asked on 2026-11-07 that the performance work web-search for other popular HLS parsers and benchmark this library against them. Building the output objects costs about 5 to 8% at p75 on the large fixture, with GC tails up to about 150 ms that Claude believes come from the 11,701 WeakMap entries in `output.ts` but has not verified. The same research found that V8 marks WeakMap ephemerons in a fixpoint loop, and that private class fields are ordinary on-object slots. Verify with `--trace-gc` first; if the WeakMap is the cause, the fix is `#source` and `#range` fields set in the `UnitMethods` and `PlaylistMethods` constructors, which also removes the per-unit intermediate objects.
+3. Add section barrels (decision 33) when a module outside a section first imports through a public surface. None exist yet.
+4. Packaging: `package.json` has no `exports` map, `main`, or build script, so neither entry is importable from the published package yet. Decision 46's esbuild bundles and the `./precompiled` export path are unbuilt.
+5. Backlog items 7 and 50. The user asked on 2026-11-07 that the performance work web-search for other popular HLS parsers and benchmark this library against them, which adds each parser as a dev dependency to justify. The GC tails are fixed (decision 78), and `npx vitest bench --run bench/entries.bench.ts --reporter=verbose` runs the entry benchmark. `--trace-gc` reaches the test process as `npx vitest run <file> --pool=forks --execArgv=--trace-gc`, since Node refuses it in `NODE_OPTIONS`.
 
-Backlog items 2, 4 to 25, 30 to 39, and 45 to 52 remain open. Items 7 (performance checks) and 10 (lenient policy) most affect the build order. Items 11 to 14 are section 4 rules waiting on something else: section 8's version table, the raw `EXTINF` text, the line order between `EXT-X-KEY` and `EXT-X-MAP`, and Date Range Following Range resolution. Three groups came from background research on 2026-11-06:
+Backlog items 2, 4 to 25, 30 to 39, and 45 to 50 remain open. Items 7 (performance checks) and 10 (lenient policy) most affect the build order. Items 11 to 14 are section 4 rules waiting on something else: section 8's version table, the raw `EXTINF` text, the line order between `EXT-X-KEY` and `EXT-X-MAP`, and Date Range Following Range resolution. Three groups came from background research on 2026-11-06:
 
 - **Items 15 to 25, vendor ad markers:** `EXT-X-CUE-OUT`, `EXT-X-CUE-OUT-CONT`, `EXT-X-CUE-IN`, `EXT-OATCLS-SCTE35`, `EXT-X-ASSET`, `EXT-X-SPLICEPOINT-SCTE35`, `EXT-X-SCTE35`, Adobe's `EXT-X-CUE`, vendor departures in SCTE-35 Date Ranges, and SCTE-35 payload decoding. Vendors disagree on several of these syntaxes, which the items record. The Adobe details come from search excerpts only.
 - **Items 30 to 39, other tags outside the spec:** `EXT-X-ALLOW-CACHE`, the Image Media Playlist tags, the LHLS and Twitch prefetch and informational tags, Adobe's `EXT-X-FAXS-CM`, extended M3U and IPTV lines, and fixtures for vendor lines.
@@ -89,7 +93,7 @@ Backlog items 2, 4 to 25, 30 to 39, and 45 to 52 remain open. Items 7 (performan
 
 ## Open questions for the user
 
-- **How `HLS.parse`'s type argument asserts the type (next step 2).** A bare generic, `parse<T extends Playlist>(text): T`, compiles to nothing, so a Multivariant Playlist passed where a Media Playlist was asserted reaches the caller typed wrong: the cast the style guide forbids, written at the call site. Claude recommends making the check real: the type argument infers from a `kind` option, as in `HLS.parse(text, { kind: PlaylistKind.media })` returning `MediaPlaylist`. A playlist of the other kind is then malformed, so `parse` throws its SyntaxError and `safeParse` returns the issue, under a new rule that names the expected kind. `HLS.parse<MediaPlaylist>(text)` can still be written, constrained so it compiles only with the matching `kind` option. The streaming overloads take the same option and end with a malformed part at the first tag that settles the other kind. Still open: whether the user wants the bare generic despite the cast, and whether a kind mismatch is malformed or a third outcome beside `limitExceeded`.
+- **Decision 76 settled `HLS.parse`'s type argument on Claude's recommendation, without gating.** A `kind` option pre-settles the scanner's kind, so a mismatch breaks the spec's existing out-of-kind rules and is malformed, with no new rule and no third outcome. `HLS.parse(text, { kind: PlaylistKind.media })` returns `MediaPlaylist`, and `HLS.parse<MediaPlaylist>(text)` compiles only beside that option. A playlist with no tag of either kind settles as the asserted kind. Each of these readings is open to correction.
 - **Decision 27 and the spec disagree on date-time offsets (decision 59).** Decision 27 requires an offset on every date-time, but section 4.4.4.6 says a date-time only SHOULD indicate a time zone. An `EXT-X-PROGRAM-DATE-TIME` without an offset is valid per the spec and malformed here.
 - **Decisions 54, 59, 60, 61, and 58 record readings Claude made without gating, each open to correction.** They cover:
   - one `EXTINF`, and one of each next-segment tag, per segment;
@@ -117,7 +121,9 @@ Backlog items 2, 4 to 25, 30 to 39, and 45 to 52 remain open. Items 7 (performan
   - `METHOD=NONE` on a session key as a broken rule rather than an ignored tag;
   - a variant without PATHWAY-ID on the default Pathway `.`;
   - the Multivariant Playlist's `variables` Map, the one output change among them.
-- **Section 9.11's Content Steering example breaks section 4.4.6.1.1.** Its two AUDIO Groups name their members "English" and "ENGLISH". NAME is not among the attributes corresponding members may differ in, so the example is malformed under any matching of members, and the parser reports it. Either the example is in error or the rule compares NAME case-insensitively, which the spec does not say.
+- **Section 9.12's Content Steering example breaks section 4.4.6.1.1.** Its two AUDIO Groups name their members "English" and "ENGLISH". NAME is not among the attributes corresponding members may differ in, so the example is malformed under any matching of members, and the parser reports it. Either the example is in error or the rule compares NAME case-insensitively, which the spec does not say.
+- **Appendix G.2's example breaks section 4.4.6.1.1 too.** Its "audio" Group has two members with DEFAULT=YES, one per language, and the section says a Group MUST NOT have more than one. The parser reports it malformed, and `tests/spec-examples.test.ts` pins that.
+- **Decision 78 makes the output types nominal.** The private fields brand `UnitMethods`, `PlaylistMethods`, and `TagMethods`, so a hand-built object no longer satisfies `MediaSegment`, `Variant`, or a playlist type; `DataOf` remains the type for one. Claude made this change without asking.
 - **`HLS.parse` throws a RangeError for an exceeded limit (decision 67).** Decision 7 named only the SyntaxError, before the `limitExceeded` outcome existed.
 - **Decisions 68, 69, and 70 record readings Claude made without gating.** They cover:
   - `createTagTables(prepare)` in place of decision 18's mapped type, and the precompiled entry compiling with `strict: false` so a refused schema falls back rather than failing the import;
@@ -132,7 +138,7 @@ Backlog items 2, 4 to 25, 30 to 39, and 45 to 52 remain open. Items 7 (performan
   - parts that wrap the static output objects, with a final end, malformed, or `limitExceeded` part;
   - a PlaylistTag value typed `unknown`;
   - a stream ending at the first unit that fails conversion, where the static parse reports every unit's;
-  - one text mismatch with the static parse: a dropped variant followed by a playlist tag has its lines in that tag's text, which next step 1 fixes on the static side;
+  - unit text equal to the static parse's, which decision 75 made true by fixing the static side;
   - `HLS.parse` over a stream yielding the same parts and throwing in place of a failure part.
 - **The scanner change in `0505169` moved unit text.** A playlist tag ignored at scan or at conversion is now in the next segment's `toHLS` text, beside its line in that segment's ignored lines, where before it sat in the playlist's own text. Claude made this change to keep text and data together, without asking.
 
@@ -174,4 +180,4 @@ The user's global style guide governs, and `style-lint` enforces its determinist
 
 ## Process notes
 
-Each section is built test-first: write the failing test, run it to watch it fail, implement, then typecheck and lint before committing. Section 4.4.5.2 to 4.4.5.4's modules were written in the same command as their tests, so the tests never ran red. A mutation run with `splice try --expect-fail` confirmed afterward that they catch broken implementations, and the next session should keep the order instead. The `HLS.stringify` tests passed on their first run; two mutation runs, a wrong attribute writer and a dropped tag, confirmed they fail when the writer breaks. Decisions are logged as they happen, with who proposed and who decided, before the work that depends on them.
+Each section is built test-first: write the failing test, run it to watch it fail, implement, then typecheck and lint before committing. Section 4.4.5.2 to 4.4.5.4's modules were written in the same command as their tests, so the tests never ran red. A mutation run with `splice try --expect-fail` confirmed afterward that they catch broken implementations, and the next session should keep the order instead. The spec extraction in `scripts/spec-playlists.ts` was also written before its tests; two mutation runs, a dropped indent continuation and a dropped excerpt mark, confirmed the tests catch both. The `HLS.stringify` tests passed on their first run; two mutation runs, a wrong attribute writer and a dropped tag, confirmed they fail when the writer breaks. Decisions are logged as they happen, with who proposed and who decided, before the work that depends on them.
