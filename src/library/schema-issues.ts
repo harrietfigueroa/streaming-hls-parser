@@ -170,6 +170,33 @@ function compareLineNumbers(left: IgnorableTag, right: IgnorableTag) {
     return left.tag.lineNumber - right.tag.lineNumber;
 }
 
+function compareLineNumbersDescending(left: IgnorableTag, right: IgnorableTag) {
+    return right.tag.lineNumber - left.tag.lineNumber;
+}
+
+/**
+ * The start of an owner's text once the ignored playlist tags just before it join it, as their
+ * lines join its ignored lines: a tag whose text ends where the owner's starts leads it, and so in
+ * turn does each such tag before that one.
+ */
+function extendStart(options: { readonly start: number; readonly owned: readonly IgnorableTag[] | undefined }) {
+    const { owned } = options;
+    let start = options.start;
+    if (owned === undefined) {
+        return start;
+    }
+    // The copy keeps the caller's array unsorted, since sort reorders in place.
+    const latestFirst = Array.from(owned).sort(compareLineNumbersDescending);
+    for (const { tag } of latestFirst) {
+        const isOwnText = tag.range.start < tag.range.end;
+        const isJustBefore = isOwnText && tag.range.end === start;
+        if (isJustBefore) {
+            start = tag.range.start;
+        }
+    }
+    return start;
+}
+
 /** Merges ignored tags into a unit's ignored lines, each before the line its ignoredIndex counts up to. */
 function mergeIgnored(ignored: readonly IgnoredLine[], ignorables: readonly IgnorableTag[]) {
     // The copy keeps the caller's array unsorted, since sort reorders in place.
@@ -262,6 +289,7 @@ export function withIgnoredTags(playlist: RawPlaylist, ignorables: readonly Igno
     // A dropped unit's lines lead the next unit's ignored lines, so its text leads the next unit's text.
     let carriedStart: number | undefined;
     for (const [unitIndex, unit] of playlist.units.entries()) {
+        const unitStart = extendStart({ start: unit.range.start, owned: byOwner.get(unitIndex) });
         const tags = withoutTags(unit.tags, removed);
         const ignored = rebuildIgnored(unit.ignored, unitIndex);
         const uriReason = uriReasons.get(unitIndex);
@@ -270,13 +298,13 @@ export function withIgnoredTags(playlist: RawPlaylist, ignorables: readonly Igno
             carried = joinIgnored({ leading: carried, trailing: ignored });
             carried.push({ kind: IgnoredKind.ignoredUri, line: unit.uriLine, reason: uriReason });
             if (carriedStart === undefined) {
-                carriedStart = unit.range.start;
+                carriedStart = unitStart;
             }
             continue;
         }
         const withCarried = joinIgnored({ leading: carried, trailing: ignored });
         carried = [];
-        let start = unit.range.start;
+        let start = unitStart;
         if (carriedStart !== undefined) {
             start = carriedStart;
         }
@@ -296,7 +324,7 @@ export function withIgnoredTags(playlist: RawPlaylist, ignorables: readonly Igno
     const pendingTags = withoutTags(pending.tags, removed);
     const pendingTrailing = rebuildIgnored(pending.ignored, trailingIndex);
     const pendingIgnored = joinIgnored({ leading: carried, trailing: pendingTrailing });
-    let pendingStart = pending.range.start;
+    let pendingStart = extendStart({ start: pending.range.start, owned: byOwner.get(trailingIndex) });
     if (carriedStart !== undefined) {
         pendingStart = carriedStart;
     }

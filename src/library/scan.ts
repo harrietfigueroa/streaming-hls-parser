@@ -35,7 +35,7 @@ import type { IgnoreReason } from "../6-client-server-responsibilities/6.3-clien
 import { assertCondition, unreachable } from "./assert.js";
 import { Limit, type Limits } from "./options.js";
 import type { Policy } from "./policy.js";
-import { type Issue, type Rule, Severity } from "./rule.js";
+import { type Check, CheckKind, type Issue, type Rule, Severity } from "./rule.js";
 import { type EntriesByKind, OccurrenceKind, PlaylistKind, type TagEntry, ValueForm } from "./tag-table.js";
 import { utf8ByteLength } from "./utf8.js";
 
@@ -72,6 +72,12 @@ export type RawTag = {
     readonly ownerIndex: number;
     /** The count of the owner's ignored lines that precede the line. */
     readonly ignoredIndex: number;
+    /**
+     * A playlist tag's own text: from the line after the last playlist tag kept or URI line before it
+     * through its line, or empty at its line's end when it lies among a unit's tags, inside that unit's
+     * text. A unit tag's range is empty too, since its unit's range holds its text.
+     */
+    readonly range: TextRange;
 };
 
 /** A unit's recognized tags by name, each name's tags in line order; a tag appearing once has one. */
@@ -97,12 +103,16 @@ export type RawUriUnit = RawUnit & { readonly uri: string; readonly uriLine: str
  * the pending Parent Segment when they include an EXT-X-PART, as at the end of a live Low-Latency
  * playlist, and the ignored lines after the last URI then go with it.
  */
-export type RawPlaylist = RawUnit & {
+export type RawPlaylistHead = RawUnit & {
     readonly kind: PlaylistKind;
-    readonly units: readonly RawUriUnit[];
     readonly pendingSegment?: RawUnit & { readonly range: TextRange };
     /** Each Variable Name the playlist's definitions provide, with its resolved Variable Value. */
     readonly variables: ReadonlyMap<string, string>;
+};
+
+/** The playlist as scanned whole, with its units. */
+export type RawPlaylist = RawPlaylistHead & {
+    readonly units: readonly RawUriUnit[];
     /** The text the playlist was scanned from, which each unit's range indexes. */
     readonly source: string;
 };
@@ -117,6 +127,16 @@ type ScanPayloads = {
 };
 type ScanMember<K extends ScanKind> = { readonly kind: K } & ScanPayloads[K];
 export type Scan = { [K in ScanKind]: ScanMember<K> }[ScanKind];
+
+type ScanEndPayloads = {
+    /** The playlist without its units, and where its trailing text starts: after the last unit or playlist tag kept. */
+    [ScanKind.scanned]: { readonly playlist: RawPlaylistHead; readonly violations: readonly Issue[]; readonly boundary: number };
+    [ScanKind.malformed]: { readonly issue: Issue };
+};
+type ScanEndKind = keyof ScanEndPayloads;
+type ScanEndMember<K extends ScanEndKind> = { readonly kind: K } & ScanEndPayloads[K];
+/** The outcome of finishing a line-fed scan. */
+export type ScanEnd = { [K in ScanEndKind]: ScanEndMember<K> }[ScanEndKind];
 
 const ReadKind = { read: "read", malformed: "malformed", invalidSyntax: "invalidSyntax", limitExceeded: "limitExceeded" } as const;
 type ReadKind = (typeof ReadKind)[keyof typeof ReadKind];
@@ -150,11 +170,6 @@ const HEXADECIMAL_PREFIX_PATTERN = /^0[xX]/;
 function malformedScan(issue: Issue) {
     const malformed: Scan = { kind: ScanKind.malformed, issue };
     return malformed;
-}
-
-function limitExceededScan(limit: Limit, limits: Limits) {
-    const exceeded: Scan = { kind: ScanKind.limitExceeded, limit, value: limits[limit] };
-    return exceeded;
 }
 
 function atLine(issue: Issue, lineNumber: number) {
@@ -377,256 +392,406 @@ function placeInUnsettledKind(name: string, entries: EntriesByKind) {
     return shared;
 }
 
-/**
- * Groups `text`'s tags into the playlist and its units by the tag names in each kind's entries,
- * keeping comments and unrecognized tags on the next unit, or on the playlist after the last one.
- * The first tag only one kind holds settles the playlist's kind, and a playlist that never settles
- * is a Multivariant Playlist, per section 4.4. Each issue is resolved through `policy`: the first
- * malformed one stops the scan, and violations are collected while it continues, without the tag
- * that broke the rule, or with a URI as written. A line or a unit count past `limits` stops the
- * scan as `limitExceeded`.
- */
-export function scanPlaylist(options: {
-    readonly text: string;
+export const ScanStepKind = {
+    read: "read",
+    unit: "unit",
+    playlistTag: "playlistTag",
+    malformed: "malformed",
+    limitExceeded: "limitExceeded",
+} as const;
+export type ScanStepKind = (typeof ScanStepKind)[keyof typeof ScanStepKind];
+
+type ScanStepPayloads = {
+    [ScanStepKind.read]: Record<never, never>;
+    /** A Media Segment or Variant Stream its URI line has just completed. */
+    [ScanStepKind.unit]: { readonly unit: RawUriUnit };
+    /** A playlist tag just kept, with its entry. */
+    [ScanStepKind.playlistTag]: { readonly name: string; readonly entry: TagEntry; readonly tag: RawTag };
+    [ScanStepKind.malformed]: { readonly issue: Issue };
+    [ScanStepKind.limitExceeded]: { readonly limit: Limit; readonly value: number };
+};
+type ScanStepMember<K extends ScanStepKind> = { readonly kind: K } & ScanStepPayloads[K];
+/** What scanning one line produced. A malformed or limitExceeded step ends the scan. */
+export type ScanStep = { [K in ScanStepKind]: ScanStepMember<K> }[ScanStepKind];
+
+const readStep: ScanStep = Object.freeze({ kind: ScanStepKind.read });
+const passedCheck: Check = Object.freeze({ kind: CheckKind.passed });
+
+function failedCheck(issue: Issue) {
+    const failed: Check = { kind: CheckKind.failed, issue };
+    return failed;
+}
+
+/** Checks a recognized tag's position: once-only tags, tags before the first segment, before a discontinuity, and before the first part. */
+function checkTagPosition(options: {
+    readonly name: string;
+    readonly entry: TagEntry;
+    readonly lineNumber: number;
+    /** The tags of its name already written in the same unit, or in the playlist for a playlist tag. */
+    readonly written: readonly RawTag[] | undefined;
+    readonly unitCount: number;
+    readonly hasDiscontinuity: boolean;
+    /** Whether the unit, or the playlist for a playlist tag, already has an EXT-X-PART. */
+    readonly hasParts: boolean;
+}) {
+    const { name, entry, lineNumber, written } = options;
+    const occurrence = entry.occurrence;
+    const isOnce = occurrence.kind === OccurrenceKind.once;
+    const isDuplicate = isOnce && written !== undefined;
+    if (isDuplicate) {
+        return failedCheck({ rule: occurrence.duplicate, detail: `Line ${lineNumber}: ${name} repeats.` });
+    }
+    const precedesSegmentsRule = entry.precedesSegments;
+    const isAfterUnits = options.unitCount > 0;
+    const isMisplaced = precedesSegmentsRule !== undefined && isAfterUnits;
+    if (isMisplaced) {
+        return failedCheck({ rule: precedesSegmentsRule, detail: `Line ${lineNumber}: ${name} follows a segment.` });
+    }
+    const isSequenceAfterDiscontinuity = options.hasDiscontinuity && name === EXT_X_DISCONTINUITY_SEQUENCE_TAG_NAME;
+    if (isSequenceAfterDiscontinuity) {
+        const detail = `Line ${lineNumber}: ${name} follows an EXT-X-DISCONTINUITY.`;
+        return failedCheck({ rule: extXDiscontinuitySequenceRules.precedesDiscontinuity, detail });
+    }
+    const isAfterParts = entry.precedesParts !== undefined && options.hasParts;
+    if (isAfterParts) {
+        const detail = `Line ${lineNumber}: ${name} follows its Parent Segment's first EXT-X-PART.`;
+        return failedCheck({ rule: extXPartRules.parentTagsPrecedeParts, detail });
+    }
+    return passedCheck;
+}
+
+function malformedStep(issue: Issue) {
+    const malformed: ScanStep = { kind: ScanStepKind.malformed, issue };
+    return malformed;
+}
+
+function limitExceededStep(limit: Limit, limits: Limits) {
+    const exceeded: ScanStep = { kind: ScanStepKind.limitExceeded, limit, value: limits[limit] };
+    return exceeded;
+}
+
+/** The options a scan runs under. */
+export type ScannerOptions = {
     readonly entries: EntriesByKind;
     readonly policy: Policy;
     readonly limits: Limits;
     readonly uri: URL | undefined;
     /** The variables of the Multivariant Playlist an IMPORT reads, when one was given. */
     readonly imported: ReadonlyMap<string, string> | undefined;
-}) {
-    const { text, entries, policy, limits, uri, imported } = options;
+};
+
+/**
+ * Creates a scanner fed one line at a time. It groups the lines' tags into the playlist and its units
+ * by the tag names in each kind's entries, keeping comments and unrecognized tags on the next unit,
+ * or on the playlist after the last one, and reports each unit as its URI line completes it and each
+ * playlist tag as it is kept, retaining the playlist's tags and none of its units. The first tag only
+ * one kind holds settles the playlist's kind, and a playlist that never settles is a Multivariant
+ * Playlist, per section 4.4. Each issue is resolved through `policy`: a malformed one ends the scan,
+ * and violations are collected while it continues, without the tag that broke the rule, or with a
+ * URI as written. A line or a unit count past `limits` ends the scan as `limitExceeded`.
+ */
+export function createScanner(options: ScannerOptions) {
+    const { entries, policy, limits, uri, imported } = options;
     const playlistTags = new Map<string, RawTag[]>();
-    const units: RawUriUnit[] = [];
     const violations: Issue[] = [];
     const variables = new Map<string, string>();
     const context: SubstitutionContext = { variables, substitutedLineBytesMax: limits.substitutedLineBytesMax };
+    let unitCount = 0;
     let unitTags = new Map<string, RawTag[]>();
     let ignored: IgnoredLine[] = [];
     let lineCount = 0;
     let hasDiscontinuity = false;
+    let hasEnded = false;
     let settledKind: PlaylistKind | undefined;
     let nextLineStart = 0;
-    // Where the current unit's text starts: after the last playlist tag or URI line before its first tag.
+    // Where the current unit's text starts: after the last playlist tag kept or URI line before its first tag.
     let boundary = 0;
     let unitStart: number | undefined;
     let unitEnd = 0;
-    // The loop is bounded by the text length, since splitLines yields at most one line per character.
-    for (const rawLine of splitLines(text)) {
+
+    /** Resolves `issue` through the policy: a malformed step ending the scan, or a violation collected. */
+    function report(issue: Issue) {
+        if (policy(issue.rule) === Severity.malformed) {
+            hasEnded = true;
+            return malformedStep(issue);
+        }
+        violations.push(issue);
+        return readStep;
+    }
+
+    function exceed(limit: Limit) {
+        hasEnded = true;
+        return limitExceededStep(limit, limits);
+    }
+
+    function scanUri(options: { readonly rawLine: string; readonly uriText: string; readonly lineNumber: number; readonly lineEnd: number }) {
+        const { rawLine, uriText, lineNumber, lineEnd } = options;
+        // The playlist is a unit too, so it adds one to the count of units its URI lines end.
+        const uriUnitCount = unitCount + 1;
+        const totalUnitCount = uriUnitCount + 1;
+        if (totalUnitCount > limits.unitCountMax) {
+            return exceed(Limit.unitCountMax);
+        }
+        const substituted = substitute(uriText, context);
+        let unitUri = uriText;
+        if (substituted.kind === ReadKind.limitExceeded) {
+            return exceed(Limit.substitutedLineBytesMax);
+        }
+        if (substituted.kind === ReadKind.malformed) {
+            const reported = report(atLine(substituted.issue, lineNumber));
+            if (reported.kind === ScanStepKind.malformed) {
+                return reported;
+            }
+        } else {
+            unitUri = substituted.value;
+        }
+        let start = boundary;
+        if (unitStart !== undefined) {
+            start = unitStart;
+        }
+        const unit: RawUriUnit = { tags: unitTags, uri: unitUri, uriLine: rawLine, ignored, range: { start, end: lineEnd } };
+        unitCount += 1;
+        unitTags = new Map();
+        ignored = [];
+        unitStart = undefined;
+        boundary = lineEnd;
+        const completed: ScanStep = { kind: ScanStepKind.unit, unit };
+        return completed;
+    }
+
+    function placeTag(name: string) {
+        if (settledKind === undefined) {
+            return placeInUnsettledKind(name, entries);
+        }
+        return placeInSettledKind({ name, playlistKind: settledKind, entries });
+    }
+
+    function scanTag(options: {
+        readonly rawLine: string;
+        readonly line: TagLine;
+        readonly lineNumber: number;
+        readonly lineBytes: number;
+        readonly lineEnd: number;
+    }) {
+        const { rawLine, line, lineNumber, lineBytes, lineEnd } = options;
+        const placement = placeTag(line.name);
+        if (placement.kind === PlacementKind.unrecognized) {
+            ignored.push({ kind: IgnoredKind.unrecognizedTag, line: rawLine });
+            return readStep;
+        }
+        if (placement.kind === PlacementKind.outOfKind) {
+            return report({ rule: placement.rule, detail: `Line ${lineNumber}: ${line.name} is of the other playlist kind.` });
+        }
+        const entry = placement.entry;
+        let tags = playlistTags;
+        if (placement.kind === PlacementKind.placed) {
+            settledKind = placement.playlistKind;
+            if (placement.level === TagLevel.unit) {
+                tags = unitTags;
+            }
+        }
+        const isUnitTag = tags === unitTags;
+        if (isUnitTag) {
+            if (unitStart === undefined) {
+                unitStart = boundary;
+            }
+            unitEnd = lineEnd;
+        }
+        const read = readRawValue({ tag: line, form: entry.form, lineBytes, ...context });
+        if (read.kind === ReadKind.limitExceeded) {
+            return exceed(Limit.substitutedLineBytesMax);
+        }
+        const formatIgnoreReason = entry.ignoreOnFormatFailure;
+        const isIgnoredSyntax = read.kind === ReadKind.invalidSyntax && formatIgnoreReason !== undefined;
+        if (isIgnoredSyntax) {
+            ignored.push({ kind: IgnoredKind.ignoredTag, line: rawLine, reason: formatIgnoreReason });
+            return readStep;
+        }
+        const written = tags.get(line.name);
+        const hasParts = tags.has(EXT_X_PART_TAG_NAME);
+        const position = checkTagPosition({ name: line.name, entry, lineNumber, written, unitCount, hasDiscontinuity, hasParts });
+        let issue: Issue | undefined;
+        if (position.kind === CheckKind.failed) {
+            issue = position.issue;
+        } else if (read.kind === ReadKind.read) {
+            if (line.name === EXT_X_DEFINE_TAG_NAME) {
+                const definition = defineVariable({ value: read.value, variables, uri, imported });
+                if (definition.kind === DefinitionKind.malformed) {
+                    issue = atLine(definition.issue, lineNumber);
+                } else if (definition.kind === DefinitionKind.defined) {
+                    variables.set(definition.name, definition.value);
+                }
+            }
+        } else {
+            issue = atLine(read.issue, lineNumber);
+        }
+        if (issue !== undefined) {
+            return report(issue);
+        }
+        assertCondition(read.kind === ReadKind.read, `Line ${lineNumber} has no issue and no value.`);
+        // A playlist tag among a unit's tags lies inside the unit's text, so its own text is empty.
+        let range: TextRange = { start: lineEnd, end: lineEnd };
+        const isOutsideUnit = !isUnitTag && unitStart === undefined;
+        if (isOutsideUnit) {
+            range = { start: boundary, end: lineEnd };
+            boundary = lineEnd;
+        }
+        const rawTag: RawTag = {
+            value: read.value,
+            line: rawLine,
+            lineNumber,
+            ownerIndex: unitCount,
+            ignoredIndex: ignored.length,
+            range,
+        };
+        if (written === undefined) {
+            tags.set(line.name, [rawTag]);
+        } else {
+            written.push(rawTag);
+        }
+        if (line.name === EXT_X_DISCONTINUITY_TAG_NAME) {
+            hasDiscontinuity = true;
+        }
+        if (isUnitTag) {
+            return readStep;
+        }
+        const kept: ScanStep = { kind: ScanStepKind.playlistTag, name: line.name, entry, tag: rawTag };
+        return kept;
+    }
+
+    /** Scans one line, given the length of the terminator that followed it: 2 for CR LF, 1 for LF, 0 at the end. */
+    function scanLine(rawLine: string, terminatorLength: number) {
+        assertCondition(!hasEnded, "A line was scanned after the scan ended.");
         const lineIndex = lineCount;
         const lineNumber = lineIndex + 1;
         lineCount += 1;
-        const lineTextEnd = nextLineStart + rawLine.length;
-        const lineEnd = lineTextEnd + terminatorLengthAt(text, lineTextEnd);
+        const lineEnd = nextLineStart + rawLine.length + terminatorLength;
         nextLineStart = lineEnd;
         const lineBytes = utf8ByteLength(rawLine);
         if (lineBytes > limits.lineBytesMax) {
-            return limitExceededScan(Limit.lineBytesMax, limits);
+            return exceed(Limit.lineBytesMax);
         }
         const lineCheck = checkRawLine(rawLine, lineIndex);
         if (lineCheck.kind === LineCheckKind.malformed) {
-            const issue = atLine(lineCheck.issue, lineNumber);
-            if (policy(issue.rule) === Severity.malformed) {
-                return malformedScan(issue);
+            const reported = report(atLine(lineCheck.issue, lineNumber));
+            if (reported.kind === ScanStepKind.malformed) {
+                return reported;
             }
-            violations.push(issue);
         }
         const line = classifyLine(rawLine);
         if (lineIndex === 0) {
             const identification = checkIdentification(line);
             if (identification.kind === LineCheckKind.malformed) {
-                const issue = atLine(identification.issue, lineNumber);
-                if (policy(issue.rule) === Severity.malformed) {
-                    return malformedScan(issue);
+                const reported = report(atLine(identification.issue, lineNumber));
+                if (reported.kind === ScanStepKind.malformed) {
+                    return reported;
                 }
-                violations.push(issue);
             }
         }
         switch (line.kind) {
             case LineKind.blank: {
-                break;
+                return readStep;
             }
             case LineKind.comment: {
                 ignored.push({ kind: IgnoredKind.comment, line: rawLine });
-                break;
+                return readStep;
             }
             case LineKind.uri: {
-                // The playlist is a unit too, so it adds one to the count of units its URI lines end.
-                const uriUnitCount = units.length + 1;
-                const unitCount = uriUnitCount + 1;
-                if (unitCount > limits.unitCountMax) {
-                    return limitExceededScan(Limit.unitCountMax, limits);
-                }
-                const substituted = substitute(line.uri, context);
-                let unitUri = line.uri;
-                if (substituted.kind === ReadKind.limitExceeded) {
-                    return limitExceededScan(Limit.substitutedLineBytesMax, limits);
-                }
-                if (substituted.kind === ReadKind.malformed) {
-                    const issue = atLine(substituted.issue, lineNumber);
-                    if (policy(issue.rule) === Severity.malformed) {
-                        return malformedScan(issue);
-                    }
-                    violations.push(issue);
-                } else {
-                    unitUri = substituted.value;
-                }
-                let start = boundary;
-                if (unitStart !== undefined) {
-                    start = unitStart;
-                }
-                units.push({ tags: unitTags, uri: unitUri, uriLine: rawLine, ignored, range: { start, end: lineEnd } });
-                unitTags = new Map();
-                ignored = [];
-                unitStart = undefined;
-                boundary = lineEnd;
-                break;
+                return scanUri({ rawLine, uriText: line.uri, lineNumber, lineEnd });
             }
             case LineKind.tag: {
-                let placement: Placement;
-                if (settledKind === undefined) {
-                    placement = placeInUnsettledKind(line.name, entries);
-                } else {
-                    placement = placeInSettledKind({ name: line.name, playlistKind: settledKind, entries });
-                }
-                if (placement.kind === PlacementKind.unrecognized) {
-                    ignored.push({ kind: IgnoredKind.unrecognizedTag, line: rawLine });
-                    break;
-                }
-                if (placement.kind === PlacementKind.outOfKind) {
-                    const issue = { rule: placement.rule, detail: `Line ${lineNumber}: ${line.name} is of the other playlist kind.` };
-                    if (policy(issue.rule) === Severity.malformed) {
-                        return malformedScan(issue);
-                    }
-                    violations.push(issue);
-                    break;
-                }
-                const entry = placement.entry;
-                let tags = playlistTags;
-                if (placement.kind === PlacementKind.placed) {
-                    settledKind = placement.playlistKind;
-                    if (placement.level === TagLevel.unit) {
-                        tags = unitTags;
-                    }
-                }
-                const isUnitTag = tags === unitTags;
-                if (isUnitTag) {
-                    if (unitStart === undefined) {
-                        unitStart = boundary;
-                    }
-                    unitEnd = lineEnd;
-                } else if (unitStart === undefined) {
-                    boundary = lineEnd;
-                }
-                const read = readRawValue({ tag: line, form: entry.form, lineBytes, ...context });
-                if (read.kind === ReadKind.limitExceeded) {
-                    return limitExceededScan(Limit.substitutedLineBytesMax, limits);
-                }
-                const formatIgnoreReason = entry.ignoreOnFormatFailure;
-                const isIgnoredSyntax = read.kind === ReadKind.invalidSyntax && formatIgnoreReason !== undefined;
-                if (isIgnoredSyntax) {
-                    ignored.push({ kind: IgnoredKind.ignoredTag, line: rawLine, reason: formatIgnoreReason });
-                    break;
-                }
-                const written = tags.get(line.name);
-                const occurrence = entry.occurrence;
-                const isOnce = occurrence.kind === OccurrenceKind.once;
-                const isDuplicate = isOnce && written !== undefined;
-                const precedesSegmentsRule = entry.precedesSegments;
-                const isAfterUnits = units.length > 0;
-                const isMisplaced = precedesSegmentsRule !== undefined && isAfterUnits;
-                const isSequenceAfterDiscontinuity = hasDiscontinuity && line.name === EXT_X_DISCONTINUITY_SEQUENCE_TAG_NAME;
-                const hasParts = tags.has(EXT_X_PART_TAG_NAME);
-                const isAfterParts = entry.precedesParts !== undefined && hasParts;
-                let issue: Issue | undefined;
-                if (isDuplicate) {
-                    issue = { rule: occurrence.duplicate, detail: `Line ${lineNumber}: ${line.name} repeats.` };
-                } else if (isMisplaced) {
-                    issue = { rule: precedesSegmentsRule, detail: `Line ${lineNumber}: ${line.name} follows a segment.` };
-                } else if (isSequenceAfterDiscontinuity) {
-                    const detail = `Line ${lineNumber}: ${line.name} follows an EXT-X-DISCONTINUITY.`;
-                    issue = { rule: extXDiscontinuitySequenceRules.precedesDiscontinuity, detail };
-                } else if (isAfterParts) {
-                    const detail = `Line ${lineNumber}: ${line.name} follows its Parent Segment's first EXT-X-PART.`;
-                    issue = { rule: extXPartRules.parentTagsPrecedeParts, detail };
-                } else if (read.kind === ReadKind.read) {
-                    if (line.name === EXT_X_DEFINE_TAG_NAME) {
-                        const definition = defineVariable({ value: read.value, variables, uri, imported });
-                        if (definition.kind === DefinitionKind.malformed) {
-                            issue = atLine(definition.issue, lineNumber);
-                        } else if (definition.kind === DefinitionKind.defined) {
-                            variables.set(definition.name, definition.value);
-                        }
-                    }
-                } else {
-                    issue = atLine(read.issue, lineNumber);
-                }
-                if (issue === undefined) {
-                    assertCondition(read.kind === ReadKind.read, `Line ${lineNumber} has no issue and no value.`);
-                    const rawTag = {
-                        value: read.value,
-                        line: rawLine,
-                        lineNumber,
-                        ownerIndex: units.length,
-                        ignoredIndex: ignored.length,
-                    };
-                    if (written === undefined) {
-                        tags.set(line.name, [rawTag]);
-                    } else {
-                        written.push(rawTag);
-                    }
-                    if (line.name === EXT_X_DISCONTINUITY_TAG_NAME) {
-                        hasDiscontinuity = true;
-                    }
-                    break;
-                }
-                if (policy(issue.rule) === Severity.malformed) {
-                    return malformedScan(issue);
-                }
-                violations.push(issue);
-                break;
+                return scanTag({ rawLine, line, lineNumber, lineBytes, lineEnd });
             }
             default: {
                 line satisfies never;
-                unreachable(line);
+                return unreachable(line);
             }
         }
     }
-    if (lineCount === 0) {
-        const issue = { rule: extm3uRules.identification, detail: "The playlist has no lines." };
-        if (policy(issue.rule) === Severity.malformed) {
-            return malformedScan(issue);
+
+    /**
+     * Records a playlist tag the conversion ignores whole, in place of the tag kept, at the end of the
+     * ignored lines so far; its text then leads the next unit's, as a tag ignored at scan does.
+     */
+    function ignorePlaylistTag(options: { readonly tag: RawTag; readonly reason: IgnoreReason }) {
+        const { tag, reason } = options;
+        assertCondition(tag.ignoredIndex === ignored.length, `Line ${tag.lineNumber} is ignored after later lines were scanned.`);
+        ignored.push({ kind: IgnoredKind.ignoredTag, line: tag.line, reason });
+        const isOutsideUnit = tag.range.start < tag.range.end;
+        if (isOutsideUnit) {
+            assertCondition(boundary === tag.range.end, `Line ${tag.lineNumber}'s text is not the last kept.`);
+            boundary = tag.range.start;
         }
-        violations.push(issue);
     }
-    let playlistKind: PlaylistKind = PlaylistKind.multivariant;
-    if (settledKind !== undefined) {
-        playlistKind = settledKind;
-    }
-    if (unitTags.has(EXT_X_PART_TAG_NAME)) {
-        assertCondition(unitStart !== undefined, "The pending segment has tags and no start.");
-        const pendingSegment = { tags: unitTags, ignored, range: { start: unitStart, end: unitEnd } };
-        const withPending: RawPlaylist = {
-            kind: playlistKind,
-            tags: playlistTags,
-            units,
-            ignored: [],
-            pendingSegment,
-            variables,
-            source: text,
-        };
-        const scannedWithPending: Scan = { kind: ScanKind.scanned, playlist: withPending, violations };
-        return scannedWithPending;
-    }
-    if (unitTags.size > 0) {
-        const names = Array.from(unitTags.keys());
-        const issue = { rule: entries[playlistKind].rules.uriFollowsTags, detail: `${names.join(", ")} precede no URI.` };
-        if (policy(issue.rule) === Severity.malformed) {
-            return malformedScan(issue);
+
+    /** Ends the scan, reporting the playlist without its units, which each unit step reported once. */
+    function finish() {
+        assertCondition(!hasEnded, "The scan was finished after it ended.");
+        hasEnded = true;
+        if (lineCount === 0) {
+            const reported = report({ rule: extm3uRules.identification, detail: "The playlist has no lines." });
+            if (reported.kind === ScanStepKind.malformed) {
+                return malformedScanEnd(reported.issue);
+            }
         }
-        violations.push(issue);
+        let playlistKind: PlaylistKind = PlaylistKind.multivariant;
+        if (settledKind !== undefined) {
+            playlistKind = settledKind;
+        }
+        if (unitTags.has(EXT_X_PART_TAG_NAME)) {
+            assertCondition(unitStart !== undefined, "The pending segment has tags and no start.");
+            const pendingSegment = { tags: unitTags, ignored, range: { start: unitStart, end: unitEnd } };
+            const withPending: RawPlaylistHead = { kind: playlistKind, tags: playlistTags, ignored: [], pendingSegment, variables };
+            const scannedWithPending: ScanEnd = { kind: ScanKind.scanned, playlist: withPending, violations, boundary: unitEnd };
+            return scannedWithPending;
+        }
+        if (unitTags.size > 0) {
+            const names = Array.from(unitTags.keys());
+            const issue = { rule: entries[playlistKind].rules.uriFollowsTags, detail: `${names.join(", ")} precede no URI.` };
+            const reported = report(issue);
+            if (reported.kind === ScanStepKind.malformed) {
+                return malformedScanEnd(reported.issue);
+            }
+        }
+        const playlist: RawPlaylistHead = { kind: playlistKind, tags: playlistTags, ignored, variables };
+        const scanned: ScanEnd = { kind: ScanKind.scanned, playlist, violations, boundary };
+        return scanned;
     }
-    const playlist: RawPlaylist = { kind: playlistKind, tags: playlistTags, units, ignored, variables, source: text };
-    const scanned: Scan = { kind: ScanKind.scanned, playlist, violations };
+
+    return { scanLine, ignorePlaylistTag, finish };
+}
+
+function malformedScanEnd(issue: Issue) {
+    const malformed: ScanEnd = { kind: ScanKind.malformed, issue };
+    return malformed;
+}
+
+/** Scans `text` whole, collecting the units the scanner reports. */
+export function scanPlaylist(options: { readonly text: string } & ScannerOptions) {
+    const { text } = options;
+    const scanner = createScanner(options);
+    const units: RawUriUnit[] = [];
+    let nextLineStart = 0;
+    // The loop is bounded by the text length, since splitLines yields at most one line per character.
+    for (const rawLine of splitLines(text)) {
+        const lineTextEnd = nextLineStart + rawLine.length;
+        const terminatorLength = terminatorLengthAt(text, lineTextEnd);
+        nextLineStart = lineTextEnd + terminatorLength;
+        const step = scanner.scanLine(rawLine, terminatorLength);
+        if (step.kind === ScanStepKind.unit) {
+            units.push(step.unit);
+        } else if (step.kind === ScanStepKind.malformed) {
+            return malformedScan(step.issue);
+        } else if (step.kind === ScanStepKind.limitExceeded) {
+            const exceeded: Scan = { kind: ScanKind.limitExceeded, limit: step.limit, value: step.value };
+            return exceeded;
+        }
+    }
+    const end = scanner.finish();
+    if (end.kind === ScanKind.malformed) {
+        return malformedScan(end.issue);
+    }
+    const playlist: RawPlaylist = { ...end.playlist, units, source: text };
+    const scanned: Scan = { kind: ScanKind.scanned, playlist, violations: end.violations };
     return scanned;
 }

@@ -978,6 +978,20 @@ describe("parsed objects' methods", () => {
         expect(segment?.toHLS()).toBe("#EXTINF:1,\n#EXT-X-ENDLIST\na.ts\n");
     });
 
+    const ignoredBeforeSegment = [
+        { name: "for its attribute-list syntax", tag: '#EXT-X-DATERANGE:ID="ad",ID="ad"' },
+        { name: "for an unrecognized REQ- attribute", tag: "#EXT-X-START:TIME-OFFSET=1,REQ-FUTURE=1" },
+    ] as const;
+
+    // An ignored tag is among the next segment's ignored lines, so its line is in that segment's text too.
+    test.each(ignoredBeforeSegment)("a segment's toHLS includes a playlist tag ignored before it $name", ({ tag }) => {
+        const text = `#EXTM3U\n#EXT-X-TARGETDURATION:10\n${tag}\n#EXTINF:1,\na.ts\n`;
+        const playlist = parseMediaText(text);
+        const [segment] = playlist.segments;
+        expect(segment?.toHLS()).toBe(`${tag}\n#EXTINF:1,\na.ts\n`);
+        expect(playlist.toHLS()).toBe(text);
+    });
+
     test("a variant's toHLS includes the lines of an ignored variant before it", () => {
         const playlist = parseText(DROPPED_VARIANT_PLAYLIST);
         assertCondition(playlist.kind === PlaylistKind.multivariant, `The playlist parsed as ${playlist.kind}.`);
