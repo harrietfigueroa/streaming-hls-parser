@@ -35,6 +35,36 @@ import {
     extXEndlistRules,
     extXEndlistSchema,
 } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.4-ext-x-endlist.js";
+import {
+    EXT_X_MEDIA_SEQUENCE_TAG_NAME,
+    extXMediaSequenceRules,
+    extXMediaSequenceSchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.2-ext-x-media-sequence.js";
+import {
+    EXT_X_DISCONTINUITY_SEQUENCE_TAG_NAME,
+    extXDiscontinuitySequenceRules,
+    extXDiscontinuitySequenceSchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.3-ext-x-discontinuity-sequence.js";
+import {
+    EXT_X_PLAYLIST_TYPE_TAG_NAME,
+    extXPlaylistTypeRules,
+    extXPlaylistTypeSchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.5-ext-x-playlist-type.js";
+import {
+    EXT_X_I_FRAMES_ONLY_TAG_NAME,
+    extXIFramesOnlyRules,
+    extXIFramesOnlySchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.6-ext-x-i-frames-only.js";
+import {
+    EXT_X_PART_INF_TAG_NAME,
+    extXPartInfRules,
+    extXPartInfSchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.7-ext-x-part-inf.js";
+import {
+    EXT_X_SERVER_CONTROL_TAG_NAME,
+    extXServerControlRules,
+    extXServerControlSchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.8-ext-x-server-control.js";
 import { EXTINF_TAG_NAME, extinfRules, extinfSchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.1-extinf.js";
 import type { Rule } from "./rule.js";
 
@@ -62,6 +92,8 @@ export type TagEntry = {
     readonly occurrence: Occurrence;
     /** Broken when the tag is absent from its unit; present exactly when the tag's schema rejects absence. */
     readonly required?: Rule;
+    /** Broken when the tag appears after the playlist's first Media Segment. */
+    readonly precedesSegments?: Rule;
 };
 
 type UnitEntries<Shape> = { readonly [Name in keyof Shape]: TagEntry };
@@ -74,6 +106,12 @@ const mediaPlaylistShape = {
     [EXT_X_DEFINE_TAG_NAME]: z.array(extXDefineSchema).readonly().optional(),
     [EXT_X_TARGETDURATION_TAG_NAME]: extXTargetDurationSchema,
     [EXT_X_ENDLIST_TAG_NAME]: extXEndlistSchema.optional(),
+    [EXT_X_MEDIA_SEQUENCE_TAG_NAME]: extXMediaSequenceSchema.optional(),
+    [EXT_X_DISCONTINUITY_SEQUENCE_TAG_NAME]: extXDiscontinuitySequenceSchema.optional(),
+    [EXT_X_PLAYLIST_TYPE_TAG_NAME]: extXPlaylistTypeSchema.optional(),
+    [EXT_X_I_FRAMES_ONLY_TAG_NAME]: extXIFramesOnlySchema.optional(),
+    [EXT_X_PART_INF_TAG_NAME]: extXPartInfSchema.optional(),
+    [EXT_X_SERVER_CONTROL_TAG_NAME]: extXServerControlSchema.optional(),
 } as const;
 
 // A second EXTM3U breaks identification: the tag's one position is the first line.
@@ -113,6 +151,38 @@ const mediaPlaylistEntries = {
     [EXT_X_ENDLIST_TAG_NAME]: {
         form: ValueForm.text,
         format: extXEndlistRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: mediaPlaylistTagRules.singleTag },
+    },
+    [EXT_X_MEDIA_SEQUENCE_TAG_NAME]: {
+        form: ValueForm.text,
+        format: extXMediaSequenceRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: mediaPlaylistTagRules.singleTag },
+        precedesSegments: extXMediaSequenceRules.precedesSegments,
+    },
+    [EXT_X_DISCONTINUITY_SEQUENCE_TAG_NAME]: {
+        form: ValueForm.text,
+        format: extXDiscontinuitySequenceRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: mediaPlaylistTagRules.singleTag },
+        precedesSegments: extXDiscontinuitySequenceRules.precedesSegments,
+    },
+    [EXT_X_PLAYLIST_TYPE_TAG_NAME]: {
+        form: ValueForm.text,
+        format: extXPlaylistTypeRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: mediaPlaylistTagRules.singleTag },
+    },
+    [EXT_X_I_FRAMES_ONLY_TAG_NAME]: {
+        form: ValueForm.text,
+        format: extXIFramesOnlyRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: mediaPlaylistTagRules.singleTag },
+    },
+    [EXT_X_PART_INF_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXPartInfRules.format,
+        occurrence: { kind: OccurrenceKind.once, duplicate: mediaPlaylistTagRules.singleTag },
+    },
+    [EXT_X_SERVER_CONTROL_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXServerControlRules.format,
         occurrence: { kind: OccurrenceKind.once, duplicate: mediaPlaylistTagRules.singleTag },
     },
 } as const satisfies UnitEntries<typeof mediaPlaylistShape>;

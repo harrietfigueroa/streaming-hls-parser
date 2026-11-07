@@ -338,9 +338,14 @@ export function scanPlaylist(options: {
                 const occurrence = entry.occurrence;
                 const isOnce = occurrence.kind === OccurrenceKind.once;
                 const isDuplicate = isOnce && written !== undefined;
+                const precedesSegmentsRule = entry.precedesSegments;
+                const isAfterSegments = segments.length > 0;
+                const isMisplaced = precedesSegmentsRule !== undefined && isAfterSegments;
                 let issue: Issue | undefined;
                 if (isDuplicate) {
                     issue = { rule: occurrence.duplicate, detail: `Line ${lineNumber}: ${line.name} repeats.` };
+                } else if (isMisplaced) {
+                    issue = { rule: precedesSegmentsRule, detail: `Line ${lineNumber}: ${line.name} follows a segment.` };
                 } else if (read.kind === ReadKind.malformed) {
                     issue = atLine(read.issue, lineNumber);
                 } else {

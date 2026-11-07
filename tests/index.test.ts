@@ -10,6 +10,10 @@ import { extXStartRules } from "../src/4-playlists/4.4-playlist-tags/4.4.2-media
 import { ignoreReasons } from "../src/6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
 import { generalClientRules } from "../src/6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
 import { extXDefineRules } from "../src/4-playlists/4.4-playlist-tags/4.4.2-media-or-multivariant-playlist-tags/4.4.2.3-ext-x-define.js";
+import { extXMediaSequenceRules } from "../src/4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.2-ext-x-media-sequence.js";
+import { extXDiscontinuitySequenceRules } from "../src/4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.3-ext-x-discontinuity-sequence.js";
+import { PlaylistType } from "../src/4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.5-ext-x-playlist-type.js";
+import { extXServerControlRules } from "../src/4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.8-ext-x-server-control.js";
 import { definitionRules } from "../src/4-playlists/4.1-definition-of-a-playlist.js";
 import { extm3uRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.1-extm3u.js";
 import { extXVersionRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.2-ext-x-version.js";
@@ -79,6 +83,34 @@ describe("HLS.safeParse", () => {
                     },
                 ],
                 ignored: [{ kind: IgnoredKind.comment, line: "# last" }],
+            },
+        });
+    });
+
+    test("converts every Media Playlist tag", () => {
+        const text = [
+            "#EXTM3U",
+            "#EXT-X-TARGETDURATION:4",
+            "#EXT-X-MEDIA-SEQUENCE:2680",
+            "#EXT-X-DISCONTINUITY-SEQUENCE:3",
+            "#EXT-X-PLAYLIST-TYPE:EVENT",
+            "#EXT-X-I-FRAMES-ONLY",
+            "#EXT-X-PART-INF:PART-TARGET=1.004",
+            "#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK=3.012",
+            "#EXTINF:4,",
+            "a.ts",
+            "",
+        ].join("\n");
+        const outcome = HLS.safeParse(text);
+        expect(outcome).toMatchObject({
+            kind: ParseKind.parsed,
+            playlist: {
+                "EXT-X-MEDIA-SEQUENCE": 2680n,
+                "EXT-X-DISCONTINUITY-SEQUENCE": 3n,
+                "EXT-X-PLAYLIST-TYPE": PlaylistType.event,
+                "EXT-X-I-FRAMES-ONLY": true,
+                "EXT-X-PART-INF": { "PART-TARGET": 1.004 },
+                "EXT-X-SERVER-CONTROL": { "CAN-BLOCK-RELOAD": "YES", "PART-HOLD-BACK": 3.012 },
             },
         });
     });
@@ -153,6 +185,10 @@ describe("HLS.safeParse", () => {
         { name: "a second EXT-X-START", text: `${BASE_HEAD}#EXT-X-START:TIME-OFFSET=1\n#EXT-X-START:TIME-OFFSET=1\n${BASE_SEGMENT}`, rule: extXStartRules.singleTag },
         { name: "an EXT-X-START without TIME-OFFSET", text: `${BASE_HEAD}#EXT-X-START:PRECISE=YES\n${BASE_SEGMENT}`, rule: extXStartRules.format },
         { name: "a malformed attribute-list", text: `${BASE_HEAD}#EXT-X-START:TIME-OFFSET=1,TIME-OFFSET=2\n${BASE_SEGMENT}`, rule: attributeListRules.uniqueAttributeNames },
+        { name: "an EXT-X-MEDIA-SEQUENCE after a segment", text: `${BASE_HEAD}${BASE_SEGMENT}#EXT-X-MEDIA-SEQUENCE:1\n`, rule: extXMediaSequenceRules.precedesSegments },
+        { name: "an EXT-X-DISCONTINUITY-SEQUENCE after a segment", text: `${BASE_HEAD}${BASE_SEGMENT}#EXT-X-DISCONTINUITY-SEQUENCE:1\n`, rule: extXDiscontinuitySequenceRules.precedesSegments },
+        { name: "EXT-X-PART-INF without PART-HOLD-BACK", text: `${BASE_HEAD}#EXT-X-PART-INF:PART-TARGET=1\n${BASE_SEGMENT}`, rule: extXServerControlRules.partHoldBackRequired },
+        { name: "a HOLD-BACK under three Target Durations", text: `${BASE_HEAD}#EXT-X-SERVER-CONTROL:HOLD-BACK=29\n${BASE_SEGMENT}`, rule: extXServerControlRules.holdBack },
     ] as const;
 
     test.each(malformed)("reports $name as malformed", ({ text, rule }) => {

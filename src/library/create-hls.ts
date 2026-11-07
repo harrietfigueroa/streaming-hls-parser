@@ -5,6 +5,7 @@
 import { z } from "zod";
 
 import { checkSegmentDuration } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.1-ext-x-targetduration.js";
+import { checkServerControl } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.8-ext-x-server-control.js";
 import { assertCondition } from "./assert.js";
 import { type Limit, type ParseOptions, resolveLimits } from "./options.js";
 import { defaultPolicy, type Policy } from "./policy.js";
@@ -134,7 +135,27 @@ function toPlaylistInput(options: { readonly playlist: RawPlaylist } & EntriesMa
     return { ...values, kind: PlaylistKind.media, segments, ignored: playlist.ignored };
 }
 
-/** Checks the rules spanning a converted playlist's units, resolving each issue through `policy`. */
+/** Finds every broken rule that spans a converted playlist's tags or units. */
+function findPlaylistIssues(playlist: MediaPlaylist) {
+    const issues: Issue[] = [];
+    const targetDuration = playlist["EXT-X-TARGETDURATION"];
+    for (const [segmentIndex, segment] of playlist.segments.entries()) {
+        const duration = segment.EXTINF.duration;
+        const check = checkSegmentDuration({ targetDuration, duration, segmentIndex });
+        if (check.kind === CheckKind.failed) {
+            issues.push(check.issue);
+        }
+    }
+    const serverControl = playlist["EXT-X-SERVER-CONTROL"];
+    const partTarget = playlist["EXT-X-PART-INF"]?.["PART-TARGET"];
+    const serverControlIssues = checkServerControl({ serverControl, targetDuration, partTarget });
+    for (const issue of serverControlIssues) {
+        issues.push(issue);
+    }
+    return issues;
+}
+
+/** Checks the rules spanning a converted playlist, resolving each issue through `policy`. */
 function checkPlaylist(options: {
     readonly playlist: MediaPlaylist;
     readonly violations: readonly Issue[];
@@ -143,17 +164,12 @@ function checkPlaylist(options: {
     const { playlist, policy } = options;
     const malformedIssues: Issue[] = [];
     const violations = Array.from(options.violations);
-    const targetDuration = playlist["EXT-X-TARGETDURATION"];
-    for (const [segmentIndex, segment] of playlist.segments.entries()) {
-        const duration = segment.EXTINF.duration;
-        const check = checkSegmentDuration({ targetDuration, duration, segmentIndex });
-        if (check.kind === CheckKind.passed) {
-            continue;
-        }
-        if (policy(check.issue.rule) === Severity.malformed) {
-            malformedIssues.push(check.issue);
+    const issues = findPlaylistIssues(playlist);
+    for (const issue of issues) {
+        if (policy(issue.rule) === Severity.malformed) {
+            malformedIssues.push(issue);
         } else {
-            violations.push(check.issue);
+            violations.push(issue);
         }
     }
     if (malformedIssues.length > 0) {
