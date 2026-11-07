@@ -1,0 +1,107 @@
+diff --git a/tests/index.test.ts b/tests/index.test.ts
+index 5535780..89fe176 100644
+--- a/tests/index.test.ts
++++ b/tests/index.test.ts
+@@ -3,7 +3,12 @@
+ // position, and each malformed case breaks exactly one rule of a valid base.
+ import { describe, expect, test } from "vitest";
+ 
+-import { HLS, IgnoredKind, Limit, type MediaPlaylist, ParseKind, PlaylistKind } from "../src/index.js";
++import { HLS, IgnoredKind, Limit, type MediaPlaylist, type MultivariantPlaylist, ParseKind, PlaylistKind } from "../src/index.js";
++import {
++    extXStreamInfIgnoreReason,
++    extXStreamInfRules,
++} from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.2-ext-x-stream-inf.js";
++import { multivariantPlaylistTagRules } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6-multivariant-playlist-tags.js";
+ import { AssertionError } from "../src/library/assert.js";
+ import { attributeListRules } from "../src/4-playlists/4.2-attribute-lists.js";
+ import { extXStartRules } from "../src/4-playlists/4.4-playlist-tags/4.4.2-media-or-multivariant-playlist-tags/4.4.2.2-ext-x-start.js";
+@@ -461,3 +466,88 @@ describe("HLS.safeParse variable substitution", () => {
+ function isNotPartInf(line: string) {
+     return !line.startsWith("#EXT-X-PART-INF");
+ }
++
++describe("HLS.safeParse Multivariant Playlists", () => {
++    // Section 9.4, Multivariant Playlist.
++    const MULTIVARIANT_PLAYLIST = `#EXTM3U
++#EXT-X-STREAM-INF:BANDWIDTH=1280000,AVERAGE-BANDWIDTH=1000000
++http://example.com/low.m3u8
++#EXT-X-STREAM-INF:BANDWIDTH=2560000,AVERAGE-BANDWIDTH=2000000
++http://example.com/mid.m3u8
++#EXT-X-STREAM-INF:BANDWIDTH=7680000,AVERAGE-BANDWIDTH=6000000
++http://example.com/hi.m3u8
++#EXT-X-STREAM-INF:BANDWIDTH=65000,CODECS="mp4a.40.5"
++http://example.com/audio-only.m3u8
++`;
++
++    const multivariantPlaylist: MultivariantPlaylist = {
++        kind: PlaylistKind.multivariant,
++        EXTM3U: true,
++        variants: [
++            { uri: "http://example.com/low.m3u8", "EXT-X-STREAM-INF": { BANDWIDTH: 1280000n, "AVERAGE-BANDWIDTH": 1000000n }, ignored: [] },
++            { uri: "http://example.com/mid.m3u8", "EXT-X-STREAM-INF": { BANDWIDTH: 2560000n, "AVERAGE-BANDWIDTH": 2000000n }, ignored: [] },
++            { uri: "http://example.com/hi.m3u8", "EXT-X-STREAM-INF": { BANDWIDTH: 7680000n, "AVERAGE-BANDWIDTH": 6000000n }, ignored: [] },
++            { uri: "http://example.com/audio-only.m3u8", "EXT-X-STREAM-INF": { BANDWIDTH: 65000n, CODECS: "mp4a.40.5" }, ignored: [] },
++        ],
++        ignored: [],
++    };
++
++    test("parses section 9.4's Multivariant Playlist", () => {
++        const outcome = HLS.safeParse(MULTIVARIANT_PLAYLIST);
++        expect(outcome).toEqual({ kind: ParseKind.parsed, playlist: multivariantPlaylist, violations: [] });
++    });
++
++    test("keeps section 9.5's I-frame streams on the playlist", () => {
++        const text = `#EXTM3U
++#EXT-X-STREAM-INF:BANDWIDTH=1280000
++low/audio-video.m3u8
++#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=86000,URI="low/iframe.m3u8"
++#EXT-X-STREAM-INF:BANDWIDTH=2560000
++mid/audio-video.m3u8
++`;
++        const outcome = HLS.safeParse(text);
++        expect(outcome).toMatchObject({
++            kind: ParseKind.parsed,
++            playlist: {
++                kind: PlaylistKind.multivariant,
++                "EXT-X-I-FRAME-STREAM-INF": [{ BANDWIDTH: 86000n, URI: "low/iframe.m3u8" }],
++                variants: [{ uri: "low/audio-video.m3u8" }, { uri: "mid/audio-video.m3u8" }],
++            },
++        });
++    });
++
++    test("ignores a variant whose layout is unrecognized, its URI line with it", () => {
++        const streamInf = '#EXT-X-STREAM-INF:BANDWIDTH=1,REQ-VIDEO-LAYOUT="CH-FUTURE"';
++        const text = `#EXTM3U\n${streamInf}\nfuture.m3u8\n# kept\n#EXT-X-STREAM-INF:BANDWIDTH=2\nb.m3u8\n`;
++        const outcome = HLS.safeParse(text);
++        expect(outcome).toMatchObject({
++            kind: ParseKind.parsed,
++            playlist: {
++                variants: [
++                    {
++                        uri: "b.m3u8",
++                        ignored: [
++                            { kind: IgnoredKind.ignoredTag, line: streamInf, reason: extXStreamInfIgnoreReason },
++                            { kind: IgnoredKind.ignoredUri, line: "future.m3u8", reason: ignoreReasons.followsIgnoredStreamInf },
++                            { kind: IgnoredKind.comment, line: "# kept" },
++                        ],
++                    },
++                ],
++            },
++        });
++    });
++
++    const malformed = [
++        { name: "a Media Segment tag after a variant", text: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n#EXTINF:1,\nb.ts\n", rule: mediaSegmentTagRules.notInMultivariant },
++        { name: "a Media Playlist tag after a variant", text: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n#EXT-X-TARGETDURATION:10\n", rule: mediaPlaylistTagRules.notInMultivariant },
++        { name: "a Multivariant Playlist tag after a segment", text: "#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXTINF:1,\na.ts\n#EXT-X-STREAM-INF:BANDWIDTH=1\nb.m3u8\n", rule: multivariantPlaylistTagRules.notInMedia },
++        { name: "an EXT-X-STREAM-INF with no URI after it", text: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\n", rule: extXStreamInfRules.uriRequired },
++        { name: "an EXT-X-STREAM-INF without BANDWIDTH", text: "#EXTM3U\n#EXT-X-STREAM-INF:CODECS=\"a\"\na.m3u8\n", rule: extXStreamInfRules.format },
++        { name: "a variant URI without EXT-X-STREAM-INF", text: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\nb.m3u8\n", rule: extXStreamInfRules.precedesUri },
++    ] as const;
++
++    test.each(malformed)("reports $name as malformed", ({ text, rule }) => {
++        const outcome = HLS.safeParse(text);
++        expect(outcome).toMatchObject({ kind: ParseKind.malformed, issues: [{ rule }] });
++    });
++});
