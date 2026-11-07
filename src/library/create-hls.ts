@@ -4,24 +4,8 @@
 // units. The two entry points differ only in the table they pass.
 import { z } from "zod";
 
-import { checkSegmentDuration } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.1-ext-x-targetduration.js";
-import { checkServerControl } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.8-ext-x-server-control.js";
-import { checkByteRangeOffsets } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.2-ext-x-byterange.js";
-import { checkKey } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.4-ext-x-key.js";
-import { checkPartDurations } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.9-ext-x-part.js";
-import { extXPartInfRules } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.7-ext-x-part-inf.js";
-import { checkDateRanges } from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.1-ext-x-daterange.js";
-import { extXPreloadHintRules } from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.3-ext-x-preload-hint.js";
-import { checkRenditionReport } from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.4-ext-x-rendition-report.js";
-import { checkMedia } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.1-ext-x-media/4.4.6.1-ext-x-media.js";
-import { checkRenditionGroups } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.1-ext-x-media/4.4.6.1.1-rendition-groups.js";
-import { checkRenditionReferences } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.2-ext-x-stream-inf/4.4.6.2-ext-x-stream-inf.js";
-import { checkAlternativeRendition } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.2-ext-x-stream-inf/4.4.6.2.1-alternative-renditions.js";
-import { checkSessionData } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.4-ext-x-session-data.js";
-import { checkSessionKeys } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.5-ext-x-session-key.js";
-import { checkContentSteering } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.6-ext-x-content-steering.js";
-import { checkMultivariantDefinitions } from "../4-playlists/4.4-playlist-tags/4.4.2-media-or-multivariant-playlist-tags/4.4.2.3-ext-x-define.js";
 import { assertCondition, unreachable } from "./assert.js";
+import { createMediaPlaylistChecker, findMultivariantPlaylistIssues } from "./check-playlist.js";
 import { type Limit, type ParseOptions, resolveLimits } from "./options.js";
 import { defaultPolicy, type Policy } from "./policy.js";
 import {
@@ -35,13 +19,11 @@ import {
 import { resolveSegmentFields } from "./resolve.js";
 import { revive, type Reviver } from "./revive.js";
 import { stringify } from "./stringify.js";
-import { CheckKind, type Issue, Severity } from "./rule.js";
+import { type Issue, Severity } from "./rule.js";
 import { type RawPlaylist, type RawTag, type RawTags, ScanKind, scanPlaylist } from "./scan.js";
 import {
     buildSchemas,
     type ConvertedMediaPlaylist,
-    type ConvertedMediaSegment,
-    type ConvertedPendingSegment,
     type ConvertedPlaylist,
     type ConvertedMultivariantPlaylist,
     type ConvertedVariant,
@@ -159,176 +141,21 @@ function toPlaylistInput(playlist: RawPlaylist, entries: EntriesByKind) {
     return { ...values, kind: playlist.kind, [unitsKey]: units, pendingSegment, ignored: playlist.ignored };
 }
 
-/** Finds the broken rules within one segment's tags, the pending segment's included, without its location. */
-function findUnitIssues(options: {
-    readonly unit: ConvertedMediaSegment | ConvertedPendingSegment;
-    readonly partTarget: number | undefined;
-}) {
-    const { unit, partTarget } = options;
-    const issues: Issue[] = [];
-    const keys = unit["EXT-X-KEY"];
-    if (keys !== undefined) {
-        for (const key of keys) {
-            const keyIssues = checkKey(key);
-            for (const issue of keyIssues) {
-                issues.push(issue);
-            }
-        }
-    }
-    const parts = unit["EXT-X-PART"];
-    if (parts === undefined) {
-        return issues;
-    }
-    if (partTarget === undefined) {
-        issues.push({ rule: extXPartInfRules.requiredWithParts, detail: "It has EXT-X-PART, and the playlist no EXT-X-PART-INF." });
-        return issues;
-    }
-    const partIssues = checkPartDurations({ parts, partTarget });
-    for (const issue of partIssues) {
-        issues.push(issue);
-    }
-    return issues;
-}
-
 /** Finds every broken rule that spans a converted Media Playlist's tags or units. */
 function findMediaPlaylistIssues(playlist: ConvertedMediaPlaylist) {
-    const issues: Issue[] = [];
-    const targetDuration = playlist["EXT-X-TARGETDURATION"];
-    const partTarget = playlist["EXT-X-PART-INF"]?.["PART-TARGET"];
-    const units: { readonly unit: ConvertedMediaSegment | ConvertedPendingSegment; readonly where: string }[] = [];
-    for (const [segmentIndex, segment] of playlist.segments.entries()) {
-        const duration = segment.EXTINF.duration;
-        const check = checkSegmentDuration({ targetDuration, duration, segmentIndex });
-        if (check.kind === CheckKind.failed) {
-            issues.push(check.issue);
-        }
-        units.push({ unit: segment, where: `Segment ${segmentIndex + 1}` });
+    const { segments, pendingSegment, ...tags } = playlist;
+    const checker = createMediaPlaylistChecker();
+    for (const segment of segments) {
+        checker.addSegment(segment);
     }
-    if (playlist.pendingSegment !== undefined) {
-        units.push({ unit: playlist.pendingSegment, where: "The pending segment" });
+    if (pendingSegment !== undefined) {
+        checker.addPending(pendingSegment);
     }
-    // A missing EXT-X-PART-INF is one broken rule however many segments have parts, so it is reported once.
-    let hasReportedPartInf = false;
-    for (const { unit, where } of units) {
-        const unitIssues = findUnitIssues({ unit, partTarget });
-        for (const issue of unitIssues) {
-            const isPartInfIssue = issue.rule === extXPartInfRules.requiredWithParts;
-            const isRepeat = isPartInfIssue && hasReportedPartInf;
-            if (isRepeat) {
-                continue;
-            }
-            if (isPartInfIssue) {
-                hasReportedPartInf = true;
-            }
-            issues.push({ rule: issue.rule, detail: `${where}: ${issue.detail}` });
-        }
-    }
-    const serverControl = playlist["EXT-X-SERVER-CONTROL"];
-    const serverControlIssues = checkServerControl({ serverControl, targetDuration, partTarget });
-    for (const issue of serverControlIssues) {
-        issues.push(issue);
-    }
-    const byteRangeIssues = checkByteRangeOffsets(playlist.segments);
-    for (const issue of byteRangeIssues) {
-        issues.push(issue);
-    }
-    const dateRanges = playlist["EXT-X-DATERANGE"];
-    if (dateRanges !== undefined) {
-        const hasProgramDateTime = hasAnyProgramDateTime(playlist);
-        const dateRangeIssues = checkDateRanges({ dateRanges, hasProgramDateTime });
-        for (const issue of dateRangeIssues) {
-            issues.push(issue);
-        }
-    }
-    const isEndedWithHints = playlist["EXT-X-ENDLIST"] === true && playlist["EXT-X-PRELOAD-HINT"] !== undefined;
-    if (isEndedWithHints) {
-        issues.push({ rule: extXPreloadHintRules.notWithEndList, detail: "The playlist has EXT-X-ENDLIST and EXT-X-PRELOAD-HINT." });
-    }
-    const renditionReports = playlist["EXT-X-RENDITION-REPORT"];
-    if (renditionReports !== undefined) {
-        for (const report of renditionReports) {
-            const reportIssues = checkRenditionReport(report);
-            for (const issue of reportIssues) {
-                issues.push(issue);
-            }
-        }
-    }
-    return issues;
-}
-
-function hasAnyProgramDateTime(playlist: ConvertedMediaPlaylist) {
-    for (const segment of playlist.segments) {
-        if (segment["EXT-X-PROGRAM-DATE-TIME"] !== undefined) {
-            return true;
-        }
-    }
-    return playlist.pendingSegment?.["EXT-X-PROGRAM-DATE-TIME"] !== undefined;
+    return checker.finish(tags);
 }
 
 function streamInfOf(variant: ConvertedVariant) {
     return variant["EXT-X-STREAM-INF"];
-}
-
-/** Finds every broken rule that spans a converted Multivariant Playlist's tags or variants. */
-function findMultivariantPlaylistIssues(playlist: ConvertedMultivariantPlaylist) {
-    const issues: Issue[] = [];
-    const defines = playlist["EXT-X-DEFINE"];
-    if (defines !== undefined) {
-        const defineIssues = checkMultivariantDefinitions(defines);
-        for (const issue of defineIssues) {
-            issues.push(issue);
-        }
-    }
-    let renditions: NonNullable<ConvertedMultivariantPlaylist["EXT-X-MEDIA"]> = [];
-    if (playlist["EXT-X-MEDIA"] !== undefined) {
-        renditions = playlist["EXT-X-MEDIA"];
-    }
-    let iFrameStreamInfs: NonNullable<ConvertedMultivariantPlaylist["EXT-X-I-FRAME-STREAM-INF"]> = [];
-    if (playlist["EXT-X-I-FRAME-STREAM-INF"] !== undefined) {
-        iFrameStreamInfs = playlist["EXT-X-I-FRAME-STREAM-INF"];
-    }
-    for (const [renditionIndex, media] of renditions.entries()) {
-        const mediaIssues = checkMedia(media);
-        const alternativeIssues = checkAlternativeRendition(media);
-        const where = `Rendition ${renditionIndex + 1}`;
-        for (const issue of mediaIssues) {
-            issues.push({ rule: issue.rule, detail: `${where}: ${issue.detail}` });
-        }
-        for (const issue of alternativeIssues) {
-            issues.push({ rule: issue.rule, detail: `${where}: ${issue.detail}` });
-        }
-    }
-    const groupIssues = checkRenditionGroups(renditions);
-    for (const issue of groupIssues) {
-        issues.push(issue);
-    }
-    const streamInfs = Array.from(playlist.variants, streamInfOf);
-    const referenceIssues = checkRenditionReferences({ streamInfs, iFrameStreamInfs, media: renditions });
-    for (const issue of referenceIssues) {
-        issues.push(issue);
-    }
-    const sessionData = playlist["EXT-X-SESSION-DATA"];
-    if (sessionData !== undefined) {
-        const sessionDataIssues = checkSessionData(sessionData);
-        for (const issue of sessionDataIssues) {
-            issues.push(issue);
-        }
-    }
-    const sessionKeys = playlist["EXT-X-SESSION-KEY"];
-    if (sessionKeys !== undefined) {
-        const sessionKeyIssues = checkSessionKeys(sessionKeys);
-        for (const issue of sessionKeyIssues) {
-            issues.push(issue);
-        }
-    }
-    const contentSteering = playlist["EXT-X-CONTENT-STEERING"];
-    if (contentSteering !== undefined) {
-        const steeringIssues = checkContentSteering({ contentSteering, streamInfs });
-        for (const issue of steeringIssues) {
-            issues.push(issue);
-        }
-    }
-    return issues;
 }
 
 /** Finds every broken rule that spans a converted playlist's tags or units, by its kind. */
@@ -338,7 +165,9 @@ function findPlaylistIssues(playlist: ConvertedPlaylist) {
             return findMediaPlaylistIssues(playlist);
         }
         case PlaylistKind.multivariant: {
-            return findMultivariantPlaylistIssues(playlist);
+            const { variants, ...tags } = playlist;
+            const streamInfs = Array.from(variants, streamInfOf);
+            return findMultivariantPlaylistIssues({ tags, streamInfs });
         }
         default: {
             playlist satisfies never;
