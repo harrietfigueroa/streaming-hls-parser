@@ -50,14 +50,18 @@ export const extXServerControlRules = {
 
 const YES = "YES";
 
-/** Converts EXT-X-SERVER-CONTROL's attributes, each absent when not written. */
+/**
+ * Converts EXT-X-SERVER-CONTROL's attributes, each absent when not written.
+ * Section 4.4.3.8: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.3.8
+ */
 export const extXServerControlSchema = attributeListTagSchema({
     "CAN-SKIP-UNTIL": decimalFloatingPointSchema.optional(),
     "CAN-SKIP-DATERANGES": enumeratedStringSchema([YES]).optional(),
     "HOLD-BACK": decimalFloatingPointSchema.optional(),
     "PART-HOLD-BACK": decimalFloatingPointSchema.optional(),
     "CAN-BLOCK-RELOAD": enumeratedStringSchema([YES]).optional(),
-});
+})
+    .describe("EXT-X-SERVER-CONTROL, section 4.4.3.8: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.3.8");
 
 type ServerControl = Readonly<Omit<z.output<typeof extXServerControlSchema>, "ignored">>;
 

@@ -25,8 +25,12 @@ export const extXSkipRules = {
     },
 } as const satisfies Record<string, Rule>;
 
-/** Converts EXT-X-SKIP's attributes; RECENTLY-REMOVED-DATERANGES is the tab-delimited ID list as written. */
+/**
+ * Converts EXT-X-SKIP's attributes; RECENTLY-REMOVED-DATERANGES is the tab-delimited ID list as written.
+ * Section 4.4.5.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.2
+ */
 export const extXSkipSchema = attributeListTagSchema({
     "SKIPPED-SEGMENTS": decimalIntegerSchema,
     "RECENTLY-REMOVED-DATERANGES": possiblyEmptyQuotedStringSchema.optional(),
-});
+})
+    .describe("EXT-X-SKIP, section 4.4.5.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.2");

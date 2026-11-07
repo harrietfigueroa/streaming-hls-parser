@@ -29,10 +29,14 @@ export const extXPreloadHintRules = {
 export const PreloadHintType = { part: "PART", map: "MAP" } as const;
 export type PreloadHintType = (typeof PreloadHintType)[keyof typeof PreloadHintType];
 
-/** Converts EXT-X-PRELOAD-HINT's attributes, each optional one absent when not written. */
+/**
+ * Converts EXT-X-PRELOAD-HINT's attributes, each optional one absent when not written.
+ * Section 4.4.5.3: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.3
+ */
 export const extXPreloadHintSchema = attributeListTagSchema({
     TYPE: enumeratedStringSchema([PreloadHintType.part, PreloadHintType.map]),
     URI: quotedStringSchema,
     "BYTERANGE-START": decimalIntegerSchema.optional(),
     "BYTERANGE-LENGTH": decimalIntegerSchema.optional(),
-});
+})
+    .describe("EXT-X-PRELOAD-HINT, section 4.4.5.3: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.3");

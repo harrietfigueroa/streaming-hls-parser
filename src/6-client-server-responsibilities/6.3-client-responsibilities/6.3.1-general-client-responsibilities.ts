@@ -34,5 +34,8 @@ export const ignoreReasons = {
     },
 } as const satisfies Record<string, IgnoreReason>;
 
-/** Validates the ignore reason a schema's custom issue carries in its params, under `ignoreReason`. */
-export const ignoreReasonSchema = z.object({ section: z.string(), requirement: z.string() }).readonly();
+/**
+ * Validates the ignore reason a schema's custom issue carries in its params, under `ignoreReason`.
+ * Section 6.3.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-6.3.1
+ */
+export const ignoreReasonSchema = z.object({ section: z.string(), requirement: z.string() }).readonly().describe("ignore reason, section 6.3.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-6.3.1");

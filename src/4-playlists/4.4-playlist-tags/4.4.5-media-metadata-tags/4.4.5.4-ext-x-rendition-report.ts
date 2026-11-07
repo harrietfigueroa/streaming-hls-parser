@@ -24,12 +24,14 @@ export const extXRenditionReportRules = {
 /**
  * Converts EXT-X-RENDITION-REPORT's attributes, each absent when not written: section 4.4.5.4 lets a
  * server omit any attribute, a required one included, whose value matches the containing playlist's.
+ * Section 4.4.5.4: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.4
  */
 export const extXRenditionReportSchema = attributeListTagSchema({
     URI: quotedStringSchema.optional(),
     "LAST-MSN": decimalIntegerSchema.optional(),
     "LAST-PART": decimalIntegerSchema.optional(),
-});
+})
+    .describe("EXT-X-RENDITION-REPORT, section 4.4.5.4: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.4");
 
 /** Checks that a report's URI, where it has one, is relative: a URI that parses with no base is absolute. */
 export function checkRenditionReport(report: { readonly URI?: string | undefined }) {

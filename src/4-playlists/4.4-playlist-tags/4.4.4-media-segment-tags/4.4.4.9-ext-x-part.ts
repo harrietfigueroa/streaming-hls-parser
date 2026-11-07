@@ -44,14 +44,18 @@ export const extXPartRules = {
 
 const YES = "YES";
 
-/** Converts EXT-X-PART's attributes, each optional one absent when not written, its byte range per decision 25. */
+/**
+ * Converts EXT-X-PART's attributes, each optional one absent when not written, its byte range as a length and offset.
+ * Section 4.4.4.9: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.9
+ */
 export const extXPartSchema = attributeListTagSchema({
     URI: quotedStringSchema,
     DURATION: decimalFloatingPointSchema,
     INDEPENDENT: enumeratedStringSchema([YES]).optional(),
     BYTERANGE: quotedStringSchema.pipe(byteRangeSchema).optional(),
     GAP: enumeratedStringSchema([YES]).optional(),
-});
+})
+    .describe("EXT-X-PART, section 4.4.4.9: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.9");
 
 type Part = Pick<z.output<typeof extXPartSchema>, "DURATION" | "INDEPENDENT" | "GAP">;
 

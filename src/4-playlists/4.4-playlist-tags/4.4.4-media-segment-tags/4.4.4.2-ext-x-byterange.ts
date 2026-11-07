@@ -26,9 +26,14 @@ export const extXByteRangeRules = {
 const OFFSET_SEPARATOR = "@";
 const NOT_FOUND = -1;
 
+/**
+ * Converts a byte range's split length and optional offset to bigints.
+ * Section 4.4.4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.2
+ */
 const byteRangeFieldsSchema = z
     .object({ length: decimalIntegerSchema, offset: decimalIntegerSchema.optional() })
-    .readonly();
+    .readonly()
+    .describe("byte range length and offset, section 4.4.4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.2");
 
 type ByteRangeFields = z.input<typeof byteRangeFieldsSchema>;
 
@@ -42,15 +47,26 @@ function splitByteRange(value: string) {
     return withOffset;
 }
 
-/** Converts `<n>[@<o>]` to a frozen `{ length, offset }` in bytes, its offset absent when not written. */
-export const byteRangeSchema = z.string().transform(splitByteRange).pipe(byteRangeFieldsSchema);
+/**
+ * Converts `<n>[@<o>]` to a frozen `{ length, offset }` in bytes, its offset absent when not written.
+ * Section 4.4.4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.2
+ */
+export const byteRangeSchema = z.string().transform(splitByteRange).pipe(byteRangeFieldsSchema).describe("byte range, section 4.4.4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.2");
 
-/** Converts the EXT-X-BYTERANGE tag's value per decision 25. */
-export const extXByteRangeSchema = byteRangeSchema;
+/**
+ * Converts the EXT-X-BYTERANGE tag's value to its length and offset.
+ * Section 4.4.4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.2
+ */
+export const extXByteRangeSchema = byteRangeSchema.describe("EXT-X-BYTERANGE, section 4.4.4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.2");
 
+/**
+ * Converts a byte range's split length and required offset to bigints.
+ * Section 4.4.4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.2
+ */
 const offsetByteRangeFieldsSchema = z
     .object({ length: decimalIntegerSchema, offset: decimalIntegerSchema })
-    .readonly();
+    .readonly()
+    .describe("byte range length and required offset, section 4.4.4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.2");
 
 type OffsetByteRangeFields = z.input<typeof offsetByteRangeFieldsSchema>;
 
@@ -65,8 +81,11 @@ function splitOffsetByteRange(value: string) {
     return fields;
 }
 
-/** Converts `<n>@<o>`, its offset required, to a frozen `{ length, offset }` in bytes. */
-export const byteRangeWithOffsetSchema = z.string().transform(splitOffsetByteRange).pipe(offsetByteRangeFieldsSchema);
+/**
+ * Converts `<n>@<o>`, its offset required, to a frozen `{ length, offset }` in bytes.
+ * Section 4.4.4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.2
+ */
+export const byteRangeWithOffsetSchema = z.string().transform(splitOffsetByteRange).pipe(offsetByteRangeFieldsSchema).describe("byte range with an offset, section 4.4.4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.2");
 
 type ByteRange = z.output<typeof byteRangeSchema>;
 type RangedSegment = { readonly uri: string; readonly [EXT_X_BYTERANGE_TAG_NAME]?: ByteRange | undefined };

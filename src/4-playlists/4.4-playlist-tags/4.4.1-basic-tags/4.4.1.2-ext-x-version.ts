@@ -20,5 +20,8 @@ export const extXVersionRules = {
     },
 } as const satisfies Record<string, Rule>;
 
-/** Converts the EXT-X-VERSION tag's value, the protocol compatibility version number, to a bigint. */
-export const extXVersionSchema = decimalIntegerSchema;
+/**
+ * Converts the EXT-X-VERSION tag's value, the protocol compatibility version number, to a bigint.
+ * Section 4.4.1.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.1.2
+ */
+export const extXVersionSchema = decimalIntegerSchema.describe("EXT-X-VERSION, section 4.4.1.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.1.2");

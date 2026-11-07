@@ -1,4 +1,4 @@
-// The tag table of decision 18: for each unit, a shape mapping each tag's spec
+// The tag table: for each unit, a shape mapping each tag's spec
 // name to its schema, and an entries map keyed by the same names. Each tag's
 // schema and rules stay in its section module; this module assembles them.
 import { z } from "zod";
@@ -141,7 +141,7 @@ export type TagEntry = {
     readonly form: ValueForm;
     /** Broken when the tag's value fails its schema. */
     readonly format: Rule;
-    /** A repeated tag's value is a frozen array of its values, in order, per decision 23. */
+    /** A repeated tag's value is a frozen array of its values, in line order. */
     readonly occurrence: Occurrence;
     /** Broken when the tag is absent from its unit; present exactly when the tag's schema rejects absence. */
     readonly required?: Rule;

@@ -1,4 +1,4 @@
-// The factory of decision 18. createHLS builds the unit schemas from a tag
+// The factory. createHLS builds the unit schemas from a tag
 // table once, and returns the HLS namespace whose safeParse scans text into
 // raw units, converts them with one safeParse, and checks the rules that span
 // units. The two entry points differ only in the table they pass.
@@ -73,13 +73,13 @@ function buildSchemas(tables: TagTables) {
     return { segmentSchema, mediaPlaylistSchema, variantSchema, multivariantPlaylistSchema };
 }
 
-/** A parsed Media Playlist, per decision 23. */
+/** A parsed Media Playlist. */
 export type MediaPlaylist = z.output<ReturnType<typeof buildSchemas>["mediaPlaylistSchema"]>;
 
-/** A parsed Media Segment, per decision 23. */
+/** A parsed Media Segment. */
 export type MediaSegment = z.output<ReturnType<typeof buildSchemas>["segmentSchema"]>;
 
-/** A parsed Multivariant Playlist, per decision 23. */
+/** A parsed Multivariant Playlist. */
 export type MultivariantPlaylist = z.output<ReturnType<typeof buildSchemas>["multivariantPlaylistSchema"]>;
 
 /** A parsed Variant Stream: its EXT-X-STREAM-INF and the URI line after it. */
@@ -94,7 +94,7 @@ type ParsePayloads = {
     [ParseKind.limitExceeded]: { readonly limit: Limit; readonly value: number };
 };
 type ParseMember<K extends ParseKind> = { readonly kind: K } & ParsePayloads[K];
-/** The outcome of HLS.safeParse, per decision 7. */
+/** The outcome of HLS.safeParse, keyed by kind. */
 export type Parse = { [K in ParseKind]: ParseMember<K> }[ParseKind];
 
 const ConversionKind = { converted: "converted", failed: "failed" } as const;

@@ -18,5 +18,8 @@ export const extXPlaylistTypeRules = {
 export const PlaylistType = { event: "EVENT", vod: "VOD" } as const;
 export type PlaylistType = (typeof PlaylistType)[keyof typeof PlaylistType];
 
-/** Accepts the playlist's mutability: EVENT, or VOD. */
-export const extXPlaylistTypeSchema = enumeratedStringSchema([PlaylistType.event, PlaylistType.vod]);
+/**
+ * Accepts the playlist's mutability: EVENT, or VOD.
+ * Section 4.4.3.5: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.3.5
+ */
+export const extXPlaylistTypeSchema = enumeratedStringSchema([PlaylistType.event, PlaylistType.vod]).describe("EXT-X-PLAYLIST-TYPE, section 4.4.3.5: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.3.5");

@@ -1,5 +1,5 @@
 // These tests pin section 4.4.4.6: the value is a date-time with an offset,
-// kept as written per decision 27.
+// kept as written.
 import { describe, expect, test } from "vitest";
 
 import { extXProgramDateTimeSchema } from "../../../../src/4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.6-ext-x-program-date-time.js";

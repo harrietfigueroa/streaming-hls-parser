@@ -79,11 +79,22 @@ export type Cue = (typeof Cue)[keyof typeof Cue];
 
 const YES = "YES";
 const CLIENT_ATTRIBUTE_PREFIX = "X-";
-const quotedDateTimeSchema = quotedStringSchema.pipe(dateTimeSchema);
+/**
+ * Unquotes a START-DATE or END-DATE and validates its date-time.
+ * Section 4.4.5.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.1
+ */
+const quotedDateTimeSchema = quotedStringSchema.pipe(dateTimeSchema).describe("EXT-X-DATERANGE date-time, section 4.4.5.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.1");
 
-/** An X- attribute's value: a quoted-string unquoted, a hexadecimal-sequence as written, or a number. */
-const clientAttributeValueSchema = z.union([quotedStringSchema, hexadecimalSequenceSchema, signedDecimalFloatingPointSchema]);
+/**
+ * An X- attribute's value: a quoted-string unquoted, a hexadecimal-sequence as written, or a number.
+ * Section 4.4.5.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.1
+ */
+const clientAttributeValueSchema = z.union([quotedStringSchema, hexadecimalSequenceSchema, signedDecimalFloatingPointSchema]).describe("EXT-X-DATERANGE X- attribute value, section 4.4.5.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.1");
 
+/**
+ * Converts the attributes EXT-X-DATERANGE defines, its X- attributes aside.
+ * Section 4.4.5.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.1
+ */
 const dateRangeAttributesSchema = attributeListTagSchema({
     ID: quotedStringSchema,
     CLASS: quotedStringSchema.optional(),
@@ -96,14 +107,20 @@ const dateRangeAttributesSchema = attributeListTagSchema({
     "SCTE35-OUT": hexadecimalSequenceSchema.optional(),
     "SCTE35-IN": hexadecimalSequenceSchema.optional(),
     "END-ON-NEXT": enumeratedStringSchema([YES]).optional(),
-});
+})
+    .describe("EXT-X-DATERANGE defined attributes, section 4.4.5.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.1");
 
+/**
+ * Converts a Date Range's defined attributes and its X- attributes, split apart.
+ * Section 4.4.5.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.1
+ */
 const splitSchema = z
     .object({
         attributes: dateRangeAttributesSchema,
         clientAttributes: z.record(z.string(), clientAttributeValueSchema).readonly().optional(),
     })
-    .readonly();
+    .readonly()
+    .describe("EXT-X-DATERANGE split attributes, section 4.4.5.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.1");
 
 type SplitInput = z.input<typeof splitSchema>;
 
@@ -138,8 +155,9 @@ function joinClientAttributes(split: z.output<typeof splitSchema>) {
  * Converts EXT-X-DATERANGE's attributes, each optional one absent when not written. X- attributes,
  * which section 4.4.5.1 defines as a namespace, are kept in a frozen clientAttributes object keyed by
  * their names, absent when there are none.
+ * Section 4.4.5.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.1
  */
-export const extXDateRangeSchema = z.preprocess(splitClientAttributes, splitSchema).transform(joinClientAttributes);
+export const extXDateRangeSchema = z.preprocess(splitClientAttributes, splitSchema).transform(joinClientAttributes).describe("EXT-X-DATERANGE, section 4.4.5.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.5.1");
 
 type DateRange = {
     readonly ID: string;

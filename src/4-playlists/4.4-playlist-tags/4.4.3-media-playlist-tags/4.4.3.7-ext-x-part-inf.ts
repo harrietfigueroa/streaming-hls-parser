@@ -20,5 +20,8 @@ export const extXPartInfRules = {
     },
 } as const satisfies Record<string, Rule>;
 
-/** Converts EXT-X-PART-INF's attributes: PART-TARGET, the Part Target Duration in seconds. */
-export const extXPartInfSchema = attributeListTagSchema({ "PART-TARGET": decimalFloatingPointSchema });
+/**
+ * Converts EXT-X-PART-INF's attributes: PART-TARGET, the Part Target Duration in seconds.
+ * Section 4.4.3.7: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.3.7
+ */
+export const extXPartInfSchema = attributeListTagSchema({ "PART-TARGET": decimalFloatingPointSchema }).describe("EXT-X-PART-INF, section 4.4.3.7: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.3.7");

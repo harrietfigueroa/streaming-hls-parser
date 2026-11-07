@@ -183,39 +183,67 @@ function toResolution(value: string) {
     return { width, height };
 }
 
-const boundedBigIntSchema = z.bigint().lte(DECIMAL_INTEGER_MAX);
+/**
+ * Bounds a decimal-integer at 2^64-1, the largest value its 20 digits may hold.
+ * Section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2
+ */
+const boundedBigIntSchema = z.bigint().lte(DECIMAL_INTEGER_MAX).describe("the decimal-integer bound, section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2");
 
-/** Converts a decimal-integer (up to 20 digits, at most 2^64-1) to a bigint. */
+/**
+ * Converts a decimal-integer (up to 20 digits, at most 2^64-1) to a bigint.
+ * Section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2
+ */
 export const decimalIntegerSchema = z
     .string()
     .regex(DECIMAL_INTEGER_PATTERN)
     .transform(toBigInt)
-    .pipe(boundedBigIntSchema);
+    .pipe(boundedBigIntSchema)
+    .describe("decimal-integer, section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2");
 
-/** Validates a hexadecimal-sequence (`0x` or `0X`, then uppercase hex digits), kept as written per decision 12. */
-export const hexadecimalSequenceSchema = z.string().regex(HEXADECIMAL_SEQUENCE_PATTERN);
+/**
+ * Validates a hexadecimal-sequence (`0x` or `0X`, then uppercase hex digits), kept as written.
+ * Section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2
+ */
+export const hexadecimalSequenceSchema = z.string().regex(HEXADECIMAL_SEQUENCE_PATTERN).describe("hexadecimal-sequence, section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2");
 
-/** Converts a decimal-floating-point (non-negative, decimal positional notation) to a number. */
-export const decimalFloatingPointSchema = z.string().regex(DECIMAL_FLOATING_POINT_PATTERN).transform(toNumber);
+/**
+ * Converts a decimal-floating-point (non-negative, decimal positional notation) to a number.
+ * Section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2
+ */
+export const decimalFloatingPointSchema = z.string().regex(DECIMAL_FLOATING_POINT_PATTERN).transform(toNumber).describe("decimal-floating-point, section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2");
 
-/** Converts a signed-decimal-floating-point (decimal positional notation, optionally negative) to a number. */
+/**
+ * Converts a signed-decimal-floating-point (decimal positional notation, optionally negative) to a number.
+ * Section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2
+ */
 export const signedDecimalFloatingPointSchema = z
     .string()
     .regex(SIGNED_DECIMAL_FLOATING_POINT_PATTERN)
-    .transform(toNumber);
+    .transform(toNumber)
+    .describe("signed-decimal-floating-point, section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2");
 
-/** Unquotes a non-empty quoted-string. */
-export const quotedStringSchema = z.string().regex(QUOTED_STRING_PATTERN).transform(unquote);
+/**
+ * Unquotes a non-empty quoted-string.
+ * Section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2
+ */
+export const quotedStringSchema = z.string().regex(QUOTED_STRING_PATTERN).transform(unquote).describe("quoted-string, section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2");
 
-/** Unquotes a quoted-string, for the attributes whose definitions allow an empty value. */
-export const possiblyEmptyQuotedStringSchema = z.string().regex(POSSIBLY_EMPTY_QUOTED_STRING_PATTERN).transform(unquote);
+/**
+ * Unquotes a quoted-string, for the attributes whose definitions allow an empty value.
+ * Section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2
+ */
+export const possiblyEmptyQuotedStringSchema = z.string().regex(POSSIBLY_EMPTY_QUOTED_STRING_PATTERN).transform(unquote).describe("possibly empty quoted-string, section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2");
 
-/** Converts a decimal-resolution (`<width>x<height>`, each a decimal-integer) to a frozen width and height. */
+/**
+ * Converts a decimal-resolution (`<width>x<height>`, each a decimal-integer) to a frozen width and height.
+ * Section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2
+ */
 export const decimalResolutionSchema = z
     .string()
     .regex(DECIMAL_RESOLUTION_PATTERN)
     .transform(toResolution)
-    .pipe(z.object({ width: boundedBigIntSchema, height: boundedBigIntSchema }).readonly());
+    .pipe(z.object({ width: boundedBigIntSchema, height: boundedBigIntSchema }).readonly())
+    .describe("decimal-resolution, section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2");
 
 type EnumeratedValues = readonly [string, ...string[]];
 
@@ -252,7 +280,11 @@ const REQUIRED_ATTRIBUTE_PREFIX = "REQ-";
 
 type AttributesShape = Readonly<Record<string, z.ZodType>>;
 
-const rawAttributesSchema = z.record(z.string(), z.string());
+/**
+ * Accepts an attribute-list's attributes as scanned, each value unconverted.
+ * Section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2
+ */
+const rawAttributesSchema = z.record(z.string(), z.string()).describe("attribute-list attributes, section 4.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.2");
 
 /**
  * Converts an attribute-list tag's raw attributes by `shape`, its attribute table. Unrecognized

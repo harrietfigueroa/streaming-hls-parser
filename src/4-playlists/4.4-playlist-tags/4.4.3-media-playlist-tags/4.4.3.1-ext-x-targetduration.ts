@@ -31,8 +31,11 @@ export const extXTargetDurationRules = {
 
 const TARGET_DURATION_MIN = 1n;
 
-/** Converts the EXT-X-TARGETDURATION tag's value, the Target Duration in seconds, to a bigint. */
-export const extXTargetDurationSchema = decimalIntegerSchema.pipe(z.bigint().gte(TARGET_DURATION_MIN));
+/**
+ * Converts the EXT-X-TARGETDURATION tag's value, the Target Duration in seconds, to a bigint.
+ * Section 4.4.3.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.3.1
+ */
+export const extXTargetDurationSchema = decimalIntegerSchema.pipe(z.bigint().gte(TARGET_DURATION_MIN)).describe("EXT-X-TARGETDURATION, section 4.4.3.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.3.1");
 
 /** Checks that the duration of the segment at `segmentIndex`, rounded to the nearest integer, is at most `targetDuration`. */
 export function checkSegmentDuration(options: {

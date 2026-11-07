@@ -1,4 +1,4 @@
-// The static scanner of decision 16. This module is pure: it walks a
+// The static scanner. This module is pure: it walks a
 // playlist's lines once, applies section 4.1's line rules, section 4.4.1.1's
 // identification, section 4.2's attribute-list grammar, and section 4.3's
 // variable substitution, settles the playlist's kind, and groups each tag's
@@ -54,15 +54,15 @@ type IgnoredLinePayloads = {
     [IgnoredKind.ignoredUri]: { readonly reason: IgnoreReason };
 };
 type IgnoredLineMember<K extends IgnoredKind> = { readonly kind: K; readonly line: string } & IgnoredLinePayloads[K];
-/** A line the spec says to ignore, kept as written per decision 29. */
+/** A line the spec says to ignore, kept as written in position. */
 export type IgnoredLine = { [K in IgnoredKind]: IgnoredLineMember<K> }[IgnoredKind];
 
 /** A tag's unconverted value: its attributes for an attribute-list tag, else the text after ':', or true without one. */
 export type RawValue = string | true | Readonly<Record<string, string>>;
 
 /**
- * One recognized tag as scanned, with the position its line would take among ignored lines. Per
- * decision 29 that is the next unit's ignored lines, or the playlist's after the last unit.
+ * One recognized tag as scanned, with the position its line would take among ignored lines: the
+ * next unit's ignored lines, or the playlist's after the last unit.
  */
 export type RawTag = {
     readonly value: RawValue;

@@ -17,8 +17,12 @@ export const extXMapRules = {
     },
 } as const satisfies Record<string, Rule>;
 
-/** Converts EXT-X-MAP's attributes: the Media Initialization Section's URI, and its byte range per decision 25. */
+/**
+ * Converts EXT-X-MAP's attributes: the Media Initialization Section's URI, and its byte range as a length and offset.
+ * Section 4.4.4.5: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.5
+ */
 export const extXMapSchema = attributeListTagSchema({
     URI: quotedStringSchema,
     BYTERANGE: quotedStringSchema.pipe(byteRangeWithOffsetSchema).optional(),
-});
+})
+    .describe("EXT-X-MAP, section 4.4.4.5: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.5");

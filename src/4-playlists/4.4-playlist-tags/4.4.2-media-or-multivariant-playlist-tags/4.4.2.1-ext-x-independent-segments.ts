@@ -21,5 +21,8 @@ export const extXIndependentSegmentsRules = {
     },
 } as const satisfies Record<string, Rule>;
 
-/** Accepts the raw value of a tag written without a value, true, which is the tag's value per decision 23. */
-export const extXIndependentSegmentsSchema = z.literal(true);
+/**
+ * Accepts the raw value of a tag written without a value, true, which is the tag's value.
+ * Section 4.4.2.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.2.1
+ */
+export const extXIndependentSegmentsSchema = z.literal(true).describe("EXT-X-INDEPENDENT-SEGMENTS, section 4.4.2.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.2.1");

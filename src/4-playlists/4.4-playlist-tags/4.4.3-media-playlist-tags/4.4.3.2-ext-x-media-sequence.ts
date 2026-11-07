@@ -20,5 +20,8 @@ export const extXMediaSequenceRules = {
     },
 } as const satisfies Record<string, Rule>;
 
-/** Converts the Media Sequence Number of the playlist's first Media Segment to a bigint. */
-export const extXMediaSequenceSchema = decimalIntegerSchema;
+/**
+ * Converts the Media Sequence Number of the playlist's first Media Segment to a bigint.
+ * Section 4.4.3.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.3.2
+ */
+export const extXMediaSequenceSchema = decimalIntegerSchema.describe("EXT-X-MEDIA-SEQUENCE, section 4.4.3.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.3.2");

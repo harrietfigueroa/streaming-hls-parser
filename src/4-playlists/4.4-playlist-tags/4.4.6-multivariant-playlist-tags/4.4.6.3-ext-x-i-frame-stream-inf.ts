@@ -18,5 +18,8 @@ export const extXIFrameStreamInfRules = {
     },
 } as const satisfies Record<string, Rule>;
 
-/** Converts EXT-X-I-FRAME-STREAM-INF's attributes, each optional one absent when not written. */
-export const extXIFrameStreamInfSchema = attributeListTagSchema({ ...variantStreamAttributes, URI: quotedStringSchema });
+/**
+ * Converts EXT-X-I-FRAME-STREAM-INF's attributes, each optional one absent when not written.
+ * Section 4.4.6.3: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.6.3
+ */
+export const extXIFrameStreamInfSchema = attributeListTagSchema({ ...variantStreamAttributes, URI: quotedStringSchema }).describe("EXT-X-I-FRAME-STREAM-INF, section 4.4.6.3: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.6.3");

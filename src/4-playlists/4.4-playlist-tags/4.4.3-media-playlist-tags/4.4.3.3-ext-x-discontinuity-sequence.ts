@@ -25,5 +25,8 @@ export const extXDiscontinuitySequenceRules = {
     },
 } as const satisfies Record<string, Rule>;
 
-/** Converts the Discontinuity Sequence Number of the playlist's first Media Segment to a bigint. */
-export const extXDiscontinuitySequenceSchema = decimalIntegerSchema;
+/**
+ * Converts the Discontinuity Sequence Number of the playlist's first Media Segment to a bigint.
+ * Section 4.4.3.3: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.3.3
+ */
+export const extXDiscontinuitySequenceSchema = decimalIntegerSchema.describe("EXT-X-DISCONTINUITY-SEQUENCE, section 4.4.3.3: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.3.3");

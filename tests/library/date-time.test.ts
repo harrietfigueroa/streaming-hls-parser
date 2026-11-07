@@ -1,4 +1,4 @@
-// These tests pin decision 27 and 28's date-times: the schema accepts ISO 8601
+// These tests pin the date-times: the schema accepts ISO 8601
 // date-times with an offset, keeping the text as written, rejects every field
 // out of its range, and the conversions agree with Date.parse on valid text.
 import { describe, expect, test } from "vitest";

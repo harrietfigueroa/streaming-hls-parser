@@ -17,5 +17,8 @@ export const extXBitrateRules = {
     },
 } as const satisfies Record<string, Rule>;
 
-/** Converts the approximate segment bit rate, in kilobits per second, to a bigint. */
-export const extXBitrateSchema = decimalIntegerSchema;
+/**
+ * Converts the approximate segment bit rate, in kilobits per second, to a bigint.
+ * Section 4.4.4.8: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.8
+ */
+export const extXBitrateSchema = decimalIntegerSchema.describe("EXT-X-BITRATE, section 4.4.4.8: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.8");

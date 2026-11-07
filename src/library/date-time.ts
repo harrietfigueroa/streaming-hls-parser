@@ -1,4 +1,4 @@
-// Date-times per decisions 27 and 28: the spec text exactly as written, typed
+// Date-times: the spec text exactly as written, typed
 // as a branded string that is a plain string at runtime, and pure functions
 // converting it. This module is pure.
 import { z } from "zod";

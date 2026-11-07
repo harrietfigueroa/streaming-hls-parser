@@ -58,15 +58,23 @@ export const extXDefineRules = {
 /** A Variable Name's characters: [a-z], [A-Z], [0-9], '-', and '_'. */
 export const VARIABLE_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
-const variableNameSchema = quotedStringSchema.pipe(z.string().regex(VARIABLE_NAME_PATTERN));
+/**
+ * Unquotes a Variable Name and checks its characters.
+ * Section 4.4.2.3: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.2.3
+ */
+const variableNameSchema = quotedStringSchema.pipe(z.string().regex(VARIABLE_NAME_PATTERN)).describe("EXT-X-DEFINE Variable Name, section 4.4.2.3: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.2.3");
 
-/** Converts EXT-X-DEFINE's attributes, each unquoted and absent when not written. */
+/**
+ * Converts EXT-X-DEFINE's attributes, each unquoted and absent when not written.
+ * Section 4.4.2.3: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.2.3
+ */
 export const extXDefineSchema = attributeListTagSchema({
     NAME: variableNameSchema.optional(),
     VALUE: possiblyEmptyQuotedStringSchema.optional(),
     IMPORT: variableNameSchema.optional(),
     QUERYPARAM: variableNameSchema.optional(),
-});
+})
+    .describe("EXT-X-DEFINE, section 4.4.2.3: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.2.3");
 
 type Define = z.output<typeof extXDefineSchema>;
 

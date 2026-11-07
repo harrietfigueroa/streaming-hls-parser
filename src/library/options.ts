@@ -1,4 +1,4 @@
-// The parse options of decision 30. This module is pure: it resolves a call's
+// The parse options. This module is pure: it resolves a call's
 // partial limits against the named defaults, asserting each is a positive
 // integer, since a malformed limit is the caller's programmer error.
 import { assertCondition } from "./assert.js";
@@ -13,7 +13,7 @@ export type Limit = (typeof Limit)[keyof typeof Limit];
 /** The bounds one parse runs under: line length before and after substitution, and the count of units. */
 export type Limits = { readonly [Name in Limit]: number };
 
-// Decision 30's initial defaults, to be adjusted against benchmarks and real playlists.
+// Initial defaults, to be adjusted against benchmarks and real playlists.
 const LINE_BYTES_MAX_DEFAULT = 1024 * 1024;
 const SUBSTITUTED_LINE_BYTES_MAX_DEFAULT = 1024 * 1024;
 const UNIT_COUNT_MAX_DEFAULT = 1_000_000;

@@ -34,9 +34,14 @@ const EXTINF_FORMAT_PATTERN = /^[^,]+,/;
 // Section 4.4.4.1 treats a zero-length or entirely whitespace title as missing.
 const MISSING_TITLE_PATTERN = /^\s*$/;
 
+/**
+ * Converts EXTINF's split duration to a number, its title absent when missing.
+ * Section 4.4.4.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.1
+ */
 const extinfFieldsSchema = z
     .object({ duration: decimalFloatingPointSchema, title: z.string().optional() })
-    .readonly();
+    .readonly()
+    .describe("EXTINF duration and title, section 4.4.4.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.1");
 type ExtinfFields = z.input<typeof extinfFieldsSchema>;
 
 function splitExtinf(value: string) {
@@ -51,5 +56,8 @@ function splitExtinf(value: string) {
     return titled;
 }
 
-/** Converts the EXTINF tag's value to a frozen `{ duration, title }`, its title absent when missing. */
-export const extinfSchema = z.string().regex(EXTINF_FORMAT_PATTERN).transform(splitExtinf).pipe(extinfFieldsSchema);
+/**
+ * Converts the EXTINF tag's value to a frozen `{ duration, title }`, its title absent when missing.
+ * Section 4.4.4.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.1
+ */
+export const extinfSchema = z.string().regex(EXTINF_FORMAT_PATTERN).transform(splitExtinf).pipe(extinfFieldsSchema).describe("EXTINF, section 4.4.4.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.4.1");

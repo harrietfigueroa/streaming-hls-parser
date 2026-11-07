@@ -14,7 +14,8 @@
         "isolatedModules": true,
         "skipLibCheck": false,
         "noEmit": true,
+        "allowImportingTsExtensions": true,
         "types": ["node"]
     },
-    "include": ["bench", "src", "tests"]
+    "include": ["bench", "lint", "src", "tests"]
 }

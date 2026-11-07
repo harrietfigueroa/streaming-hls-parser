@@ -104,7 +104,11 @@ function parseVideoLayout(value: string, context: z.core.$RefinementCtx<string>)
     return Object.freeze(entries);
 }
 
-const stableIdSchema = quotedStringSchema.pipe(z.string().regex(STABLE_ID_PATTERN));
+/**
+ * Unquotes a STABLE-VARIANT-ID and checks its characters.
+ * Section 4.4.6.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.6.2
+ */
+const stableIdSchema = quotedStringSchema.pipe(z.string().regex(STABLE_ID_PATTERN)).describe("STABLE-VARIANT-ID, section 4.4.6.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.6.2");
 
 /** The attributes EXT-X-STREAM-INF shares with EXT-X-I-FRAME-STREAM-INF (section 4.4.6.3). */
 export const variantStreamAttributes = {
@@ -123,11 +127,15 @@ export const variantStreamAttributes = {
     "PATHWAY-ID": quotedStringSchema.optional(),
 } as const;
 
-/** Converts EXT-X-STREAM-INF's attributes, each optional one absent when not written; CLOSED-CAPTIONS may be NONE. */
+/**
+ * Converts EXT-X-STREAM-INF's attributes, each optional one absent when not written; CLOSED-CAPTIONS may be NONE.
+ * Section 4.4.6.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.6.2
+ */
 export const extXStreamInfSchema = attributeListTagSchema({
     ...variantStreamAttributes,
     "FRAME-RATE": decimalFloatingPointSchema.optional(),
     AUDIO: quotedStringSchema.optional(),
     SUBTITLES: quotedStringSchema.optional(),
     "CLOSED-CAPTIONS": z.union([quotedStringSchema, z.literal(NONE)]).optional(),
-});
+})
+    .describe("EXT-X-STREAM-INF, section 4.4.6.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.6.2");

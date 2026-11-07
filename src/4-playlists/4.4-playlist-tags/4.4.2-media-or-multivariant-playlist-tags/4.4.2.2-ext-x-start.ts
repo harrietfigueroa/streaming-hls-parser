@@ -28,8 +28,12 @@ export const extXStartRules = {
 export const Precise = { yes: "YES", no: "NO" } as const;
 export type Precise = (typeof Precise)[keyof typeof Precise];
 
-/** Converts EXT-X-START's attributes: TIME-OFFSET in seconds, and PRECISE, absent when not written. */
+/**
+ * Converts EXT-X-START's attributes: TIME-OFFSET in seconds, and PRECISE, absent when not written.
+ * Section 4.4.2.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.2.2
+ */
 export const extXStartSchema = attributeListTagSchema({
     "TIME-OFFSET": signedDecimalFloatingPointSchema,
     PRECISE: enumeratedStringSchema([Precise.yes, Precise.no]).optional(),
-});
+})
+    .describe("EXT-X-START, section 4.4.2.2: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.2.2");

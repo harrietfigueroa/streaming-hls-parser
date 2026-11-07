@@ -23,8 +23,11 @@ export const extm3uRules = {
     },
 } as const satisfies Record<string, Rule>;
 
-/** Accepts the raw value of a tag written without a value, true, which is the tag's value per decision 23. */
-export const extm3uSchema = z.literal(true);
+/**
+ * Accepts the raw value of a tag written without a value, true, which is the tag's value.
+ * Section 4.4.1.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.1.1
+ */
+export const extm3uSchema = z.literal(true).describe("EXTM3U, section 4.4.1.1: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis-22#section-4.4.1.1");
 
 /** Checks that a playlist's classified first line is the EXTM3U tag; the tag's value is the schema's to check. */
 export function checkIdentification(firstLine: Line) {
