@@ -94,7 +94,7 @@ import {
     EXT_X_STREAM_INF_TAG_NAME,
     extXStreamInfRules,
     extXStreamInfSchema,
-} from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.2-ext-x-stream-inf.js";
+} from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.2-ext-x-stream-inf/4.4.6.2-ext-x-stream-inf.js";
 import {
     EXT_X_I_FRAME_STREAM_INF_TAG_NAME,
     extXIFrameStreamInfRules,

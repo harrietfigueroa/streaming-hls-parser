@@ -3,7 +3,7 @@
 // AUDIO, SUBTITLES, and CLOSED-CAPTIONS, with a URI.
 import { attributeListTagSchema, quotedStringSchema } from "../../4.2-attribute-lists.js";
 import { type Rule, Severity } from "../../../library/rule.js";
-import { variantStreamAttributes } from "./4.4.6.2-ext-x-stream-inf.js";
+import { variantStreamAttributes } from "./4.4.6.2-ext-x-stream-inf/4.4.6.2-ext-x-stream-inf.js";
 
 const SECTION = "4.4.6.3";
 

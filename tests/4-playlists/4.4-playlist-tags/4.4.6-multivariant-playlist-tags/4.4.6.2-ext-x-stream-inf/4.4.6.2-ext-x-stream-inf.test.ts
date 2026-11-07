@@ -9,7 +9,7 @@ import {
     HdcpLevel,
     VideoLayout,
     VideoRange,
-} from "../../../../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.2-ext-x-stream-inf.js";
+} from "../../../../../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.2-ext-x-stream-inf/4.4.6.2-ext-x-stream-inf.js";
 
 describe("extXStreamInfSchema", () => {
     test("converts every attribute", () => {

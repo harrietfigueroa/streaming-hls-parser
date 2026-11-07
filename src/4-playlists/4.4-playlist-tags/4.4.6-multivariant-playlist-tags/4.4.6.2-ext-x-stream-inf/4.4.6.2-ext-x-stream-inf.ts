@@ -10,9 +10,9 @@ import {
     decimalResolutionSchema,
     enumeratedStringSchema,
     quotedStringSchema,
-} from "../../4.2-attribute-lists.js";
-import { type Rule, Severity } from "../../../library/rule.js";
-import type { IgnoreReason } from "../../../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
+} from "../../../4.2-attribute-lists.js";
+import { type Rule, Severity } from "../../../../library/rule.js";
+import type { IgnoreReason } from "../../../../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
 
 const SECTION = "4.4.6.2";
 
