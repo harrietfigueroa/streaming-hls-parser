@@ -4,7 +4,7 @@ This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-p
 
 ## Where things stand
 
-The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 633 tests pass, `tsc --noEmit` is clean, and `npm run lint` (oxlint) is clean. `style-lint` is clean on every committed file but one line: `create-hls.ts`'s `z.map(z.string(), z.string())`, which `style/prefer-array-from` reports because the rule matches any `.map(...)` method call, zod's included (see the open questions).
+The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 633 tests pass, `tsc --noEmit` is clean, and `npm run lint` (oxlint) is clean. `style-lint` is clean on every committed file but one line: `create-hls.ts`'s `z.map(z.string(), z.string())`, which the installed `style/prefer-array-from` reports because it matches any `.map(...)` method call. Dotfiles pull request 8 exempts zod's `z.map`, and a build of that branch reports the line clean.
 
 | Commit | Content |
 | --- | --- |
@@ -93,7 +93,7 @@ Backlog items 2, 4 to 25, 30 to 39, and 45 to 49 remain open. Items 7 (performan
   - a variant without PATHWAY-ID on the default Pathway `.`;
   - the Multivariant Playlist's `variables` Map, the one output change among them.
 - **Section 9.11's Content Steering example breaks section 4.4.6.1.1.** Its two AUDIO Groups name their members "English" and "ENGLISH". NAME is not among the attributes corresponding members may differ in, so the example is malformed under any matching of members, and the parser reports it. Either the example is in error or the rule compares NAME case-insensitively, which the spec does not say.
-- **`style/prefer-array-from` reports zod's `z.map`.** The rule in the dotfiles' `packages/style-lint/src/rules/prefer-array-from.ts` matches every `.map(...)` call, so `z.map(z.string(), z.string())` in `create-hls.ts` fails the commit hook. The repository does not run `style-lint`, so no disable comment may name the rule. The fix belongs in the rule, which without types cannot tell an array's `.map` from zod's, for example by skipping a `.map` whose receiver is a namespace imported from `zod`.
+- **Dotfiles pull request 8 waits on the user's merge and a home rebuild.** Until the installed `style-lint` carries it, the commit hook reports `create-hls.ts`'s `z.map` under `style/prefer-array-from`; the finding is the rule's, and the line stays as written.
 
 ## Conventions this codebase follows
 
