@@ -83,6 +83,13 @@ import { EXT_X_BITRATE_TAG_NAME, extXBitrateRules, extXBitrateSchema } from "../
 import { EXT_X_KEY_TAG_NAME, extXKeyRules, extXKeySchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.4-ext-x-key.js";
 import { EXT_X_MAP_TAG_NAME, extXMapRules, extXMapSchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.5-ext-x-map.js";
 import { EXT_X_PART_TAG_NAME, extXPartRules, extXPartSchema } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.9-ext-x-part.js";
+import {
+    EXT_X_DATERANGE_TAG_NAME,
+    extXDateRangeIgnoreReason,
+    extXDateRangeRules,
+    extXDateRangeSchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.1-ext-x-daterange.js";
+import type { IgnoreReason } from "../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
 import type { Rule } from "./rule.js";
 
 /** How the scanner reads a tag's raw value: as the text after ':', or as an attribute-list. */
@@ -113,6 +120,8 @@ export type TagEntry = {
     readonly precedesSegments?: Rule;
     /** Broken when the tag appears after its Parent Segment's first EXT-X-PART. */
     readonly precedesParts?: Rule;
+    /** Why a tag whose syntax is illegal is ignored rather than malformed, where its section says so. */
+    readonly ignoreOnFormatFailure?: IgnoreReason;
 };
 
 type UnitEntries<Shape> = { readonly [Name in keyof Shape]: TagEntry };
@@ -131,6 +140,7 @@ const mediaPlaylistShape = {
     [EXT_X_I_FRAMES_ONLY_TAG_NAME]: extXIFramesOnlySchema.optional(),
     [EXT_X_PART_INF_TAG_NAME]: extXPartInfSchema.optional(),
     [EXT_X_SERVER_CONTROL_TAG_NAME]: extXServerControlSchema.optional(),
+    [EXT_X_DATERANGE_TAG_NAME]: z.array(extXDateRangeSchema).readonly().optional(),
 } as const;
 
 // A second EXTM3U breaks identification: the tag's one position is the first line.
@@ -203,6 +213,12 @@ const mediaPlaylistEntries = {
         form: ValueForm.attributeList,
         format: extXServerControlRules.format,
         occurrence: { kind: OccurrenceKind.once, duplicate: mediaPlaylistTagRules.singleTag },
+    },
+    [EXT_X_DATERANGE_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXDateRangeRules.format,
+        occurrence: { kind: OccurrenceKind.repeated },
+        ignoreOnFormatFailure: extXDateRangeIgnoreReason,
     },
 } as const satisfies UnitEntries<typeof mediaPlaylistShape>;
 

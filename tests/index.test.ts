@@ -18,6 +18,10 @@ import { extXByteRangeRules } from "../src/4-playlists/4.4-playlist-tags/4.4.4-m
 import { extXKeyRules, KeyMethod } from "../src/4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.4-ext-x-key.js";
 import { extXPartRules } from "../src/4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.9-ext-x-part.js";
 import { extXPartInfRules } from "../src/4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.7-ext-x-part-inf.js";
+import {
+    extXDateRangeIgnoreReason,
+    extXDateRangeRules,
+} from "../src/4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.1-ext-x-daterange.js";
 import { definitionRules } from "../src/4-playlists/4.1-definition-of-a-playlist.js";
 import { extm3uRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.1-extm3u.js";
 import { extXVersionRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.2-ext-x-version.js";
@@ -229,6 +233,41 @@ describe("HLS.safeParse", () => {
         expect(outcome).toMatchObject({ kind: ParseKind.malformed, issues: [{ rule: extXPartInfRules.requiredWithParts }] });
     });
 
+    test("keeps every Date Range on the playlist", () => {
+        const text = [
+            "#EXTM3U",
+            "#EXT-X-TARGETDURATION:10",
+            "#EXT-X-PROGRAM-DATE-TIME:2014-03-05T11:14:00Z",
+            '#EXT-X-DATERANGE:ID="ad",START-DATE="2014-03-05T11:15:00Z",PLANNED-DURATION=60,X-AD-ID="XYZ"',
+            "#EXTINF:10,",
+            "a.ts",
+            '#EXT-X-DATERANGE:ID="ad",DURATION=60',
+            "",
+        ].join("\n");
+        const outcome = HLS.safeParse(text);
+        expect(outcome).toMatchObject({
+            kind: ParseKind.parsed,
+            playlist: {
+                "EXT-X-DATERANGE": [
+                    { ID: "ad", "START-DATE": "2014-03-05T11:15:00Z", clientAttributes: { "X-AD-ID": "XYZ" } },
+                    { ID: "ad", DURATION: 60 },
+                ],
+            },
+        });
+    });
+
+    test.each([
+        '#EXT-X-DATERANGE:START-DATE="2014-03-05T11:15:00Z"',
+        '#EXT-X-DATERANGE:ID="ad",ID="ad"',
+    ])("ignores the Date Range %s, whose syntax is illegal", (dateRange) => {
+        const text = `#EXTM3U\n#EXT-X-TARGETDURATION:10\n${dateRange}\n`;
+        const outcome = HLS.safeParse(text);
+        expect(outcome).toMatchObject({
+            kind: ParseKind.parsed,
+            playlist: { ignored: [{ kind: IgnoredKind.ignoredTag, line: dateRange, reason: extXDateRangeIgnoreReason }] },
+        });
+    });
+
     test("skips blank lines", () => {
         const text = "#EXTM3U\n\n#EXT-X-TARGETDURATION:10\n\n#EXTINF:1,\n\na.ts\n";
         const outcome = HLS.safeParse(text);
@@ -310,6 +349,7 @@ describe("HLS.safeParse", () => {
         { name: "a second EXT-X-MAP before one URI", text: `${BASE_HEAD}#EXT-X-MAP:URI="a"\n#EXT-X-MAP:URI="b"\n${BASE_SEGMENT}`, rule: mediaSegmentTagRules.singlePerSegment },
         { name: "an EXT-X-KEY after its Parent Segment's first part", text: `${BASE_HEAD}#EXT-X-PART-INF:PART-TARGET=5\n#EXT-X-SERVER-CONTROL:PART-HOLD-BACK=10\n#EXT-X-PART:DURATION=5,URI="p"\n#EXT-X-KEY:METHOD=NONE\n${BASE_SEGMENT}`, rule: extXPartRules.parentTagsPrecedeParts },
         { name: "a part longer than the Part Target Duration", text: `${BASE_HEAD}#EXT-X-PART-INF:PART-TARGET=5\n#EXT-X-SERVER-CONTROL:PART-HOLD-BACK=10\n#EXT-X-PART:DURATION=6,URI="p"\n${BASE_SEGMENT}`, rule: extXPartRules.durationMax },
+        { name: "a Date Range without EXT-X-PROGRAM-DATE-TIME", text: `${BASE_HEAD}#EXT-X-DATERANGE:ID="a",START-DATE="2014-03-05T11:15:00Z"\n${BASE_SEGMENT}`, rule: extXDateRangeRules.programDateTimeRequired },
     ] as const;
 
     test.each(malformed)("reports $name as malformed", ({ text, rule }) => {

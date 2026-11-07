@@ -152,6 +152,11 @@ export function classifySchemaIssue(options: { readonly issue: z.core.$ZodIssue;
         const ignorableIssue: SchemaIssue = { kind: SchemaIssueKind.ignorable, ignorable: { tag, reason: ignore.reason } };
         return ignorableIssue;
     }
+    const formatIgnoreReason = location.entry.ignoreOnFormatFailure;
+    if (formatIgnoreReason !== undefined) {
+        const ignorableFormat: SchemaIssue = { kind: SchemaIssueKind.ignorable, ignorable: { tag, reason: formatIgnoreReason } };
+        return ignorableFormat;
+    }
     const issueFormat = { rule: location.entry.format, detail: `Line ${tag.lineNumber}: ${location.where}: ${issue.message}` };
     const broken: SchemaIssue = { kind: SchemaIssueKind.broken, issue: issueFormat };
     return broken;

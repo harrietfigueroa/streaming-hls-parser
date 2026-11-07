@@ -10,6 +10,7 @@ import { checkByteRangeOffsets } from "../4-playlists/4.4-playlist-tags/4.4.4-me
 import { checkKey } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.4-ext-x-key.js";
 import { checkPartDurations } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4.9-ext-x-part.js";
 import { extXPartInfRules } from "../4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.7-ext-x-part-inf.js";
+import { checkDateRanges } from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.1-ext-x-daterange.js";
 import { assertCondition } from "./assert.js";
 import { type Limit, type ParseOptions, resolveLimits } from "./options.js";
 import { defaultPolicy, type Policy } from "./policy.js";
@@ -222,7 +223,24 @@ function findPlaylistIssues(playlist: MediaPlaylist) {
     for (const issue of byteRangeIssues) {
         issues.push(issue);
     }
+    const dateRanges = playlist["EXT-X-DATERANGE"];
+    if (dateRanges !== undefined) {
+        const hasProgramDateTime = hasAnyProgramDateTime(playlist);
+        const dateRangeIssues = checkDateRanges({ dateRanges, hasProgramDateTime });
+        for (const issue of dateRangeIssues) {
+            issues.push(issue);
+        }
+    }
     return issues;
+}
+
+function hasAnyProgramDateTime(playlist: MediaPlaylist) {
+    for (const segment of playlist.segments) {
+        if (segment["EXT-X-PROGRAM-DATE-TIME"] !== undefined) {
+            return true;
+        }
+    }
+    return playlist.pendingSegment?.["EXT-X-PROGRAM-DATE-TIME"] !== undefined;
 }
 
 /** Checks the rules spanning a converted playlist, resolving each issue through `policy`. */

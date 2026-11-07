@@ -96,12 +96,14 @@ type ScanPayloads = {
 type ScanMember<K extends ScanKind> = { readonly kind: K } & ScanPayloads[K];
 export type Scan = { [K in ScanKind]: ScanMember<K> }[ScanKind];
 
-const ReadKind = { read: "read", malformed: "malformed", limitExceeded: "limitExceeded" } as const;
+const ReadKind = { read: "read", malformed: "malformed", invalidSyntax: "invalidSyntax", limitExceeded: "limitExceeded" } as const;
 type ReadKind = (typeof ReadKind)[keyof typeof ReadKind];
 
 type ReadPayloads<T> = {
     [ReadKind.read]: { readonly value: T };
     [ReadKind.malformed]: { readonly issue: Issue };
+    /** The attribute-list grammar's failure, which a tag whose section says so ignores rather than reports. */
+    [ReadKind.invalidSyntax]: { readonly issue: Issue };
     [ReadKind.limitExceeded]: Record<never, never>;
 };
 type ReadMember<T, K extends ReadKind> = { readonly kind: K } & ReadPayloads<T>[K];
@@ -188,8 +190,8 @@ function readAttributes(options: { readonly text: string; readonly lineBytes: nu
     const { text, lineBytes, substitutedLineBytesMax } = options;
     const attributeList = parseAttributeList(text);
     if (attributeList.kind === AttributeListKind.malformed) {
-        const malformed: Read<RawValue> = { kind: ReadKind.malformed, issue: attributeList.issue };
-        return malformed;
+        const invalid: Read<RawValue> = { kind: ReadKind.invalidSyntax, issue: attributeList.issue };
+        return invalid;
     }
     const attributes: Record<string, string> = {};
     let substitutedLineBytes = lineBytes;
@@ -199,8 +201,13 @@ function readAttributes(options: { readonly text: string; readonly lineBytes: nu
             continue;
         }
         const substituted = substitute(value, options);
+        if (substituted.kind === ReadKind.malformed) {
+            const malformed: Read<RawValue> = { kind: ReadKind.malformed, issue: substituted.issue };
+            return malformed;
+        }
         if (substituted.kind !== ReadKind.read) {
-            return substituted;
+            const exceeded: Read<RawValue> = { kind: ReadKind.limitExceeded };
+            return exceeded;
         }
         const valueBytes = utf8ByteLength(value);
         const substitutedBytes = utf8ByteLength(substituted.value);
@@ -346,6 +353,12 @@ export function scanPlaylist(options: {
                 if (read.kind === ReadKind.limitExceeded) {
                     return limitExceededScan(Limit.substitutedLineBytesMax, limits);
                 }
+                const formatIgnoreReason = entry.ignoreOnFormatFailure;
+                const isIgnoredSyntax = read.kind === ReadKind.invalidSyntax && formatIgnoreReason !== undefined;
+                if (isIgnoredSyntax) {
+                    ignored.push({ kind: IgnoredKind.ignoredTag, line: rawLine, reason: formatIgnoreReason });
+                    break;
+                }
                 const written = tags.get(line.name);
                 const occurrence = entry.occurrence;
                 const isOnce = occurrence.kind === OccurrenceKind.once;
@@ -367,9 +380,7 @@ export function scanPlaylist(options: {
                 } else if (isAfterParts) {
                     const detail = `Line ${lineNumber}: ${line.name} follows its Parent Segment's first EXT-X-PART.`;
                     issue = { rule: extXPartRules.parentTagsPrecedeParts, detail };
-                } else if (read.kind === ReadKind.malformed) {
-                    issue = atLine(read.issue, lineNumber);
-                } else {
+                } else if (read.kind === ReadKind.read) {
                     if (line.name === EXT_X_DEFINE_TAG_NAME) {
                         const definition = defineVariable({ value: read.value, variables, uri });
                         if (definition.kind === DefinitionKind.malformed) {
@@ -378,6 +389,8 @@ export function scanPlaylist(options: {
                             variables.set(definition.name, definition.value);
                         }
                     }
+                } else {
+                    issue = atLine(read.issue, lineNumber);
                 }
                 if (issue === undefined) {
                     assertCondition(read.kind === ReadKind.read, `Line ${lineNumber} has no issue and no value.`);
