@@ -9,9 +9,15 @@ import { assertCondition } from "./assert.js";
 import { type Limit, type ParseOptions, resolveLimits } from "./options.js";
 import { defaultPolicy, type Policy } from "./policy.js";
 import { CheckKind, type Issue, Severity } from "./rule.js";
-import { IgnoredKind, type RawPlaylist, type RawSegment, type RawTag, ScanKind, scanPlaylist } from "./scan.js";
-import { classifySchemaIssue, type IgnorableTag, SchemaIssueKind, withIgnoredTags } from "./schema-issues.js";
-import type { TagEntry, TagTables } from "./tag-table.js";
+import { IgnoredKind, type RawPlaylist, type RawTag, type RawTags, ScanKind, scanPlaylist } from "./scan.js";
+import {
+    classifySchemaIssue,
+    type EntriesMaps,
+    type IgnorableTag,
+    SchemaIssueKind,
+    withIgnoredTags,
+} from "./schema-issues.js";
+import { OccurrenceKind, type TagEntry, type TagTables } from "./tag-table.js";
 
 export const PlaylistKind = { media: "media" } as const;
 export type PlaylistKind = (typeof PlaylistKind)[keyof typeof PlaylistKind];
@@ -95,22 +101,36 @@ function toEntriesMap(unit: {
     return entriesMap;
 }
 
-function toTagValues(tags: ReadonlyMap<string, RawTag>) {
+function valueOf(tag: RawTag) {
+    return tag.value;
+}
+
+/** Gives each tag name its raw value, or a repeated tag's raw values in line order. */
+function toTagValues(tags: RawTags, entries: ReadonlyMap<string, TagEntry>) {
     const values: Record<string, unknown> = {};
-    for (const [name, tag] of tags) {
+    for (const [name, written] of tags) {
+        const entry = entries.get(name);
+        assertCondition(entry !== undefined, `Scanned tag ${name} has no entry.`);
+        if (entry.occurrence.kind === OccurrenceKind.repeated) {
+            values[name] = Array.from(written, valueOf);
+            continue;
+        }
+        const [tag] = written;
+        assertCondition(written.length === 1, `Tag ${name} appears ${written.length} times and may appear once.`);
+        assertCondition(tag !== undefined, `Tag ${name} was scanned with no value.`);
         values[name] = tag.value;
     }
     return values;
 }
 
-function toSegmentInput(segment: RawSegment) {
-    const values = toTagValues(segment.tags);
-    return { ...values, uri: segment.uri, ignored: segment.ignored };
-}
-
-function toPlaylistInput(playlist: RawPlaylist) {
-    const values = toTagValues(playlist.tags);
-    const segments = Array.from(playlist.segments, toSegmentInput);
+function toPlaylistInput(options: { readonly playlist: RawPlaylist } & EntriesMaps) {
+    const { playlist, playlistTagEntries, segmentTagEntries } = options;
+    const segments = [];
+    for (const segment of playlist.segments) {
+        const segmentValues = toTagValues(segment.tags, segmentTagEntries);
+        segments.push({ ...segmentValues, uri: segment.uri, ignored: segment.ignored });
+    }
+    const values = toTagValues(playlist.tags, playlistTagEntries);
     return { ...values, kind: PlaylistKind.media, segments, ignored: playlist.ignored };
 }
 
@@ -153,7 +173,7 @@ export function createHLS(tables: TagTables) {
     // A value failing its schema has no typed form to place in the playlist, so a broken rule here is
     // malformed under every policy.
     function convert(playlist: RawPlaylist) {
-        const input = toPlaylistInput(playlist);
+        const input = toPlaylistInput({ playlist, playlistTagEntries, segmentTagEntries });
         const result = schemas.mediaPlaylistSchema.safeParse(input);
         if (result.success) {
             const converted: Conversion = { kind: ConversionKind.converted, playlist: result.data };
@@ -177,7 +197,7 @@ export function createHLS(tables: TagTables) {
 
     function safeParse(text: string, options: ParseOptions = {}) {
         const limits = resolveLimits(options);
-        const scan = scanPlaylist({ text, playlistTagEntries, segmentTagEntries, policy, limits });
+        const scan = scanPlaylist({ text, playlistTagEntries, segmentTagEntries, policy, limits, uri: options.uri });
         if (scan.kind === ScanKind.malformed) {
             return malformedParse([scan.issue]);
         }

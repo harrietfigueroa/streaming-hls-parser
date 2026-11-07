@@ -3,7 +3,9 @@
 // with its Variable Value, under a length limit on the result.
 import { assertCondition } from "../library/assert.js";
 import type { Issue } from "../library/rule.js";
+import { utf8ByteLength } from "../library/utf8.js";
 import { generalClientRules } from "../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
+import { VARIABLE_NAME_PATTERN } from "./4.4-playlist-tags/4.4.2-media-or-multivariant-playlist-tags/4.4.2.3-ext-x-define.js";
 
 export const SubstitutionKind = {
     substituted: "substituted",
@@ -15,37 +17,40 @@ export type SubstitutionKind = (typeof SubstitutionKind)[keyof typeof Substituti
 type SubstitutionPayloads = {
     [SubstitutionKind.substituted]: { readonly value: string };
     [SubstitutionKind.malformed]: { readonly issue: Issue };
-    [SubstitutionKind.limitExceeded]: { readonly lengthMax: number };
+    [SubstitutionKind.limitExceeded]: { readonly bytesMax: number };
 };
 type SubstitutionMember<K extends SubstitutionKind> = { readonly kind: K } & SubstitutionPayloads[K];
 export type Substitution = { [K in SubstitutionKind]: SubstitutionMember<K> }[SubstitutionKind];
 
 const REFERENCE_OPEN = "{$";
 const REFERENCE_CLOSE = "}";
-// Section 4.4.2.3 restricts a Variable Name to [a-z], [A-Z], [0-9], '-', and '_'.
-const VARIABLE_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const NOT_FOUND = -1;
 
-function limitExceeded(lengthMax: number) {
-    const exceeded: Substitution = { kind: SubstitutionKind.limitExceeded, lengthMax };
+/** Whether `text` contains a Variable Reference's opening "{$", the one way substitution can change it. */
+export function mayContainVariableReference(text: string) {
+    return text.includes(REFERENCE_OPEN);
+}
+
+function limitExceeded(bytesMax: number) {
+    const exceeded: Substitution = { kind: SubstitutionKind.limitExceeded, bytesMax };
     return exceeded;
 }
 
 /**
  * Substitutes its Variable Value for every Variable Reference (`{$name}`) in `text` whose name is
  * in `variables`, keeping substituted values and all other text as written. Returns
- * `limitExceeded` once the result would pass `lengthMax` UTF-16 code units.
+ * `limitExceeded` once the result would pass `bytesMax` UTF-8 bytes.
  */
 export function substituteVariables(options: {
     readonly text: string;
     readonly variables: ReadonlyMap<string, string>;
-    readonly lengthMax: number;
+    readonly bytesMax: number;
 }) {
-    const { text, variables, lengthMax } = options;
-    assertCondition(Number.isSafeInteger(lengthMax), `Length limit ${lengthMax} is not an integer.`);
-    assertCondition(lengthMax >= 0, `Length limit ${lengthMax} is negative.`);
+    const { text, variables, bytesMax } = options;
+    assertCondition(Number.isSafeInteger(bytesMax), `Byte limit ${bytesMax} is not an integer.`);
+    assertCondition(bytesMax >= 0, `Byte limit ${bytesMax} is negative.`);
     const pieces: string[] = [];
-    let length = 0;
+    let byteCount = 0;
     let copiedThrough = 0;
     // Each iteration moves searchFrom past at least the "{$" it found, so the loop is bounded by the text length.
     for (let searchFrom = 0; searchFrom < text.length; ) {
@@ -70,22 +75,25 @@ export function substituteVariables(options: {
             return malformed;
         }
         const literal = text.slice(copiedThrough, referenceStart);
-        length += literal.length + value.length;
-        if (length > lengthMax) {
-            return limitExceeded(lengthMax);
+        const literalBytes = utf8ByteLength(literal);
+        const valueBytes = utf8ByteLength(value);
+        byteCount += literalBytes + valueBytes;
+        if (byteCount > bytesMax) {
+            return limitExceeded(bytesMax);
         }
         pieces.push(literal, value);
         copiedThrough = referenceEnd + REFERENCE_CLOSE.length;
         searchFrom = copiedThrough;
     }
     const tail = text.slice(copiedThrough);
-    length += tail.length;
-    if (length > lengthMax) {
-        return limitExceeded(lengthMax);
+    byteCount += utf8ByteLength(tail);
+    if (byteCount > bytesMax) {
+        return limitExceeded(bytesMax);
     }
     pieces.push(tail);
     const value = pieces.join("");
-    assertCondition(value.length === length, `Substituted length ${value.length} differs from the tracked ${length}.`);
+    const valueBytes = utf8ByteLength(value);
+    assertCondition(valueBytes === byteCount, `Substituted bytes ${valueBytes} differ from the tracked ${byteCount}.`);
     const substituted: Substitution = { kind: SubstitutionKind.substituted, value };
     return substituted;
 }

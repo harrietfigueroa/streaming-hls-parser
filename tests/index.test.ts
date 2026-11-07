@@ -8,6 +8,8 @@ import { AssertionError } from "../src/library/assert.js";
 import { attributeListRules } from "../src/4-playlists/4.2-attribute-lists.js";
 import { extXStartRules } from "../src/4-playlists/4.4-playlist-tags/4.4.2-media-or-multivariant-playlist-tags/4.4.2.2-ext-x-start.js";
 import { ignoreReasons } from "../src/6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
+import { generalClientRules } from "../src/6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
+import { extXDefineRules } from "../src/4-playlists/4.4-playlist-tags/4.4.2-media-or-multivariant-playlist-tags/4.4.2.3-ext-x-define.js";
 import { definitionRules } from "../src/4-playlists/4.1-definition-of-a-playlist.js";
 import { extm3uRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.1-extm3u.js";
 import { extXVersionRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.2-ext-x-version.js";
@@ -194,5 +196,61 @@ describe("HLS.safeParse limits", () => {
             return HLS.safeParse(PLAYLIST, { limits: { lineBytesMax } });
         }
         expect(parseWithLimit).toThrow(AssertionError);
+    });
+});
+
+describe("HLS.safeParse variable substitution", () => {
+    const HEAD = "#EXTM3U\n#EXT-X-TARGETDURATION:10\n";
+
+    test("substitutes a defined variable into a URI line and keeps every definition", () => {
+        const text = `${HEAD}#EXT-X-DEFINE:NAME="host",VALUE="example.com"\n#EXT-X-DEFINE:NAME="id",VALUE="7"\n#EXTINF:1,\nhttps://{$host}/{$id}.ts\n`;
+        const outcome = HLS.safeParse(text);
+        expect(outcome).toMatchObject({
+            kind: ParseKind.parsed,
+            playlist: {
+                "EXT-X-DEFINE": [
+                    { NAME: "host", VALUE: "example.com" },
+                    { NAME: "id", VALUE: "7" },
+                ],
+                segments: [{ uri: "https://example.com/7.ts" }],
+            },
+        });
+    });
+
+    test("substitutes into quoted-string attribute values, a definition's VALUE included", () => {
+        const text = `${HEAD}#EXT-X-DEFINE:NAME="a",VALUE="x"\n#EXT-X-DEFINE:NAME="b",VALUE="{$a}y"\n#EXTINF:1,\n{$b}.ts\n`;
+        const outcome = HLS.safeParse(text);
+        expect(outcome).toMatchObject({ kind: ParseKind.parsed, playlist: { segments: [{ uri: "xy.ts" }] } });
+    });
+
+    test("reads a QUERYPARAM variable from the uri option", () => {
+        const text = `${HEAD}#EXT-X-DEFINE:QUERYPARAM="token"\n#EXTINF:1,\na.ts?t={$token}\n`;
+        const outcome = HLS.safeParse(text, { uri: new URL("https://example.com/media.m3u8?token=abc") });
+        expect(outcome).toMatchObject({ kind: ParseKind.parsed, playlist: { segments: [{ uri: "a.ts?t=abc" }] } });
+    });
+
+    const malformed = [
+        { name: "a reference to an undefined variable", text: `${HEAD}#EXTINF:1,\n{$host}.ts\n`, rule: generalClientRules.definedVariableReferences },
+        { name: "a reference before its definition", text: `${HEAD}#EXTINF:1,\n{$host}.ts\n#EXT-X-DEFINE:NAME="host",VALUE="a"\n`, rule: generalClientRules.definedVariableReferences },
+        { name: "a Variable Name defined twice", text: `${HEAD}#EXT-X-DEFINE:NAME="a",VALUE="x"\n#EXT-X-DEFINE:NAME="a",VALUE="y"\n`, rule: extXDefineRules.uniqueNames },
+        { name: "a QUERYPARAM without a uri option", text: `${HEAD}#EXT-X-DEFINE:QUERYPARAM="token"\n`, rule: extXDefineRules.queryParamResolves },
+    ] as const;
+
+    test.each(malformed)("reports $name as malformed", ({ text, rule }) => {
+        const outcome = HLS.safeParse(text);
+        expect(outcome).toMatchObject({ kind: ParseKind.malformed, issues: [{ rule }] });
+    });
+
+    test("reports a substituted line longer than substitutedLineBytesMax", () => {
+        const SUBSTITUTED_LINE_BYTES_MAX = 32;
+        const value = "x".repeat(SUBSTITUTED_LINE_BYTES_MAX);
+        const text = `${HEAD}#EXT-X-DEFINE:NAME="long",VALUE="${value}"\n#EXTINF:1,\n{$long}.ts\n`;
+        const limits = { substitutedLineBytesMax: SUBSTITUTED_LINE_BYTES_MAX };
+        const outcome = HLS.safeParse(text, { limits });
+        expect(outcome).toEqual({
+            kind: ParseKind.limitExceeded,
+            limit: Limit.substitutedLineBytesMax,
+            value: SUBSTITUTED_LINE_BYTES_MAX,
+        });
     });
 });
