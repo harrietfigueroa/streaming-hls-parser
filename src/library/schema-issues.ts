@@ -323,8 +323,11 @@ export function withIgnoredTags(playlist: RawPlaylist, ignorables: readonly Igno
     }
     const units: RawUriUnit[] = [];
     let carried: IgnoredLine[] = [];
-    // A dropped unit's lines lead the next unit's ignored lines, so its text leads the next unit's text.
+    // A dropped unit's lines lead the next unit's ignored lines, and its text leads the next unit's
+    // text while no kept line lies between them; a kept playlist tag between them leaves the dropped
+    // text in the playlist's own text, beside that tag's line.
     let carriedStart: number | undefined;
+    let carriedEnd: number | undefined;
     for (const [unitIndex, unit] of playlist.units.entries()) {
         const unitStart = extendStart({ start: unit.range.start, owned: byOwner.get(unitIndex) });
         const tags = withoutTags(unit.tags, removed);
@@ -334,18 +337,23 @@ export function withIgnoredTags(playlist: RawPlaylist, ignorables: readonly Igno
             assertCondition(tags.size === 0, `Dropped unit ${unitIndex + 1} keeps ${tags.size} tags.`);
             carried = joinIgnored({ leading: carried, trailing: ignored });
             carried.push({ kind: IgnoredKind.ignoredUri, line: unit.uriLine, reason: uriReason });
-            if (carriedStart === undefined) {
+            const startsNewRun = unitStart !== carriedEnd;
+            if (startsNewRun) {
                 carriedStart = unitStart;
             }
+            carriedEnd = unit.range.end;
             continue;
         }
         const withCarried = joinIgnored({ leading: carried, trailing: ignored });
         carried = [];
         let start = unitStart;
-        if (carriedStart !== undefined) {
+        const isCarriedAdjacent = unitStart === carriedEnd;
+        if (isCarriedAdjacent) {
+            assertCondition(carriedStart !== undefined, `Unit ${unitIndex + 1} follows a dropped unit with no start.`);
             start = carriedStart;
         }
         carriedStart = undefined;
+        carriedEnd = undefined;
         units.push({ tags, uri: unit.uri, uriLine: unit.uriLine, ignored: withCarried, range: { start, end: unit.range.end } });
     }
     // Lines after the last URI belong to the pending segment when there is one, and to the playlist otherwise.
@@ -362,7 +370,9 @@ export function withIgnoredTags(playlist: RawPlaylist, ignorables: readonly Igno
     const pendingTrailing = rebuildIgnored(pending.ignored, trailingIndex);
     const pendingIgnored = joinIgnored({ leading: carried, trailing: pendingTrailing });
     let pendingStart = extendStart({ start: pending.range.start, owned: byOwner.get(trailingIndex) });
-    if (carriedStart !== undefined) {
+    const isPendingAdjacent = pendingStart === carriedEnd;
+    if (isPendingAdjacent) {
+        assertCondition(carriedStart !== undefined, "The pending segment follows a dropped unit with no start.");
         pendingStart = carriedStart;
     }
     const pendingSegment = { tags: pendingTags, ignored: pendingIgnored, range: { start: pendingStart, end: pending.range.end } };

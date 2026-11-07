@@ -58,6 +58,7 @@ const playlists = [
     { name: "a playlist with an ignored playlist tag", text: "#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXT-X-START:TIME-OFFSET=1,REQ-FUTURE=1\n#EXTINF:1,\na.ts\n" },
     { name: "a playlist with a byte range following a sub-range", text: "#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXTINF:1,\n#EXT-X-BYTERANGE:100@0\na.ts\n#EXTINF:1,\n#EXT-X-BYTERANGE:50\na.ts\n" },
     { name: "a Multivariant Playlist with an ignored variant", text: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,REQ-FUTURE=1\nfuture.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2\nb.m3u8\n# end\n" },
+    { name: "a Multivariant Playlist with an ignored variant before a playlist tag", text: '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,REQ-FUTURE=1\nfuture.m3u8\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="English",URI="en.m3u8"\n#EXT-X-STREAM-INF:BANDWIDTH=2,AUDIO="aac"\nb.m3u8\n' },
     { name: "a Multivariant Playlist with renditions", text: '#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="English",DEFAULT=YES,AUTOSELECT=YES,LANGUAGE="en",URI="en.m3u8"\n#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS="mp4a.40.2",AUDIO="aac"\nlow.m3u8\n' },
     { name: "the very large Media Playlist", text: readFileSync(FIXTURE_PATH, { encoding: FIXTURE_ENCODING }) },
 ] as const;
