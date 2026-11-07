@@ -50,6 +50,16 @@ export type { Jsonified } from "./jsonify.js";
 /** A parsed playlist of either kind. */
 export type Playlist = MediaPlaylist | MultivariantPlaylist;
 
+type PlaylistsByKind = {
+    [PlaylistKind.media]: MediaPlaylist;
+    [PlaylistKind.multivariant]: MultivariantPlaylist;
+};
+/** The parsed playlist of kind `K`. */
+export type PlaylistOfKind<K extends PlaylistKind> = PlaylistsByKind[K];
+
+/** Parse options that name the playlist's kind, which a parse narrowing its type to that kind requires. */
+export type KindParseOptions<K extends PlaylistKind> = ParseOptions & { readonly kind: K };
+
 
 
 type ParsePayloads<P> = {
@@ -61,6 +71,8 @@ type ParseMember<P, K extends ParseKind> = { readonly kind: K } & ParsePayloads<
 type ParseOf<P> = { [K in ParseKind]: ParseMember<P, K> }[ParseKind];
 /** The outcome of HLS.safeParse, keyed by kind. */
 export type Parse = ParseOf<Playlist>;
+/** The outcome of HLS.safeParse with the kind option `K`: a parsed outcome's playlist is of that kind. */
+export type ParseOfKind<K extends PlaylistKind> = ParseOf<PlaylistOfKind<K>>;
 /** The outcome of HLS.safeParse with a reviver: a parsed outcome's playlist is the reviver's return for the root. */
 export type RevivedParse = ParseOf<unknown>;
 
@@ -189,6 +201,16 @@ function throwFailure(outcome: FailedParse): never {
             return unreachable(outcome);
         }
     }
+}
+
+/** Asserts that a parsed playlist is of the kind the caller expected, which the kind option's narrowed types rely on. */
+function assertExpectedKind(options: { readonly outcome: Parse; readonly kind: PlaylistKind | undefined }) {
+    const { outcome, kind } = options;
+    const isParsedWithKind = outcome.kind === ParseKind.parsed && kind !== undefined;
+    if (isParsedWithKind) {
+        assertCondition(outcome.playlist.kind === kind, `A ${kind} parse returned a ${outcome.playlist.kind} playlist.`);
+    }
+    return outcome;
 }
 
 /** The playlist of a parsed outcome; every other outcome throws. */
@@ -431,7 +453,7 @@ export function createHLS(tables: TagTables) {
     function parseText(text: string, options: ParseOptions = {}) {
         const limits = resolveLimits(options);
         const imported = importedVariablesOf(options);
-        const scan = scanPlaylist({ text, entries, policy, limits, uri: options.uri, imported });
+        const scan = scanPlaylist({ text, entries, policy, limits, uri: options.uri, imported, kind: options.kind });
         if (scan.kind === ScanKind.malformed) {
             return malformedParse([scan.issue]);
         }
@@ -441,7 +463,8 @@ export function createHLS(tables: TagTables) {
         }
         const first = convert(scan.playlist);
         if (first.kind === ConversionKind.converted) {
-            return checkPlaylist({ playlist: first.playlist, raw: scan.playlist, violations: scan.violations, policy });
+            const checked = checkPlaylist({ playlist: first.playlist, raw: scan.playlist, violations: scan.violations, policy });
+            return assertExpectedKind({ outcome: checked, kind: options.kind });
         }
         if (first.broken.length > 0) {
             return malformedParse(first.broken);
@@ -450,7 +473,8 @@ export function createHLS(tables: TagTables) {
         const withoutIgnored = withIgnoredTags(scan.playlist, first.ignorables);
         const second = convert(withoutIgnored);
         if (second.kind === ConversionKind.converted) {
-            return checkPlaylist({ playlist: second.playlist, raw: withoutIgnored, violations: scan.violations, policy });
+            const checked = checkPlaylist({ playlist: second.playlist, raw: withoutIgnored, violations: scan.violations, policy });
+            return assertExpectedKind({ outcome: checked, kind: options.kind });
         }
         assertCondition(second.ignorables.length === 0, "A tag stayed ignorable after every ignorable tag was removed.");
         return malformedParse(second.broken);
@@ -463,7 +487,7 @@ export function createHLS(tables: TagTables) {
     function parseChunks(chunks: Chunks, options: ParseOptions = {}) {
         const limits = resolveLimits(options);
         const imported = importedVariablesOf(options);
-        const scannerOptions = { entries, policy, limits, uri: options.uri, imported };
+        const scannerOptions = { entries, policy, limits, uri: options.uri, imported, kind: options.kind };
         return parseStream({ chunks, context: { tables, schemas, scannerOptions } });
     }
 
@@ -472,6 +496,7 @@ export function createHLS(tables: TagTables) {
      * and a failure as its last part. A reviver passed second runs over a parsed playlist, or over each
      * part's output object, as JSON.parse runs one over its value, and the options then go third.
      */
+    function safeParse<K extends PlaylistKind>(text: string, options: KindParseOptions<K>): ParseOfKind<K>;
     function safeParse(text: string, options?: ParseOptions): Parse;
     function safeParse(text: string, reviver: Reviver, options?: ParseOptions): RevivedParse;
     function safeParse(chunks: Chunks, options?: ParseOptions): AsyncGenerator<StreamPart, void>;
@@ -496,6 +521,8 @@ export function createHLS(tables: TagTables) {
      * Parses as safeParse does: `text` to the playlist, or the reviver's return, and a stream to its
      * parts. Every other outcome throws, and a stream throws in place of its failure part.
      */
+    function parse<K extends PlaylistKind>(text: string, options: KindParseOptions<K>): PlaylistOfKind<K>;
+    function parse<P extends Playlist>(text: string, options: KindParseOptions<P["kind"]>): PlaylistOfKind<P["kind"]>;
     function parse(text: string, options?: ParseOptions): Playlist;
     function parse(text: string, reviver: Reviver, options?: ParseOptions): unknown;
     function parse(chunks: Chunks, options?: ParseOptions): AsyncGenerator<ParsedStreamPart, void>;

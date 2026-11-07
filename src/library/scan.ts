@@ -478,6 +478,8 @@ export type ScannerOptions = {
     readonly uri: URL | undefined;
     /** The variables of the Multivariant Playlist an IMPORT reads, when one was given. */
     readonly imported: ReadonlyMap<string, string> | undefined;
+    /** The kind the caller expects, which settles the playlist's kind before the first tag when given. */
+    readonly kind: PlaylistKind | undefined;
 };
 
 /**
@@ -502,7 +504,7 @@ export function createScanner(options: ScannerOptions) {
     let lineCount = 0;
     let hasDiscontinuity = false;
     let hasEnded = false;
-    let settledKind: PlaylistKind | undefined;
+    let settledKind = options.kind;
     let nextLineStart = 0;
     // Where the current unit's text starts: after the last playlist tag kept or URI line before its first tag.
     let boundary = 0;

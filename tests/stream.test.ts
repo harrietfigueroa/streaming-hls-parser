@@ -9,6 +9,7 @@ import { describe, expect, test } from "vitest";
 import { definitionRules } from "../src/4-playlists/4.1-definition-of-a-playlist.js";
 import { extXTargetDurationRules } from "../src/4-playlists/4.4-playlist-tags/4.4.3-media-playlist-tags/4.4.3.1-ext-x-targetduration.js";
 import { extm3uRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.1-extm3u.js";
+import { multivariantPlaylistTagRules } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6-multivariant-playlist-tags.js";
 import { ignoreReasons } from "../src/6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
 import { HLS, IgnoredKind, Limit, ParseKind, type Playlist, PlaylistKind, type StreamPart, StreamPartKind } from "../src/index.js";
 import { assertCondition, unreachable } from "../src/library/assert.js";
@@ -269,6 +270,13 @@ describe("the streaming parse", () => {
     test("ends with malformed at a line the scan rejects", async () => {
         const parts = await streamText("#EXT-X-TARGETDURATION:10\n");
         expect(parts).toStrictEqual([{ kind: StreamPartKind.malformed, issues: [expect.objectContaining({ rule: extm3uRules.identification })] }]);
+    });
+
+    test("ends with malformed at the first tag of the other kind than the kind option's", async () => {
+        const chunks = fromChunks(["#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n"]);
+        const stream = HLS.safeParse(chunks, { kind: PlaylistKind.media });
+        const parts = await collect(stream);
+        expect(lastOf(parts)).toMatchObject({ kind: StreamPartKind.malformed, issues: [{ rule: multivariantPlaylistTagRules.notInMedia }] });
     });
 
     test("ends with malformed on invalid UTF-8", async () => {

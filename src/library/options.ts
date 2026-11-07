@@ -3,6 +3,7 @@
 // integer, since a malformed limit is the caller's programmer error.
 import { assertCondition } from "./assert.js";
 import type { MultivariantPlaylist } from "./create-hls.js";
+import type { PlaylistKind } from "./tag-table.js";
 
 export const Limit = {
     lineBytesMax: "lineBytesMax",
@@ -27,6 +28,11 @@ const limitsDefault = {
 
 /** Options for one parse. */
 export type ParseOptions = {
+    /**
+     * The kind the caller expects, which settles the playlist's kind before its first line: a tag of
+     * the other kind is then malformed, and the parse's type narrows to that kind's playlist.
+     */
+    readonly kind?: PlaylistKind;
     /** The playlist's URI, which QUERYPARAM variables read their values from. */
     readonly uri?: URL;
     /** The Multivariant Playlist the parsed playlist was loaded from, whose variables IMPORT definitions read. */

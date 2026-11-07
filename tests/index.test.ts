@@ -1,7 +1,7 @@
 // These tests pin the static Media Playlist path through the default entry:
 // section 9.1's example parses to its typed playlist, ignored lines keep their
 // position, and each malformed case breaks exactly one rule of a valid base.
-import { describe, expect, test } from "vitest";
+import { describe, expect, expectTypeOf, test } from "vitest";
 
 import {
     type DataOf,
@@ -771,6 +771,66 @@ describe("HLS.parse", () => {
             return HLS.parse(SIMPLE_MEDIA_PLAYLIST, { limits: { unitCountMax } });
         }
         expect(parseOverLimit).toThrow(expect.objectContaining({ name: "RangeError", cause: { limit: Limit.unitCountMax, value: unitCountMax } }));
+    });
+});
+
+// The kind option settles the playlist's kind before the first line, so a tag of the other kind
+// breaks that kind's out-of-kind rule, and the parse's type narrows to the asserted kind's playlist.
+describe("HLS.safeParse and HLS.parse with a kind", () => {
+    const MULTIVARIANT_PLAYLIST = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n";
+
+    test("parses a playlist of the asserted kind", () => {
+        const outcome = HLS.safeParse(SIMPLE_MEDIA_PLAYLIST, { kind: PlaylistKind.media });
+        expect(outcome).toMatchObject({ kind: ParseKind.parsed, playlist: { kind: PlaylistKind.media } });
+    });
+
+    test("reports a Multivariant Playlist tag where a Media Playlist was asserted", () => {
+        const outcome = HLS.safeParse(MULTIVARIANT_PLAYLIST, { kind: PlaylistKind.media });
+        expect(outcome).toMatchObject({ kind: ParseKind.malformed, issues: [{ rule: multivariantPlaylistTagRules.notInMedia }] });
+    });
+
+    test("reports a Media Playlist tag where a Multivariant Playlist was asserted", () => {
+        const outcome = HLS.safeParse(SIMPLE_MEDIA_PLAYLIST, { kind: PlaylistKind.multivariant });
+        expect(outcome).toMatchObject({ kind: ParseKind.malformed, issues: [{ rule: mediaPlaylistTagRules.notInMultivariant }] });
+    });
+
+    test("settles a playlist with no kind's tag as the asserted kind", () => {
+        const outcome = HLS.safeParse("#EXTM3U\n", { kind: PlaylistKind.media });
+        expect(outcome).toMatchObject({ kind: ParseKind.malformed, issues: [{ rule: extXTargetDurationRules.required }] });
+    });
+
+    test("parse throws a SyntaxError for a playlist of the other kind", () => {
+        function parseOtherKind() {
+            return HLS.parse(MULTIVARIANT_PLAYLIST, { kind: PlaylistKind.media });
+        }
+        expect(parseOtherKind).toThrow(SyntaxError);
+    });
+
+    test("narrows the parse's type to the kind option's playlist", () => {
+        expectTypeOf(HLS.parse(SIMPLE_MEDIA_PLAYLIST, { kind: PlaylistKind.media })).toEqualTypeOf<MediaPlaylist>();
+        expectTypeOf(HLS.parse(MULTIVARIANT_PLAYLIST, { kind: PlaylistKind.multivariant })).toEqualTypeOf<MultivariantPlaylist>();
+        expectTypeOf(HLS.parse(SIMPLE_MEDIA_PLAYLIST)).toEqualTypeOf<Playlist>();
+    });
+
+    test("narrows safeParse's parsed playlist to the kind option's playlist", () => {
+        const outcome = HLS.safeParse(SIMPLE_MEDIA_PLAYLIST, { kind: PlaylistKind.media });
+        assertCondition(outcome.kind === ParseKind.parsed, `Section 9.1's playlist parsed as ${outcome.kind}.`);
+        expectTypeOf(outcome.playlist).toEqualTypeOf<MediaPlaylist>();
+    });
+
+    test("takes a playlist type argument only with the matching kind option", () => {
+        expectTypeOf(HLS.parse<MediaPlaylist>(SIMPLE_MEDIA_PLAYLIST, { kind: PlaylistKind.media })).toEqualTypeOf<MediaPlaylist>();
+        function parseUnchecked() {
+            // @ts-expect-error A type argument without the kind option that checks it would be an unchecked cast.
+            return HLS.parse<MediaPlaylist>(SIMPLE_MEDIA_PLAYLIST);
+        }
+        function parseMismatched() {
+            // @ts-expect-error The kind option has to name the type argument's kind.
+            return HLS.parse<MediaPlaylist>(MULTIVARIANT_PLAYLIST, { kind: PlaylistKind.multivariant });
+        }
+        // At run time the kind option alone decides, which is why the type argument must match it.
+        expect(parseUnchecked()).toMatchObject({ kind: PlaylistKind.media });
+        expect(parseMismatched()).toMatchObject({ kind: PlaylistKind.multivariant });
     });
 });
 
