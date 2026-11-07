@@ -126,7 +126,7 @@ Backlog items 2, 4 to 25, 30 to 39, and 45 to 50 remain open. Items 7 (performan
 - **`toJSON` leaves a Map unchanged, per decision 38 (decision 71).** `JSON.stringify` therefore writes a Multivariant Playlist's `variables` as `{}`. Converting the Map to an object would amend decision 38, which is the user's call.
 - **Decision 72 records readings Claude made without gating.** They cover the canonical tag order, CLOSED-CAPTIONS NONE written as the enumerated-string, a hexadecimal-looking Date Range X- attribute written unquoted, and an assertion on a quoted-string holding a quote or line break.
 - **Decisions 73 and 74 record the streaming design, which Claude decided without gating.** They cover:
-  - parts that wrap the static output objects, with a final end, malformed, or limitExceeded part;
+  - parts that wrap the static output objects, with a final end, malformed, or `limitExceeded` part;
   - a PlaylistTag value typed `unknown`;
   - a stream ending at the first unit that fails conversion, where the static parse reports every unit's;
   - one text mismatch with the static parse: a dropped variant followed by a playlist tag has its lines in that tag's text;
