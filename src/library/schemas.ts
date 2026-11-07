@@ -58,11 +58,11 @@ export type ConvertedMediaSegment = z.output<ReturnType<typeof buildSchemas>["se
 /** A converted pending Parent Segment, before its fields are resolved. */
 export type ConvertedPendingSegment = NonNullable<ConvertedMediaPlaylist["pendingSegment"]>;
 
-/** A parsed Multivariant Playlist. */
-export type MultivariantPlaylist = z.output<ReturnType<typeof buildSchemas>["multivariantPlaylistSchema"]>;
+/** A converted Multivariant Playlist. */
+export type ConvertedMultivariantPlaylist = z.output<ReturnType<typeof buildSchemas>["multivariantPlaylistSchema"]>;
 
-/** A parsed Variant Stream: its EXT-X-STREAM-INF and the URI line after it. */
-export type Variant = z.output<ReturnType<typeof buildSchemas>["variantSchema"]>;
+/** A converted Variant Stream: its EXT-X-STREAM-INF and the URI line after it. */
+export type ConvertedVariant = z.output<ReturnType<typeof buildSchemas>["variantSchema"]>;
 
 /** A converted playlist of either kind. */
-export type ConvertedPlaylist = ConvertedMediaPlaylist | MultivariantPlaylist;
+export type ConvertedPlaylist = ConvertedMediaPlaylist | ConvertedMultivariantPlaylist;

@@ -1,9 +1,11 @@
 // The reviver walk, following JSON.parse's: the reviver is called with each
 // property's holder as `this`, its key, and its value, children before parents,
 // and last with the key "" on a holder of the root. Returning undefined removes
-// the property, leaving a hole in an array. The walk copies each plain object
-// and array it enters, since the parsed tree is frozen, and freezes each copy
-// once the reviver has seen it; values the reviver returns are kept as returned.
+// the property, leaving a hole in an array. The walk copies each object's own
+// enumerable data and each array it enters, since the parsed tree is frozen, and
+// freezes each copy once the reviver has seen it; values the reviver returns
+// are kept as returned. A Map, the one non-plain object in parsed output, is a
+// value it passes whole, and a copy is a plain object, without its methods.
 import { assertCondition } from "./assert.js";
 
 /** A reviver as JSON.parse takes one. */
@@ -13,13 +15,12 @@ export type Reviver = (this: unknown, key: string, value: unknown) => unknown;
 const DEPTH_MAX = 32;
 const ROOT_KEY = "";
 
-function isPlainObject(value: unknown): value is Readonly<Record<string, unknown>> {
+function isWalkedObject(value: unknown): value is Readonly<Record<string, unknown>> {
     const isObject = typeof value === "object" && value !== null;
     if (!isObject) {
         return false;
     }
-    const prototype: unknown = Object.getPrototypeOf(value);
-    return prototype === Object.prototype || prototype === null;
+    return !(value instanceof Map);
 }
 
 type WalkOptions = { readonly reviver: Reviver; readonly depth: number };
@@ -38,8 +39,9 @@ function reviveArray(array: readonly unknown[], options: WalkOptions) {
     if (removed.size === 0) {
         return copy;
     }
-    // An array of the copy's length whose removed indices are never assigned holds a hole at each.
-    const withHoles: unknown[] = new Array<unknown>(copy.length);
+    // Setting the length of an empty array leaves a hole at every index, and each removed index is never assigned.
+    const withHoles: unknown[] = [];
+    withHoles.length = copy.length;
     for (let index = 0; index < copy.length; index += 1) {
         if (!removed.has(index)) {
             withHoles[index] = copy[index];
@@ -78,7 +80,7 @@ function internalize(options: { readonly holder: object; readonly key: string; r
     let walked: unknown = value;
     if (Array.isArray(value)) {
         walked = reviveArray(value, childOptions);
-    } else if (isPlainObject(value)) {
+    } else if (isWalkedObject(value)) {
         walked = reviveObject(value, childOptions);
     }
     const revived = reviver.call(holder, key, walked);

@@ -1,6 +1,8 @@
 // The values and types both entries export beside their own HLS namespace, so
 // the two entries' surfaces are one list.
 export {
+    type DataOf,
+    type Jsonified,
     type MediaPlaylist,
     type MediaSegment,
     type MultivariantPlaylist,

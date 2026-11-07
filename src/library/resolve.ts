@@ -1,8 +1,8 @@
 // Resolved fields. This module is pure: it walks a converted Media Playlist's
-// segments once, in order, and gives each the carry-forward tags that apply to
-// it, so a segment read alone carries its keys, its Media Initialization
-// Section, its bit rate, its whole byte range, and its sequence numbers. Each
-// key, map, and bit rate is the written tag's own value, shared and frozen.
+// segments once, in order, and computes for each the carry-forward tags that
+// apply to it, so a segment read alone carries its keys, its Media
+// Initialization Section, its bit rate, its whole byte range, and its sequence
+// numbers. Each key, map, and bit rate is the written tag's own value.
 import {
     ByteRangeResolutionKind,
     resolveByteRange,
@@ -31,17 +31,6 @@ export type ResolvedFields = {
 
 type MutableFields = { -readonly [Field in keyof ResolvedFields]: ResolvedFields[Field] };
 
-/** A parsed Media Segment, with the fields resolved from the tags before it. */
-export type MediaSegment = ConvertedMediaSegment & ResolvedFields;
-
-/** A parsed pending Parent Segment, with the fields resolved from the tags before it. */
-export type PendingSegment = ConvertedPendingSegment & ResolvedFields;
-
-/** A parsed Media Playlist, its segments carrying their resolved fields. */
-export type MediaPlaylist = Omit<ConvertedMediaPlaylist, "segments" | "pendingSegment"> & {
-    readonly segments: readonly MediaSegment[];
-    readonly pendingSegment?: PendingSegment;
-};
 
 /** What carries from one segment to the next: the tags still applying, and the previous sub-range. */
 type Carried = {
@@ -115,16 +104,15 @@ function resolveSegmentRange(options: { readonly segment: ConvertedMediaSegment;
     return { byteRange: resolution.byteRange, previousRange: { uri: segment.uri, end } };
 }
 
-/** Gives each segment of `playlist`, and its pending Parent Segment, the fields resolved from the tags before it. */
-export function resolveMediaPlaylist(playlist: ConvertedMediaPlaylist) {
-    const { segments: convertedSegments, pendingSegment: pending, ...tags } = playlist;
+/** Resolves the fields of each segment of `playlist`, in order, and of its pending Parent Segment. */
+export function resolveSegmentFields(playlist: ConvertedMediaPlaylist) {
     let mediaSequenceNumber = IMPLICIT_FIRST_SEQUENCE_NUMBER;
-    if (tags["EXT-X-MEDIA-SEQUENCE"] !== undefined) {
-        mediaSequenceNumber = tags["EXT-X-MEDIA-SEQUENCE"];
+    if (playlist["EXT-X-MEDIA-SEQUENCE"] !== undefined) {
+        mediaSequenceNumber = playlist["EXT-X-MEDIA-SEQUENCE"];
     }
     let discontinuitySequenceNumber = IMPLICIT_FIRST_SEQUENCE_NUMBER;
-    if (tags["EXT-X-DISCONTINUITY-SEQUENCE"] !== undefined) {
-        discontinuitySequenceNumber = tags["EXT-X-DISCONTINUITY-SEQUENCE"];
+    if (playlist["EXT-X-DISCONTINUITY-SEQUENCE"] !== undefined) {
+        discontinuitySequenceNumber = playlist["EXT-X-DISCONTINUITY-SEQUENCE"];
     }
     let carried: Carried = {
         keys: NO_KEYS,
@@ -134,23 +122,21 @@ export function resolveMediaPlaylist(playlist: ConvertedMediaPlaylist) {
         discontinuitySequenceNumber,
         previousRange: undefined,
     };
-    const segments: MediaSegment[] = [];
-    for (const segment of convertedSegments) {
+    const segments: ResolvedFields[] = [];
+    for (const segment of playlist.segments) {
         const { fields, next } = resolveUnit({ unit: segment, carried });
         const range = resolveSegmentRange({ segment, previousRange: carried.previousRange });
         if (range.byteRange !== undefined) {
             fields.byteRange = range.byteRange;
         }
-        const resolved = Object.freeze({ ...segment, ...fields });
-        segments.push(resolved);
+        segments.push(fields);
         carried = { ...next, previousRange: range.previousRange };
     }
-    const frozenSegments = Object.freeze(segments);
+    const pending = playlist.pendingSegment;
     if (pending === undefined) {
-        return Object.freeze({ ...tags, segments: frozenSegments }) satisfies MediaPlaylist;
+        return { segments, pendingSegment: undefined };
     }
     // The pending segment has no URI yet, so its byte range has no resource to resolve against.
     const { fields } = resolveUnit({ unit: pending, carried });
-    const pendingSegment = Object.freeze({ ...pending, ...fields });
-    return Object.freeze({ ...tags, segments: frozenSegments, pendingSegment }) satisfies MediaPlaylist;
+    return { segments, pendingSegment: fields };
 }

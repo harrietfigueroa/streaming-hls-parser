@@ -82,8 +82,15 @@ export type RawUnit = {
     readonly ignored: readonly IgnoredLine[];
 };
 
+/**
+ * The span of a unit's text in the playlist's source, as string indices: from the line after the
+ * last playlist tag or URI line before the unit's first tag, through its last line and terminator.
+ * The lines between units, and before the first and after the last, are the playlist's own.
+ */
+export type TextRange = { readonly start: number; readonly end: number };
+
 /** A Media Segment or a Variant Stream as scanned: its tags, and the URI line ending it, as written and substituted. */
-export type RawUriUnit = RawUnit & { readonly uri: string; readonly uriLine: string };
+export type RawUriUnit = RawUnit & { readonly uri: string; readonly uriLine: string; readonly range: TextRange };
 
 /**
  * The playlist as scanned, of the kind its tags settled. Segment tags written after the last URI form
@@ -93,9 +100,11 @@ export type RawUriUnit = RawUnit & { readonly uri: string; readonly uriLine: str
 export type RawPlaylist = RawUnit & {
     readonly kind: PlaylistKind;
     readonly units: readonly RawUriUnit[];
-    readonly pendingSegment?: RawUnit;
+    readonly pendingSegment?: RawUnit & { readonly range: TextRange };
     /** Each Variable Name the playlist's definitions provide, with its resolved Variable Value. */
     readonly variables: ReadonlyMap<string, string>;
+    /** The text the playlist was scanned from, which each unit's range indexes. */
+    readonly source: string;
 };
 
 export const ScanKind = { scanned: "scanned", malformed: "malformed", limitExceeded: "limitExceeded" } as const;
@@ -132,6 +141,8 @@ type SubstitutionContext = {
 };
 
 const QUOTE = '"';
+const CARRIAGE_RETURN_LINE_FEED = "\r\n";
+const LINE_FEED = "\n";
 // Section 4.3 substitutes into quoted-string and hexadecimal-sequence values, which are told apart from
 // the other value types by their first characters.
 const HEXADECIMAL_PREFIX_PATTERN = /^0[xX]/;
@@ -148,6 +159,18 @@ function limitExceededScan(limit: Limit, limits: Limits) {
 
 function atLine(issue: Issue, lineNumber: number) {
     return { rule: issue.rule, detail: `Line ${lineNumber}: ${issue.detail}` };
+}
+
+/** The length of the terminator at `index`, where a line's text ends: CR LF, LF, or none at the end of the text. */
+function terminatorLengthAt(text: string, index: number) {
+    if (text.startsWith(CARRIAGE_RETURN_LINE_FEED, index)) {
+        return CARRIAGE_RETURN_LINE_FEED.length;
+    }
+    if (text.startsWith(LINE_FEED, index)) {
+        return LINE_FEED.length;
+    }
+    assertCondition(index === text.length, `Line text ends at ${index}, before a terminator or the text's end.`);
+    return 0;
 }
 
 /** Checks one unsplit line against section 4.1's rules, and the first line for a Byte Order Mark too. */
@@ -383,11 +406,19 @@ export function scanPlaylist(options: {
     let lineCount = 0;
     let hasDiscontinuity = false;
     let settledKind: PlaylistKind | undefined;
+    let nextLineStart = 0;
+    // Where the current unit's text starts: after the last playlist tag or URI line before its first tag.
+    let boundary = 0;
+    let unitStart: number | undefined;
+    let unitEnd = 0;
     // The loop is bounded by the text length, since splitLines yields at most one line per character.
     for (const rawLine of splitLines(text)) {
         const lineIndex = lineCount;
         const lineNumber = lineIndex + 1;
         lineCount += 1;
+        const lineTextEnd = nextLineStart + rawLine.length;
+        const lineEnd = lineTextEnd + terminatorLengthAt(text, lineTextEnd);
+        nextLineStart = lineEnd;
         const lineBytes = utf8ByteLength(rawLine);
         if (lineBytes > limits.lineBytesMax) {
             return limitExceededScan(Limit.lineBytesMax, limits);
@@ -440,9 +471,15 @@ export function scanPlaylist(options: {
                 } else {
                     unitUri = substituted.value;
                 }
-                units.push({ tags: unitTags, uri: unitUri, uriLine: rawLine, ignored });
+                let start = boundary;
+                if (unitStart !== undefined) {
+                    start = unitStart;
+                }
+                units.push({ tags: unitTags, uri: unitUri, uriLine: rawLine, ignored, range: { start, end: lineEnd } });
                 unitTags = new Map();
                 ignored = [];
+                unitStart = undefined;
+                boundary = lineEnd;
                 break;
             }
             case LineKind.tag: {
@@ -471,6 +508,15 @@ export function scanPlaylist(options: {
                     if (placement.level === TagLevel.unit) {
                         tags = unitTags;
                     }
+                }
+                const isUnitTag = tags === unitTags;
+                if (isUnitTag) {
+                    if (unitStart === undefined) {
+                        unitStart = boundary;
+                    }
+                    unitEnd = lineEnd;
+                } else if (unitStart === undefined) {
+                    boundary = lineEnd;
                 }
                 const read = readRawValue({ tag: line, form: entry.form, lineBytes, ...context });
                 if (read.kind === ReadKind.limitExceeded) {
@@ -558,8 +604,17 @@ export function scanPlaylist(options: {
         playlistKind = settledKind;
     }
     if (unitTags.has(EXT_X_PART_TAG_NAME)) {
-        const pendingSegment = { tags: unitTags, ignored };
-        const withPending: RawPlaylist = { kind: playlistKind, tags: playlistTags, units, ignored: [], pendingSegment, variables };
+        assertCondition(unitStart !== undefined, "The pending segment has tags and no start.");
+        const pendingSegment = { tags: unitTags, ignored, range: { start: unitStart, end: unitEnd } };
+        const withPending: RawPlaylist = {
+            kind: playlistKind,
+            tags: playlistTags,
+            units,
+            ignored: [],
+            pendingSegment,
+            variables,
+            source: text,
+        };
         const scannedWithPending: Scan = { kind: ScanKind.scanned, playlist: withPending, violations };
         return scannedWithPending;
     }
@@ -571,7 +626,7 @@ export function scanPlaylist(options: {
         }
         violations.push(issue);
     }
-    const playlist: RawPlaylist = { kind: playlistKind, tags: playlistTags, units, ignored, variables };
+    const playlist: RawPlaylist = { kind: playlistKind, tags: playlistTags, units, ignored, variables, source: text };
     const scanned: Scan = { kind: ScanKind.scanned, playlist, violations };
     return scanned;
 }

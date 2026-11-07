@@ -3,7 +3,7 @@
 // position, and each malformed case breaks exactly one rule of a valid base.
 import { describe, expect, test } from "vitest";
 
-import { HLS, IgnoredKind, Limit, type MediaPlaylist, type MultivariantPlaylist, ParseKind, PlaylistKind } from "../src/index.js";
+import { type DataOf, HLS, IgnoredKind, Limit, type MediaPlaylist, type MultivariantPlaylist, ParseKind, PlaylistKind } from "../src/index.js";
 import {
     extXStreamInfIgnoreReason,
     extXStreamInfRules,
@@ -62,7 +62,7 @@ http://media.example.com/third.ts
 #EXT-X-ENDLIST
 `;
 
-const simpleMediaPlaylist: MediaPlaylist = {
+const simpleMediaPlaylist: DataOf<MediaPlaylist> = {
     kind: PlaylistKind.media,
     EXTM3U: true,
     "EXT-X-TARGETDURATION": 10n,
@@ -96,6 +96,34 @@ const simpleMediaPlaylist: MediaPlaylist = {
     ],
     ignored: [],
 };
+
+// Section 9.11's excerpt, with the head lines its "..." stands for.
+const LOW_LATENCY_LINES = [
+    "#EXTM3U",
+    "#EXT-X-TARGETDURATION:4",
+    "#EXT-X-PART-INF:PART-TARGET=2.00004",
+    "#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK=6.00012",
+    "#EXT-X-MEDIA-SEQUENCE:270",
+    "#EXTINF:4.00008,",
+    "fileSequence270.mp4",
+    '#EXT-X-PART:DURATION=2.00004,INDEPENDENT=YES,URI="filePart271.0.mp4"',
+    '#EXT-X-PART:DURATION=2.00004,URI="filePart271.1.mp4"',
+    "#EXTINF:4.00008,",
+    "fileSequence271.mp4",
+    '#EXT-X-PART:DURATION=2.00004,INDEPENDENT=YES,URI="filePart272.0.mp4"',
+    '#EXT-X-PART:DURATION=0.50001,URI="filePart272.1.mp4"',
+    "#EXTINF:2.50005,",
+    "fileSequence272.mp4",
+    "#EXT-X-DISCONTINUITY",
+    '#EXT-X-PART:DURATION=2.00004,INDEPENDENT=YES,URI="midRoll273.0.mp4"',
+    '#EXT-X-PART:DURATION=2.00004,URI="midRoll273.1.mp4"',
+    "#EXTINF:4.00008,",
+    "midRoll273.mp4",
+    '#EXT-X-PART:DURATION=2.00004,INDEPENDENT=YES,URI="midRoll274.0.mp4"',
+    '#EXT-X-PRELOAD-HINT:TYPE=PART,URI="midRoll274.1.mp4"',
+    '#EXT-X-RENDITION-REPORT:URI="/1M/LL-HLS.m3u8",LAST-MSN=274,LAST-PART=1',
+    "",
+] as const;
 
 describe("HLS.safeParse", () => {
     test("parses section 9.1's Simple Media Playlist", () => {
@@ -222,36 +250,9 @@ describe("HLS.safeParse", () => {
         });
     });
 
-    // Section 9.11's excerpt, with the head lines its "..." stands for.
-    const LOW_LATENCY_PLAYLIST = [
-        "#EXTM3U",
-        "#EXT-X-TARGETDURATION:4",
-        "#EXT-X-PART-INF:PART-TARGET=2.00004",
-        "#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK=6.00012",
-        "#EXT-X-MEDIA-SEQUENCE:270",
-        "#EXTINF:4.00008,",
-        "fileSequence270.mp4",
-        '#EXT-X-PART:DURATION=2.00004,INDEPENDENT=YES,URI="filePart271.0.mp4"',
-        '#EXT-X-PART:DURATION=2.00004,URI="filePart271.1.mp4"',
-        "#EXTINF:4.00008,",
-        "fileSequence271.mp4",
-        '#EXT-X-PART:DURATION=2.00004,INDEPENDENT=YES,URI="filePart272.0.mp4"',
-        '#EXT-X-PART:DURATION=0.50001,URI="filePart272.1.mp4"',
-        "#EXTINF:2.50005,",
-        "fileSequence272.mp4",
-        "#EXT-X-DISCONTINUITY",
-        '#EXT-X-PART:DURATION=2.00004,INDEPENDENT=YES,URI="midRoll273.0.mp4"',
-        '#EXT-X-PART:DURATION=2.00004,URI="midRoll273.1.mp4"',
-        "#EXTINF:4.00008,",
-        "midRoll273.mp4",
-        '#EXT-X-PART:DURATION=2.00004,INDEPENDENT=YES,URI="midRoll274.0.mp4"',
-        '#EXT-X-PRELOAD-HINT:TYPE=PART,URI="midRoll274.1.mp4"',
-        '#EXT-X-RENDITION-REPORT:URI="/1M/LL-HLS.m3u8",LAST-MSN=274,LAST-PART=1',
-        "",
-    ];
 
     test("keeps the parts after the last URI as the pending Parent Segment", () => {
-        const outcome = HLS.safeParse(LOW_LATENCY_PLAYLIST.join("\n"));
+        const outcome = HLS.safeParse(LOW_LATENCY_LINES.join("\n"));
         expect(outcome).toMatchObject({
             kind: ParseKind.parsed,
             playlist: {
@@ -269,7 +270,7 @@ describe("HLS.safeParse", () => {
     });
 
     test("reports a part-related rule broken in the Low-Latency playlist", () => {
-        const withoutPartInf = LOW_LATENCY_PLAYLIST.filter(isNotPartInf);
+        const withoutPartInf = LOW_LATENCY_LINES.filter(isNotPartInf);
         const outcome = HLS.safeParse(withoutPartInf.join("\n"));
         expect(outcome).toMatchObject({ kind: ParseKind.malformed, issues: [{ rule: extXPartInfRules.requiredWithParts }] });
     });
@@ -548,7 +549,7 @@ http://example.com/hi.m3u8
 http://example.com/audio-only.m3u8
 `;
 
-    const multivariantPlaylist: MultivariantPlaylist = {
+    const multivariantPlaylist: DataOf<MultivariantPlaylist> = {
         kind: PlaylistKind.multivariant,
         EXTM3U: true,
         variants: [
@@ -901,5 +902,109 @@ describe("HLS.safeParse and HLS.parse with a reviver", () => {
 
     test("parse returns the revived playlist", () => {
         expect(HLS.parse(SIMPLE_MEDIA_PLAYLIST, bigIntsToStrings)).toMatchObject({ "EXT-X-VERSION": "3" });
+    });
+});
+
+// Parsed playlists and units carry toHLS, toString, and toJSON on a shared prototype, and playlists toStream:
+// toHLS returns the text exactly as written, and joining the chunks toStream yields reproduces it.
+describe("parsed objects' methods", () => {
+    const CRLF_PLAYLIST = SIMPLE_MEDIA_PLAYLIST.replaceAll("\n", "\r\n");
+    const COMMENTED_PLAYLIST = "#EXTM3U\n# head\n#EXT-X-TARGETDURATION:10\n# lead\n#EXTINF:1,\na.ts\n#EXT-X-ENDLIST";
+    const DROPPED_VARIANT_PLAYLIST = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,REQ-FUTURE=1\nfuture.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2\nb.m3u8\n";
+
+    const texts = [
+        { name: "section 9.1's playlist", text: SIMPLE_MEDIA_PLAYLIST },
+        { name: "a playlist of CR LF lines", text: CRLF_PLAYLIST },
+        { name: "a playlist with comments and no final line feed", text: COMMENTED_PLAYLIST },
+        { name: "the Low-Latency playlist with its pending segment", text: LOW_LATENCY_LINES.join("\n") },
+        { name: "a Multivariant Playlist with an ignored variant", text: DROPPED_VARIANT_PLAYLIST },
+    ] as const;
+
+    function parseText(text: string) {
+        const outcome = HLS.safeParse(text);
+        assertCondition(outcome.kind === ParseKind.parsed, `The playlist parsed as ${outcome.kind}.`);
+        return outcome.playlist;
+    }
+
+    function parseMediaText(text: string) {
+        const playlist = parseText(text);
+        assertCondition(playlist.kind === PlaylistKind.media, `The playlist parsed as ${playlist.kind}.`);
+        return playlist;
+    }
+
+    test.each(texts)("toHLS returns $name exactly", ({ text }) => {
+        expect(parseText(text).toHLS()).toBe(text);
+    });
+
+    test.each(texts)("toString returns $name exactly", ({ text }) => {
+        const playlist = parseText(text);
+        expect(String(playlist)).toBe(text);
+    });
+
+    test.each(texts)("toStream yields $name as UTF-8 chunks that join to the text", async ({ text }) => {
+        const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+        let joined = "";
+        for await (const chunk of parseText(text).toStream()) {
+            joined += decoder.decode(chunk, { stream: true });
+        }
+        expect(joined).toBe(text);
+    });
+
+    test("a segment's toHLS returns its own lines", () => {
+        const [first, second] = parseMediaText(SIMPLE_MEDIA_PLAYLIST).segments;
+        expect(first?.toHLS()).toBe("#EXTINF:9.009,\nhttp://media.example.com/first.ts\n");
+        expect(second?.toHLS()).toBe("#EXTINF:9.009,\nhttp://media.example.com/second.ts\n");
+    });
+
+    test("a segment's toHLS includes the comments after the last playlist tag before it", () => {
+        const [segment] = parseMediaText(COMMENTED_PLAYLIST).segments;
+        expect(segment?.toHLS()).toBe("# lead\n#EXTINF:1,\na.ts\n");
+    });
+
+    test("a segment's toHLS includes a playlist tag written among its tags", () => {
+        const text = "#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXTINF:1,\n#EXT-X-ENDLIST\na.ts\n";
+        const [segment] = parseMediaText(text).segments;
+        expect(segment?.toHLS()).toBe("#EXTINF:1,\n#EXT-X-ENDLIST\na.ts\n");
+    });
+
+    test("a variant's toHLS includes the lines of an ignored variant before it", () => {
+        const playlist = parseText(DROPPED_VARIANT_PLAYLIST);
+        assertCondition(playlist.kind === PlaylistKind.multivariant, `The playlist parsed as ${playlist.kind}.`);
+        const [variant] = playlist.variants;
+        expect(variant?.toHLS()).toBe("#EXT-X-STREAM-INF:BANDWIDTH=1,REQ-FUTURE=1\nfuture.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2\nb.m3u8\n");
+    });
+
+    test("the pending segment's toHLS returns its lines", () => {
+        const pending = parseMediaText(LOW_LATENCY_LINES.join("\n")).pendingSegment;
+        expect(pending?.toHLS()).toBe('#EXT-X-PART:DURATION=2.00004,INDEPENDENT=YES,URI="midRoll274.0.mp4"\n');
+    });
+
+    test("toJSON writes each bigint as its decimal string", () => {
+        const playlist = parseMediaText(SIMPLE_MEDIA_PLAYLIST);
+        const json = playlist.toJSON();
+        expect(json["EXT-X-TARGETDURATION"]).toBe("10");
+        expect(json.segments[2]?.mediaSequenceNumber).toBe("2");
+    });
+
+    test("JSON.stringify writes the playlist's data", () => {
+        const playlist = parseMediaText(SIMPLE_MEDIA_PLAYLIST);
+        const parsed: unknown = JSON.parse(JSON.stringify(playlist));
+        expect(parsed).toMatchObject({ "EXT-X-TARGETDURATION": "10", segments: [{ uri: "http://media.example.com/first.ts" }, {}, {}] });
+    });
+
+    test("keeps the methods off the objects' own keys", () => {
+        const playlist = parseMediaText(SIMPLE_MEDIA_PLAYLIST);
+        const [segment] = playlist.segments;
+        expect(Object.keys(playlist)).not.toContain("toHLS");
+        expect(Object.keys({ ...segment })).toEqual(["EXTINF", "uri", "ignored", "keys", "mediaSequenceNumber", "discontinuitySequenceNumber"]);
+    });
+
+    test("freezes the shared prototypes", () => {
+        const playlist = parseMediaText(SIMPLE_MEDIA_PLAYLIST);
+        const [segment] = playlist.segments;
+        const playlistPrototype: unknown = Object.getPrototypeOf(playlist);
+        const segmentPrototype: unknown = Object.getPrototypeOf(segment);
+        expect(Object.isFrozen(playlistPrototype)).toBe(true);
+        expect(Object.isFrozen(segmentPrototype)).toBe(true);
     });
 });

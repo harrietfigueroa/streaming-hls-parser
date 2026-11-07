@@ -24,7 +24,15 @@ import { checkMultivariantDefinitions } from "../4-playlists/4.4-playlist-tags/4
 import { assertCondition, unreachable } from "./assert.js";
 import { type Limit, type ParseOptions, resolveLimits } from "./options.js";
 import { defaultPolicy, type Policy } from "./policy.js";
-import { type MediaPlaylist, resolveMediaPlaylist } from "./resolve.js";
+import {
+    createPlaylist,
+    createUnit,
+    type MediaPlaylist,
+    type MediaSegment,
+    type MultivariantPlaylist,
+    type Variant,
+} from "./output.js";
+import { resolveSegmentFields } from "./resolve.js";
 import { revive, type Reviver } from "./revive.js";
 import { CheckKind, type Issue, Severity } from "./rule.js";
 import { type RawPlaylist, type RawTag, type RawTags, ScanKind, scanPlaylist } from "./scan.js";
@@ -34,8 +42,8 @@ import {
     type ConvertedMediaSegment,
     type ConvertedPendingSegment,
     type ConvertedPlaylist,
-    type MultivariantPlaylist,
-    type Variant,
+    type ConvertedMultivariantPlaylist,
+    type ConvertedVariant,
 } from "./schemas.js";
 import {
     classifySchemaIssue,
@@ -51,8 +59,8 @@ export { PlaylistKind } from "./tag-table.js";
 export const ParseKind = { parsed: "parsed", malformed: "malformed", limitExceeded: "limitExceeded" } as const;
 export type ParseKind = (typeof ParseKind)[keyof typeof ParseKind];
 
-export type { MediaPlaylist, MediaSegment, PendingSegment } from "./resolve.js";
-export type { MultivariantPlaylist, Variant } from "./schemas.js";
+export type { DataOf, MediaPlaylist, MediaSegment, MultivariantPlaylist, PendingSegment, Variant } from "./output.js";
+export type { Jsonified } from "./jsonify.js";
 
 /** A parsed playlist of either kind. */
 export type Playlist = MediaPlaylist | MultivariantPlaylist;
@@ -256,12 +264,12 @@ function hasAnyProgramDateTime(playlist: ConvertedMediaPlaylist) {
     return playlist.pendingSegment?.["EXT-X-PROGRAM-DATE-TIME"] !== undefined;
 }
 
-function streamInfOf(variant: Variant) {
+function streamInfOf(variant: ConvertedVariant) {
     return variant["EXT-X-STREAM-INF"];
 }
 
 /** Finds every broken rule that spans a converted Multivariant Playlist's tags or variants. */
-function findMultivariantPlaylistIssues(playlist: MultivariantPlaylist) {
+function findMultivariantPlaylistIssues(playlist: ConvertedMultivariantPlaylist) {
     const issues: Issue[] = [];
     const defines = playlist["EXT-X-DEFINE"];
     if (defines !== undefined) {
@@ -270,11 +278,11 @@ function findMultivariantPlaylistIssues(playlist: MultivariantPlaylist) {
             issues.push(issue);
         }
     }
-    let renditions: NonNullable<MultivariantPlaylist["EXT-X-MEDIA"]> = [];
+    let renditions: NonNullable<ConvertedMultivariantPlaylist["EXT-X-MEDIA"]> = [];
     if (playlist["EXT-X-MEDIA"] !== undefined) {
         renditions = playlist["EXT-X-MEDIA"];
     }
-    let iFrameStreamInfs: NonNullable<MultivariantPlaylist["EXT-X-I-FRAME-STREAM-INF"]> = [];
+    let iFrameStreamInfs: NonNullable<ConvertedMultivariantPlaylist["EXT-X-I-FRAME-STREAM-INF"]> = [];
     if (playlist["EXT-X-I-FRAME-STREAM-INF"] !== undefined) {
         iFrameStreamInfs = playlist["EXT-X-I-FRAME-STREAM-INF"];
     }
@@ -377,17 +385,73 @@ function reviveOutcome(outcome: Parse, reviver: Reviver) {
     return revived;
 }
 
-/** The parsed form of a converted playlist: a Media Playlist's segments gain their resolved fields. */
-function toParsedPlaylist(playlist: ConvertedPlaylist) {
-    if (playlist.kind === PlaylistKind.media) {
-        return resolveMediaPlaylist(playlist);
+/** Builds a Media Playlist's output objects, each segment with its resolved fields and its text in `raw`'s source. */
+function toMediaPlaylist(playlist: ConvertedMediaPlaylist, raw: RawPlaylist) {
+    const { segments: convertedSegments, pendingSegment: convertedPending, ...tags } = playlist;
+    const resolved = resolveSegmentFields(playlist);
+    const segments: MediaSegment[] = [];
+    for (const [segmentIndex, segment] of convertedSegments.entries()) {
+        const fields = resolved.segments[segmentIndex];
+        const rawUnit = raw.units[segmentIndex];
+        assertCondition(fields !== undefined, `Segment ${segmentIndex + 1} has no resolved fields.`);
+        assertCondition(rawUnit !== undefined, `Segment ${segmentIndex + 1} has no scanned unit.`);
+        const unit = createUnit({ data: segment, fields, source: raw.source, range: rawUnit.range });
+        segments.push(unit);
     }
-    return playlist;
+    const frozenSegments = Object.freeze(segments);
+    const pendingFields = resolved.pendingSegment;
+    if (convertedPending === undefined) {
+        const data = { ...tags, segments: frozenSegments };
+        return createPlaylist({ data, source: raw.source, units: frozenSegments }) satisfies MediaPlaylist;
+    }
+    const rawPending = raw.pendingSegment;
+    assertCondition(pendingFields !== undefined, "The pending segment has no resolved fields.");
+    assertCondition(rawPending !== undefined, "The pending segment has no scanned unit.");
+    const pendingSegment = createUnit({ data: convertedPending, fields: pendingFields, source: raw.source, range: rawPending.range });
+    const units = [...frozenSegments, pendingSegment];
+    const data = { ...tags, segments: frozenSegments, pendingSegment };
+    return createPlaylist({ data, source: raw.source, units }) satisfies MediaPlaylist;
+}
+
+// A variant has no resolved fields.
+const NO_FIELDS = Object.freeze({});
+
+/** Builds a Multivariant Playlist's output objects, each variant with its text in `raw`'s source. */
+function toMultivariantPlaylist(playlist: ConvertedMultivariantPlaylist, raw: RawPlaylist) {
+    const variants: Variant[] = [];
+    for (const [variantIndex, variant] of playlist.variants.entries()) {
+        const rawUnit = raw.units[variantIndex];
+        assertCondition(rawUnit !== undefined, `Variant ${variantIndex + 1} has no scanned unit.`);
+        const unit = createUnit({ data: variant, fields: NO_FIELDS, source: raw.source, range: rawUnit.range });
+        variants.push(unit);
+    }
+    const frozenVariants = Object.freeze(variants);
+    const data = { ...playlist, variants: frozenVariants };
+    return createPlaylist({ data, source: raw.source, units: frozenVariants }) satisfies MultivariantPlaylist;
+}
+
+/** The parsed form of a converted playlist, by its kind, built from the scanned playlist it converted. */
+function toParsedPlaylist(playlist: ConvertedPlaylist, raw: RawPlaylist) {
+    assertCondition(playlist.kind === raw.kind, `The ${playlist.kind} playlist was scanned as ${raw.kind}.`);
+    switch (playlist.kind) {
+        case PlaylistKind.media: {
+            return toMediaPlaylist(playlist, raw);
+        }
+        case PlaylistKind.multivariant: {
+            return toMultivariantPlaylist(playlist, raw);
+        }
+        default: {
+            playlist satisfies never;
+            return unreachable(playlist);
+        }
+    }
 }
 
 /** Checks the rules spanning a converted playlist, resolving each issue through `policy`. */
 function checkPlaylist(options: {
     readonly playlist: ConvertedPlaylist;
+    /** The scanned playlist `playlist` converted from, whose source and unit ranges the output keeps. */
+    readonly raw: RawPlaylist;
     readonly violations: readonly Issue[];
     readonly policy: Policy;
 }) {
@@ -406,7 +470,7 @@ function checkPlaylist(options: {
         return malformedParse(malformedIssues);
     }
     // Resolution reads the rules just checked as holding, such as each offset-less byte range following a sub-range.
-    const parsedPlaylist = toParsedPlaylist(playlist);
+    const parsedPlaylist = toParsedPlaylist(playlist, options.raw);
     const parsed: Parse = { kind: ParseKind.parsed, playlist: parsedPlaylist, violations };
     return parsed;
 }
@@ -490,7 +554,7 @@ export function createHLS(tables: TagTables) {
         }
         const first = convert(scan.playlist);
         if (first.kind === ConversionKind.converted) {
-            return checkPlaylist({ playlist: first.playlist, violations: scan.violations, policy });
+            return checkPlaylist({ playlist: first.playlist, raw: scan.playlist, violations: scan.violations, policy });
         }
         if (first.broken.length > 0) {
             return malformedParse(first.broken);
@@ -499,7 +563,7 @@ export function createHLS(tables: TagTables) {
         const withoutIgnored = withIgnoredTags(scan.playlist, first.ignorables);
         const second = convert(withoutIgnored);
         if (second.kind === ConversionKind.converted) {
-            return checkPlaylist({ playlist: second.playlist, violations: scan.violations, policy });
+            return checkPlaylist({ playlist: second.playlist, raw: withoutIgnored, violations: scan.violations, policy });
         }
         assertCondition(second.ignorables.length === 0, "A tag stayed ignorable after every ignorable tag was removed.");
         return malformedParse(second.broken);

@@ -259,6 +259,8 @@ export function withIgnoredTags(playlist: RawPlaylist, ignorables: readonly Igno
     }
     const units: RawUriUnit[] = [];
     let carried: IgnoredLine[] = [];
+    // A dropped unit's lines lead the next unit's ignored lines, so its text leads the next unit's text.
+    let carriedStart: number | undefined;
     for (const [unitIndex, unit] of playlist.units.entries()) {
         const tags = withoutTags(unit.tags, removed);
         const ignored = rebuildIgnored(unit.ignored, unitIndex);
@@ -267,11 +269,19 @@ export function withIgnoredTags(playlist: RawPlaylist, ignorables: readonly Igno
             assertCondition(tags.size === 0, `Dropped unit ${unitIndex + 1} keeps ${tags.size} tags.`);
             carried = joinIgnored({ leading: carried, trailing: ignored });
             carried.push({ kind: IgnoredKind.ignoredUri, line: unit.uriLine, reason: uriReason });
+            if (carriedStart === undefined) {
+                carriedStart = unit.range.start;
+            }
             continue;
         }
         const withCarried = joinIgnored({ leading: carried, trailing: ignored });
         carried = [];
-        units.push({ tags, uri: unit.uri, uriLine: unit.uriLine, ignored: withCarried });
+        let start = unit.range.start;
+        if (carriedStart !== undefined) {
+            start = carriedStart;
+        }
+        carriedStart = undefined;
+        units.push({ tags, uri: unit.uri, uriLine: unit.uriLine, ignored: withCarried, range: { start, end: unit.range.end } });
     }
     // Lines after the last URI belong to the pending segment when there is one, and to the playlist otherwise.
     const trailingIndex = playlist.units.length;
@@ -280,13 +290,25 @@ export function withIgnoredTags(playlist: RawPlaylist, ignorables: readonly Igno
     if (pending === undefined) {
         const trailing = rebuildIgnored(playlist.ignored, trailingIndex);
         const ignored = joinIgnored({ leading: carried, trailing });
-        const rebuilt: RawPlaylist = { kind: playlist.kind, tags, units, ignored, variables: playlist.variables };
+        const rebuilt: RawPlaylist = { kind: playlist.kind, tags, units, ignored, variables: playlist.variables, source: playlist.source };
         return rebuilt;
     }
     const pendingTags = withoutTags(pending.tags, removed);
     const pendingTrailing = rebuildIgnored(pending.ignored, trailingIndex);
     const pendingIgnored = joinIgnored({ leading: carried, trailing: pendingTrailing });
-    const pendingSegment = { tags: pendingTags, ignored: pendingIgnored };
-    const rebuiltWithPending: RawPlaylist = { kind: playlist.kind, tags, units, ignored: playlist.ignored, pendingSegment, variables: playlist.variables };
+    let pendingStart = pending.range.start;
+    if (carriedStart !== undefined) {
+        pendingStart = carriedStart;
+    }
+    const pendingSegment = { tags: pendingTags, ignored: pendingIgnored, range: { start: pendingStart, end: pending.range.end } };
+    const rebuiltWithPending: RawPlaylist = {
+        kind: playlist.kind,
+        tags,
+        units,
+        ignored: playlist.ignored,
+        pendingSegment,
+        variables: playlist.variables,
+        source: playlist.source,
+    };
     return rebuiltWithPending;
 }
