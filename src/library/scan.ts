@@ -1,7 +1,8 @@
 // The static scanner of decision 16. This module is pure: it walks a
-// playlist's lines once, applies section 4.1's line rules and section
-// 4.4.1.1's identification, and groups each tag's raw value into the playlist
-// or the segment it belongs to. It converts no value; the tag schemas do.
+// playlist's lines once, applies section 4.1's line rules, section 4.4.1.1's
+// identification, and section 4.2's attribute-list grammar, and groups each
+// tag's raw value into the playlist or the segment it belongs to. It converts
+// no value; the tag schemas do.
 import {
     checkByteOrderMark,
     checkLine,
@@ -11,33 +12,52 @@ import {
     LineKind,
     splitLines,
 } from "../4-playlists/4.1-definition-of-a-playlist.js";
+import { AttributeListKind, parseAttributeList } from "../4-playlists/4.2-attribute-lists.js";
 import { checkIdentification, extm3uRules } from "../4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.1-extm3u.js";
 import { mediaSegmentTagRules } from "../4-playlists/4.4-playlist-tags/4.4.4-media-segment-tags/4.4.4-media-segment-tags.js";
+import type { IgnoreReason } from "../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
 import { unreachable } from "./assert.js";
 import type { Policy } from "./policy.js";
 import { type Issue, Severity } from "./rule.js";
-import type { TagRules } from "./tag-table.js";
+import { type TagEntry, ValueForm } from "./tag-table.js";
 
-export const IgnoredKind = { comment: "comment", unrecognizedTag: "unrecognizedTag" } as const;
+export const IgnoredKind = { comment: "comment", unrecognizedTag: "unrecognizedTag", ignoredTag: "ignoredTag" } as const;
 export type IgnoredKind = (typeof IgnoredKind)[keyof typeof IgnoredKind];
 
+type IgnoredLinePayloads = {
+    [IgnoredKind.comment]: Record<never, never>;
+    [IgnoredKind.unrecognizedTag]: Record<never, never>;
+    [IgnoredKind.ignoredTag]: { readonly reason: IgnoreReason };
+};
+type IgnoredLineMember<K extends IgnoredKind> = { readonly kind: K; readonly line: string } & IgnoredLinePayloads[K];
 /** A line the spec says to ignore, kept as written per decision 29. */
-export type IgnoredLine = { readonly kind: IgnoredKind; readonly line: string };
+export type IgnoredLine = { [K in IgnoredKind]: IgnoredLineMember<K> }[IgnoredKind];
 
-/** A tag's unconverted value: the text after its ':', or true for a tag written without one. */
-export type RawValue = string | true;
+/** A tag's unconverted value: its attributes for an attribute-list tag, else the text after ':', or true without one. */
+export type RawValue = string | true | Readonly<Record<string, string>>;
 
-export type RawSegment = {
-    readonly tags: ReadonlyMap<string, RawValue>;
-    readonly uri: string;
+/**
+ * One recognized tag as scanned, with the position its line would take among ignored lines. Per
+ * decision 29 that is the next segment's ignored lines, or the playlist's after the last segment.
+ */
+export type RawTag = {
+    readonly value: RawValue;
+    readonly line: string;
+    readonly lineNumber: number;
+    /** The index of the segment whose ignored lines the line would join, or the segment count for the playlist's. */
+    readonly ownerIndex: number;
+    /** The count of the owner's ignored lines that precede the line. */
+    readonly ignoredIndex: number;
+};
+
+export type RawUnit = {
+    readonly tags: ReadonlyMap<string, RawTag>;
     readonly ignored: readonly IgnoredLine[];
 };
 
-export type RawPlaylist = {
-    readonly tags: ReadonlyMap<string, RawValue>;
-    readonly segments: readonly RawSegment[];
-    readonly ignored: readonly IgnoredLine[];
-};
+export type RawSegment = RawUnit & { readonly uri: string };
+
+export type RawPlaylist = RawUnit & { readonly segments: readonly RawSegment[] };
 
 export const ScanKind = { scanned: "scanned", malformed: "malformed" } as const;
 export type ScanKind = (typeof ScanKind)[keyof typeof ScanKind];
@@ -48,6 +68,18 @@ type ScanPayloads = {
 };
 type ScanMember<K extends ScanKind> = { readonly kind: K } & ScanPayloads[K];
 export type Scan = { [K in ScanKind]: ScanMember<K> }[ScanKind];
+
+const ValueReadKind = { read: "read", malformed: "malformed" } as const;
+type ValueReadKind = (typeof ValueReadKind)[keyof typeof ValueReadKind];
+
+type ValueReadPayloads = {
+    [ValueReadKind.read]: { readonly value: RawValue };
+    [ValueReadKind.malformed]: { readonly issue: Issue };
+};
+type ValueReadMember<K extends ValueReadKind> = { readonly kind: K } & ValueReadPayloads[K];
+type ValueRead = { [K in ValueReadKind]: ValueReadMember<K> }[ValueReadKind];
+
+type TagLine = Extract<Line, { readonly kind: typeof LineKind.tag }>;
 
 function malformedScan(issue: Issue) {
     const malformed: Scan = { kind: ScanKind.malformed, issue };
@@ -69,30 +101,46 @@ function checkRawLine(line: string, lineIndex: number) {
     return checkLine(line);
 }
 
-function toRawValue(tag: Extract<Line, { readonly kind: typeof LineKind.tag }>) {
-    if (tag.value === undefined) {
-        return true satisfies RawValue;
+/** Reads a tag's raw value in its entry's form; an attribute-list tag written without a value has no attributes. */
+function readRawValue(tag: TagLine, form: ValueForm) {
+    if (form === ValueForm.text) {
+        let value: RawValue = true;
+        if (tag.value !== undefined) {
+            value = tag.value;
+        }
+        const read: ValueRead = { kind: ValueReadKind.read, value };
+        return read;
     }
-    return tag.value;
+    let text = "";
+    if (tag.value !== undefined) {
+        text = tag.value;
+    }
+    const attributeList = parseAttributeList(text);
+    if (attributeList.kind === AttributeListKind.malformed) {
+        const malformed: ValueRead = { kind: ValueReadKind.malformed, issue: attributeList.issue };
+        return malformed;
+    }
+    const read: ValueRead = { kind: ValueReadKind.read, value: attributeList.attributes };
+    return read;
 }
 
 /**
- * Groups `text`'s tags into the playlist and its segments by the tag names in each rules map, keeping
- * comments and unrecognized tags on the next segment, or on the playlist after the last one. Each
- * issue is resolved through `policy`: the first malformed one stops the scan, and violations are
- * collected while it continues.
+ * Groups `text`'s tags into the playlist and its segments by the tag names in each entries map,
+ * keeping comments and unrecognized tags on the next segment, or on the playlist after the last
+ * one. Each issue is resolved through `policy`: the first malformed one stops the scan, and
+ * violations are collected while it continues, without the tag that broke the rule.
  */
 export function scanPlaylist(options: {
     readonly text: string;
-    readonly playlistTagRules: ReadonlyMap<string, TagRules>;
-    readonly segmentTagRules: ReadonlyMap<string, TagRules>;
+    readonly playlistTagEntries: ReadonlyMap<string, TagEntry>;
+    readonly segmentTagEntries: ReadonlyMap<string, TagEntry>;
     readonly policy: Policy;
 }) {
-    const { text, playlistTagRules, segmentTagRules, policy } = options;
-    const playlistTags = new Map<string, RawValue>();
+    const { text, playlistTagEntries, segmentTagEntries, policy } = options;
+    const playlistTags = new Map<string, RawTag>();
     const segments: RawSegment[] = [];
     const violations: Issue[] = [];
-    let segmentTags = new Map<string, RawValue>();
+    let segmentTags = new Map<string, RawTag>();
     let ignored: IgnoredLine[] = [];
     let lineCount = 0;
     // The loop is bounded by the text length, since splitLines yields at most one line per character.
@@ -135,25 +183,36 @@ export function scanPlaylist(options: {
             }
             case LineKind.tag: {
                 let tags = playlistTags;
-                let rules = playlistTagRules.get(line.name);
-                if (rules === undefined) {
+                let entry = playlistTagEntries.get(line.name);
+                if (entry === undefined) {
                     tags = segmentTags;
-                    rules = segmentTagRules.get(line.name);
+                    entry = segmentTagEntries.get(line.name);
                 }
-                if (rules === undefined) {
+                if (entry === undefined) {
                     ignored.push({ kind: IgnoredKind.unrecognizedTag, line: rawLine });
                     break;
                 }
+                let issue: Issue | undefined;
+                const read = readRawValue(line, entry.form);
                 if (tags.has(line.name)) {
-                    const issue = { rule: rules.duplicate, detail: `Line ${lineNumber}: ${line.name} repeats.` };
-                    if (policy(issue.rule) === Severity.malformed) {
-                        return malformedScan(issue);
-                    }
-                    violations.push(issue);
+                    issue = { rule: entry.duplicate, detail: `Line ${lineNumber}: ${line.name} repeats.` };
+                } else if (read.kind === ValueReadKind.malformed) {
+                    issue = atLine(read.issue, lineNumber);
+                } else {
+                    const rawTag = {
+                        value: read.value,
+                        line: rawLine,
+                        lineNumber,
+                        ownerIndex: segments.length,
+                        ignoredIndex: ignored.length,
+                    };
+                    tags.set(line.name, rawTag);
                     break;
                 }
-                const value = toRawValue(line);
-                tags.set(line.name, value);
+                if (policy(issue.rule) === Severity.malformed) {
+                    return malformedScan(issue);
+                }
+                violations.push(issue);
                 break;
             }
             default: {

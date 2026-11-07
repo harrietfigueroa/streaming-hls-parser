@@ -8,8 +8,9 @@ import { checkSegmentDuration } from "../4-playlists/4.4-playlist-tags/4.4.3-med
 import { assertCondition } from "./assert.js";
 import { defaultPolicy, type Policy } from "./policy.js";
 import { CheckKind, type Issue, Severity } from "./rule.js";
-import { IgnoredKind, type RawPlaylist, type RawSegment, ScanKind, scanPlaylist } from "./scan.js";
-import type { TagRules, TagTables } from "./tag-table.js";
+import { IgnoredKind, type RawPlaylist, type RawSegment, type RawTag, ScanKind, scanPlaylist } from "./scan.js";
+import { classifySchemaIssue, type IgnorableTag, SchemaIssueKind, withIgnoredTags } from "./schema-issues.js";
+import type { TagEntry, TagTables } from "./tag-table.js";
 
 export const PlaylistKind = { media: "media" } as const;
 export type PlaylistKind = (typeof PlaylistKind)[keyof typeof PlaylistKind];
@@ -17,13 +18,18 @@ export type PlaylistKind = (typeof PlaylistKind)[keyof typeof PlaylistKind];
 export const ParseKind = { parsed: "parsed", malformed: "malformed" } as const;
 export type ParseKind = (typeof ParseKind)[keyof typeof ParseKind];
 
+const ignoreReasonSchema = z.object({ section: z.string(), requirement: z.string() }).readonly();
 const ignoredLinesSchema = z
-    .array(z.object({ kind: z.enum(IgnoredKind), line: z.string() }).readonly())
+    .array(
+        z
+            .discriminatedUnion("kind", [
+                z.object({ kind: z.literal(IgnoredKind.comment), line: z.string() }),
+                z.object({ kind: z.literal(IgnoredKind.unrecognizedTag), line: z.string() }),
+                z.object({ kind: z.literal(IgnoredKind.ignoredTag), line: z.string(), reason: ignoreReasonSchema }),
+            ])
+            .readonly(),
+    )
     .readonly();
-
-const SEGMENTS_KEY = "segments";
-// A segment tag's issue path is ["segments", segmentIndex, tagName, ...].
-const SEGMENT_TAG_PATH_LENGTH_MIN = 3;
 
 function buildSchemas(tables: TagTables) {
     const segmentSchema = z
@@ -55,116 +61,138 @@ type ParseMember<K extends ParseKind> = { readonly kind: K } & ParsePayloads[K];
 /** The outcome of HLS.safeParse, per decision 7. */
 export type Parse = { [K in ParseKind]: ParseMember<K> }[ParseKind];
 
+const ConversionKind = { converted: "converted", failed: "failed" } as const;
+type ConversionKind = (typeof ConversionKind)[keyof typeof ConversionKind];
+
+type ConversionPayloads = {
+    [ConversionKind.converted]: { readonly playlist: MediaPlaylist };
+    [ConversionKind.failed]: { readonly broken: readonly Issue[]; readonly ignorables: readonly IgnorableTag[] };
+};
+type ConversionMember<K extends ConversionKind> = { readonly kind: K } & ConversionPayloads[K];
+type Conversion = { [K in ConversionKind]: ConversionMember<K> }[ConversionKind];
+
 function malformedParse(issues: readonly Issue[]) {
     const malformed: Parse = { kind: ParseKind.malformed, issues };
     return malformed;
 }
 
-/** Maps each tag name to its rules, asserting the table states a required rule exactly for the tags whose schema rejects absence. */
-function toRulesMap(unit: { readonly shape: Readonly<Record<string, z.ZodType>>; readonly rules: Readonly<Record<string, TagRules>> }) {
-    const rulesMap = new Map(Object.entries(unit.rules));
+/** Maps each tag name to its entry, asserting the table states a required rule exactly for the tags whose schema rejects absence. */
+function toEntriesMap(unit: {
+    readonly shape: Readonly<Record<string, z.ZodType>>;
+    readonly entries: Readonly<Record<string, TagEntry>>;
+}) {
+    const entriesMap = new Map(Object.entries(unit.entries));
     for (const [name, schema] of Object.entries(unit.shape)) {
-        const rules = rulesMap.get(name);
-        assertCondition(rules !== undefined, `Tag ${name} has a schema and no rules.`);
+        const entry = entriesMap.get(name);
+        assertCondition(entry !== undefined, `Tag ${name} has a schema and no entry.`);
         const acceptsAbsence = schema.safeParse(undefined).success;
-        const hasRequiredRule = rules.required !== undefined;
+        const hasRequiredRule = entry.required !== undefined;
         assertCondition(acceptsAbsence !== hasRequiredRule, `Tag ${name}'s required rule disagrees with its schema.`);
     }
-    assertCondition(rulesMap.size === Object.keys(unit.shape).length, "The rules map names a tag the shape lacks.");
-    return rulesMap;
+    assertCondition(entriesMap.size === Object.keys(unit.shape).length, "The entries map names a tag the shape lacks.");
+    return entriesMap;
+}
+
+function toTagValues(tags: ReadonlyMap<string, RawTag>) {
+    const values: Record<string, unknown> = {};
+    for (const [name, tag] of tags) {
+        values[name] = tag.value;
+    }
+    return values;
 }
 
 function toSegmentInput(segment: RawSegment) {
-    return { ...Object.fromEntries(segment.tags), uri: segment.uri, ignored: segment.ignored };
+    const values = toTagValues(segment.tags);
+    return { ...values, uri: segment.uri, ignored: segment.ignored };
 }
 
 function toPlaylistInput(playlist: RawPlaylist) {
+    const values = toTagValues(playlist.tags);
     const segments = Array.from(playlist.segments, toSegmentInput);
-    return { ...Object.fromEntries(playlist.tags), kind: PlaylistKind.media, segments, ignored: playlist.ignored };
+    return { ...values, kind: PlaylistKind.media, segments, ignored: playlist.ignored };
 }
 
-function tagIssue(options: {
-    readonly rules: TagRules;
-    readonly isPresent: boolean;
-    readonly location: string;
-    readonly message: string;
+/** Checks the rules spanning a converted playlist's units, resolving each issue through `policy`. */
+function checkPlaylist(options: {
+    readonly playlist: MediaPlaylist;
+    readonly violations: readonly Issue[];
+    readonly policy: Policy;
 }) {
-    const { rules, isPresent, location, message } = options;
-    if (isPresent) {
-        return { rule: rules.format, detail: `${location}: ${message}` };
+    const { playlist, policy } = options;
+    const malformedIssues: Issue[] = [];
+    const violations = Array.from(options.violations);
+    const targetDuration = playlist["EXT-X-TARGETDURATION"];
+    for (const [segmentIndex, segment] of playlist.segments.entries()) {
+        const duration = segment.EXTINF.duration;
+        const check = checkSegmentDuration({ targetDuration, duration, segmentIndex });
+        if (check.kind === CheckKind.passed) {
+            continue;
+        }
+        if (policy(check.issue.rule) === Severity.malformed) {
+            malformedIssues.push(check.issue);
+        } else {
+            violations.push(check.issue);
+        }
     }
-    assertCondition(rules.required !== undefined, `${location} is absent and has no required rule.`);
-    return { rule: rules.required, detail: `${location} is absent.` };
+    if (malformedIssues.length > 0) {
+        return malformedParse(malformedIssues);
+    }
+    const parsed: Parse = { kind: ParseKind.parsed, playlist, violations };
+    return parsed;
 }
 
 /** Creates the HLS namespace over `tables`, whose schemas are either as declared or compiled. */
 export function createHLS(tables: TagTables) {
     const schemas = buildSchemas(tables);
-    const playlistTagRules = toRulesMap(tables.playlist);
-    const segmentTagRules = toRulesMap(tables.segment);
+    const playlistTagEntries = toEntriesMap(tables.playlist);
+    const segmentTagEntries = toEntriesMap(tables.segment);
     const policy: Policy = defaultPolicy;
 
-    /** Maps one zod issue, which the library's own keys never produce, to the rule its tag breaks. */
-    function toSchemaIssue(issue: z.core.$ZodIssue, playlist: RawPlaylist) {
-        const [head, segmentIndex, segmentTagName] = issue.path;
-        const isStringKey = typeof head === "string";
-        const isPlaylistTag = isStringKey && head !== SEGMENTS_KEY;
-        if (isPlaylistTag) {
-            const rules = playlistTagRules.get(head);
-            assertCondition(rules !== undefined, `Schema issue at unknown playlist key ${head}.`);
-            const isPresent = playlist.tags.has(head);
-            return tagIssue({ rules, isPresent, location: head, message: issue.message });
+    // A value failing its schema has no typed form to place in the playlist, so a broken rule here is
+    // malformed under every policy.
+    function convert(playlist: RawPlaylist) {
+        const input = toPlaylistInput(playlist);
+        const result = schemas.mediaPlaylistSchema.safeParse(input);
+        if (result.success) {
+            const converted: Conversion = { kind: ConversionKind.converted, playlist: result.data };
+            return converted;
         }
-        assertCondition(issue.path.length >= SEGMENT_TAG_PATH_LENGTH_MIN, `Schema issue at ${issue.path.join(".")}.`);
-        assertCondition(typeof segmentIndex === "number", `Segment index ${String(segmentIndex)} is not a number.`);
-        assertCondition(typeof segmentTagName === "string", `Segment key ${String(segmentTagName)} is not a string.`);
-        const rules = segmentTagRules.get(segmentTagName);
-        assertCondition(rules !== undefined, `Schema issue at unknown segment key ${segmentTagName}.`);
-        const segment = playlist.segments[segmentIndex];
-        assertCondition(segment !== undefined, `Schema issue at missing segment ${segmentIndex}.`);
-        const isPresent = segment.tags.has(segmentTagName);
-        const location = `Segment ${segmentIndex + 1} ${segmentTagName}`;
-        return tagIssue({ rules, isPresent, location, message: issue.message });
+        const broken: Issue[] = [];
+        const ignorables: IgnorableTag[] = [];
+        const ignoredTags = new Set<RawTag>();
+        for (const issue of result.error.issues) {
+            const schemaIssue = classifySchemaIssue({ issue, playlist, playlistTagEntries, segmentTagEntries });
+            if (schemaIssue.kind === SchemaIssueKind.broken) {
+                broken.push(schemaIssue.issue);
+            } else if (!ignoredTags.has(schemaIssue.ignorable.tag)) {
+                ignoredTags.add(schemaIssue.ignorable.tag);
+                ignorables.push(schemaIssue.ignorable);
+            }
+        }
+        const failed: Conversion = { kind: ConversionKind.failed, broken, ignorables };
+        return failed;
     }
 
     function safeParse(text: string) {
-        const scan = scanPlaylist({ text, playlistTagRules, segmentTagRules, policy });
+        const scan = scanPlaylist({ text, playlistTagEntries, segmentTagEntries, policy });
         if (scan.kind === ScanKind.malformed) {
             return malformedParse([scan.issue]);
         }
-        const input = toPlaylistInput(scan.playlist);
-        const result = schemas.mediaPlaylistSchema.safeParse(input);
-        // A value failing its schema has no typed form to place in the playlist, so a schema issue is
-        // malformed under every policy.
-        if (!result.success) {
-            const issues: Issue[] = [];
-            for (const issue of result.error.issues) {
-                const schemaIssue = toSchemaIssue(issue, scan.playlist);
-                issues.push(schemaIssue);
-            }
-            return malformedParse(issues);
+        const first = convert(scan.playlist);
+        if (first.kind === ConversionKind.converted) {
+            return checkPlaylist({ playlist: first.playlist, violations: scan.violations, policy });
         }
-        const playlist = result.data;
-        const malformedIssues: Issue[] = [];
-        const violations = Array.from(scan.violations);
-        const targetDuration = playlist["EXT-X-TARGETDURATION"];
-        for (const [segmentIndex, segment] of playlist.segments.entries()) {
-            const duration = segment.EXTINF.duration;
-            const check = checkSegmentDuration({ targetDuration, duration, segmentIndex });
-            if (check.kind === CheckKind.passed) {
-                continue;
-            }
-            if (policy(check.issue.rule) === Severity.malformed) {
-                malformedIssues.push(check.issue);
-            } else {
-                violations.push(check.issue);
-            }
+        if (first.broken.length > 0) {
+            return malformedParse(first.broken);
         }
-        if (malformedIssues.length > 0) {
-            return malformedParse(malformedIssues);
+        // Every issue names a tag 6.3.1 ignores, so the playlist converts again without those tags.
+        const withoutIgnored = withIgnoredTags(scan.playlist, first.ignorables);
+        const second = convert(withoutIgnored);
+        if (second.kind === ConversionKind.converted) {
+            return checkPlaylist({ playlist: second.playlist, violations: scan.violations, policy });
         }
-        const parsed: Parse = { kind: ParseKind.parsed, playlist, violations };
-        return parsed;
+        assertCondition(second.ignorables.length === 0, "A tag stayed ignorable after every ignorable tag was removed.");
+        return malformedParse(second.broken);
     }
 
     return Object.freeze({ safeParse });

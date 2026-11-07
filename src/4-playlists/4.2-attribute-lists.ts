@@ -246,3 +246,41 @@ export function enumeratedStringListSchema<const Values extends EnumeratedValues
     }
     return z.string().regex(ENUMERATED_STRING_LIST_PATTERN).transform(toRecognizedMembers);
 }
+
+const REQUIRED_ATTRIBUTE_PREFIX = "REQ-";
+
+/** The `params.reason` of the issue an attribute-list tag reports for an unrecognized `REQ-` attribute. */
+export const UNRECOGNIZED_REQUIRED_ATTRIBUTE = "unrecognizedRequiredAttribute";
+
+type AttributesShape = Readonly<Record<string, z.ZodType>>;
+
+/**
+ * Converts an attribute-list tag's raw attributes by `shape`, its attribute table. Unrecognized
+ * attributes are kept as written in a frozen `ignored` array, absent when there are none, as
+ * section 6.3.1 requires. An unrecognized attribute starting with `REQ-` reports a custom issue
+ * whose `params.reason` is UNRECOGNIZED_REQUIRED_ATTRIBUTE, since 6.3.1 ignores that tag whole.
+ */
+export function attributeListTagSchema<const Shape extends AttributesShape>(shape: Shape) {
+    const recognizedNames: ReadonlySet<string> = new Set(Object.keys(shape));
+    function splitUnrecognized(attributes: Readonly<Record<string, string>>, context: z.core.$RefinementCtx) {
+        const recognized: Record<string, string> = {};
+        const ignored: string[] = [];
+        for (const [name, value] of Object.entries(attributes)) {
+            if (recognizedNames.has(name)) {
+                recognized[name] = value;
+                continue;
+            }
+            if (name.startsWith(REQUIRED_ATTRIBUTE_PREFIX)) {
+                const params = { reason: UNRECOGNIZED_REQUIRED_ATTRIBUTE };
+                context.addIssue({ code: "custom", message: `Unrecognized attribute ${name}.`, params });
+            }
+            ignored.push(`${name}${NAME_VALUE_SEPARATOR}${value}`);
+        }
+        if (ignored.length === 0) {
+            return recognized;
+        }
+        return { ...recognized, ignored: Object.freeze(ignored) };
+    }
+    const tagSchema = z.object({ ...shape, ignored: z.array(z.string()).readonly().optional() }).readonly();
+    return z.preprocess(splitUnrecognized, tagSchema);
+}

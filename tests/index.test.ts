@@ -4,6 +4,9 @@
 import { describe, expect, test } from "vitest";
 
 import { HLS, IgnoredKind, type MediaPlaylist, ParseKind, PlaylistKind } from "../src/index.js";
+import { attributeListRules } from "../src/4-playlists/4.2-attribute-lists.js";
+import { extXStartRules } from "../src/4-playlists/4.4-playlist-tags/4.4.2-media-or-multivariant-playlist-tags/4.4.2.2-ext-x-start.js";
+import { ignoreReasons } from "../src/6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
 import { definitionRules } from "../src/4-playlists/4.1-definition-of-a-playlist.js";
 import { extm3uRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.1-extm3u.js";
 import { extXVersionRules } from "../src/4-playlists/4.4-playlist-tags/4.4.1-basic-tags/4.4.1.2-ext-x-version.js";
@@ -83,6 +86,48 @@ describe("HLS.safeParse", () => {
         expect(outcome).toMatchObject({ kind: ParseKind.parsed, playlist: { segments: [{ uri: "a.ts" }] } });
     });
 
+    test("converts playlist attribute-list tags, keeping unrecognized attributes on the tag", () => {
+        const text = "#EXTM3U\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-START:TIME-OFFSET=-3,FUTURE=1\n#EXT-X-TARGETDURATION:10\n";
+        const outcome = HLS.safeParse(text);
+        expect(outcome).toMatchObject({
+            kind: ParseKind.parsed,
+            playlist: { "EXT-X-INDEPENDENT-SEGMENTS": true, "EXT-X-START": { "TIME-OFFSET": -3, ignored: ["FUTURE=1"] } },
+        });
+    });
+
+    // A tag 6.3.1 says to ignore is kept in position among the unit's other ignored lines.
+    const ignoredTags = [
+        { name: "an unrecognized REQ- attribute", start: "#EXT-X-START:TIME-OFFSET=1,REQ-FUTURE=1", reason: ignoreReasons.unrecognizedRequiredAttribute },
+        { name: "an unrecognized enumerated-string", start: "#EXT-X-START:TIME-OFFSET=1,PRECISE=MAYBE", reason: ignoreReasons.unrecognizedEnumeratedValue },
+    ] as const;
+
+    test("keeps an ignored playlist tag on the segment after it", () => {
+        const start = "#EXT-X-START:TIME-OFFSET=1,PRECISE=MAYBE";
+        const text = `#EXTM3U\n#EXT-X-TARGETDURATION:10\n${start}\n#EXTINF:1,\na.ts\n`;
+        const outcome = HLS.safeParse(text);
+        expect(outcome).toMatchObject({
+            kind: ParseKind.parsed,
+            playlist: {
+                segments: [{ ignored: [{ kind: IgnoredKind.ignoredTag, line: start }] }],
+                ignored: [],
+            },
+        });
+    });
+
+    test.each(ignoredTags)("ignores a tag with $name", ({ start, reason }) => {
+        const text = `#EXTM3U\n# before\n${start}\n# after\n#EXT-X-TARGETDURATION:10\n`;
+        const outcome = HLS.safeParse(text);
+        expect(outcome.kind).toBe(ParseKind.parsed);
+        if (outcome.kind === ParseKind.parsed) {
+            expect(outcome.playlist).not.toHaveProperty("EXT-X-START");
+            expect(outcome.playlist.ignored).toEqual([
+                { kind: IgnoredKind.comment, line: "# before" },
+                { kind: IgnoredKind.ignoredTag, line: start, reason },
+                { kind: IgnoredKind.comment, line: "# after" },
+            ]);
+        }
+    });
+
     // Each case breaks one line of a valid base: EXTM3U, a Target Duration of 10, one segment.
     const BASE_HEAD = "#EXTM3U\n#EXT-X-TARGETDURATION:10\n";
     const BASE_SEGMENT = "#EXTINF:9.009,\na.ts\n";
@@ -102,6 +147,9 @@ describe("HLS.safeParse", () => {
         { name: "a malformed EXTINF", text: `${BASE_HEAD}#EXTINF:9.009\na.ts\n`, rule: extinfRules.format },
         { name: "a second EXTINF in one segment", text: `${BASE_HEAD}#EXTINF:1,\n#EXTINF:1,\na.ts\n`, rule: extinfRules.singlePerSegment },
         { name: "segment tags with no URI after them", text: `${BASE_HEAD}${BASE_SEGMENT}#EXTINF:1,\n`, rule: mediaSegmentTagRules.uriFollowsTags },
+        { name: "a second EXT-X-START", text: `${BASE_HEAD}#EXT-X-START:TIME-OFFSET=1\n#EXT-X-START:TIME-OFFSET=1\n${BASE_SEGMENT}`, rule: extXStartRules.singleTag },
+        { name: "an EXT-X-START without TIME-OFFSET", text: `${BASE_HEAD}#EXT-X-START:PRECISE=YES\n${BASE_SEGMENT}`, rule: extXStartRules.format },
+        { name: "a malformed attribute-list", text: `${BASE_HEAD}#EXT-X-START:TIME-OFFSET=1,TIME-OFFSET=2\n${BASE_SEGMENT}`, rule: attributeListRules.uniqueAttributeNames },
     ] as const;
 
     test.each(malformed)("reports $name as malformed", ({ text, rule }) => {

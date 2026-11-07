@@ -7,6 +7,7 @@ import { z } from "zod";
 import {
     AttributeListKind,
     attributeListRules,
+    attributeListTagSchema,
     decimalFloatingPointSchema,
     decimalIntegerSchema,
     decimalResolutionSchema,
@@ -17,6 +18,7 @@ import {
     possiblyEmptyQuotedStringSchema,
     quotedStringSchema,
     signedDecimalFloatingPointSchema,
+    UNRECOGNIZED_REQUIRED_ATTRIBUTE,
 } from "../../src/4-playlists/4.2-attribute-lists.js";
 
 const DECIMAL_INTEGER_MAX = 18446744073709551615n;
@@ -25,6 +27,10 @@ const HdcpLevel = { type0: "TYPE-0", type1: "TYPE-1", none: "NONE" } as const;
 const hdcpLevels = [HdcpLevel.type0, HdcpLevel.type1, HdcpLevel.none] as const;
 const hdcpLevelSchema = enumeratedStringSchema(hdcpLevels);
 const hdcpLevelListSchema = enumeratedStringListSchema(hdcpLevels);
+const startLikeSchema = attributeListTagSchema({
+    "TIME-OFFSET": signedDecimalFloatingPointSchema,
+    "HDCP-LEVEL": hdcpLevelSchema.optional(),
+});
 
 const validAttributeLists = [
     { text: "BANDWIDTH=1280000,AVERAGE-BANDWIDTH=1000000", attributes: { BANDWIDTH: "1280000", "AVERAGE-BANDWIDTH": "1000000" } },
@@ -208,9 +214,49 @@ describe("compilation", () => {
         hdcpLevelSchema,
         hdcpLevelListSchema,
         decimalResolutionSchema,
+        startLikeSchema,
     } as const;
 
     test.each(Object.entries(schemas))("%s compiles without falling back to the runtime parser", (_name, schema) => {
         expect(() => z.compile(schema, { strict: true })).not.toThrow();
+    });
+});
+
+describe("attributeListTagSchema", () => {
+    const valid = [
+        { attributes: { "TIME-OFFSET": "-1.5" }, tag: { "TIME-OFFSET": -1.5 } },
+        { attributes: { "TIME-OFFSET": "2", "HDCP-LEVEL": "NONE" }, tag: { "TIME-OFFSET": 2, "HDCP-LEVEL": "NONE" } },
+        { attributes: { "TIME-OFFSET": "2", FUTURE: '"x"' }, tag: { "TIME-OFFSET": 2, ignored: ['FUTURE="x"'] } },
+    ] as const;
+
+    test.each(valid)("converts $attributes", ({ attributes, tag }) => {
+        const result = startLikeSchema.safeParse(attributes);
+        expect(result).toEqual({ success: true, data: tag });
+    });
+
+    test("rejects a missing required attribute", () => {
+        const result = startLikeSchema.safeParse({});
+        expect(result.error?.issues).toMatchObject([{ code: "invalid_type", path: ["TIME-OFFSET"] }]);
+    });
+
+    test("marks an unrecognized REQ- attribute with its own issue", () => {
+        const result = startLikeSchema.safeParse({ "TIME-OFFSET": "2", "REQ-FUTURE": "1" });
+        expect(result.error?.issues).toMatchObject([
+            { code: "custom", path: [], params: { reason: UNRECOGNIZED_REQUIRED_ATTRIBUTE } },
+        ]);
+    });
+
+    test("reports an unrecognized enumerated-string at its attribute", () => {
+        const result = startLikeSchema.safeParse({ "TIME-OFFSET": "2", "HDCP-LEVEL": "TYPE-9" });
+        expect(result.error?.issues).toMatchObject([{ code: "invalid_value", path: ["HDCP-LEVEL"] }]);
+    });
+
+    test("freezes the tag and its ignored attributes", () => {
+        const result = startLikeSchema.safeParse({ "TIME-OFFSET": "2", FUTURE: "1" });
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(Object.isFrozen(result.data)).toBe(true);
+            expect(Object.isFrozen(result.data.ignored)).toBe(true);
+        }
     });
 });
