@@ -10,6 +10,11 @@ export const mediaSegmentTagRules = {
         severity: Severity.malformed,
         requirement: "Each Media Segment is specified by a series of Media Segment tags followed by a URI.",
     },
+    notInMultivariant: {
+        section: SECTION,
+        severity: Severity.malformed,
+        requirement: "A playlist does not contain both Media Segment tags and Multivariant Playlist tags.",
+    },
     singlePerSegment: {
         section: SECTION,
         severity: Severity.malformed,

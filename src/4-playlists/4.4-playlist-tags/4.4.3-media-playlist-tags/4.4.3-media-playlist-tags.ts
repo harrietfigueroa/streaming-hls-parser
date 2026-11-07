@@ -10,4 +10,9 @@ export const mediaPlaylistTagRules = {
         severity: Severity.malformed,
         requirement: "A Media Playlist contains at most one Media Playlist tag of each type.",
     },
+    notInMultivariant: {
+        section: SECTION,
+        severity: Severity.malformed,
+        requirement: "A Media Playlist tag does not appear in a Multivariant Playlist.",
+    },
 } as const satisfies Record<string, Rule>;

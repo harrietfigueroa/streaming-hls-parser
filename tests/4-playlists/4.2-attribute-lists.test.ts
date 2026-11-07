@@ -18,8 +18,8 @@ import {
     possiblyEmptyQuotedStringSchema,
     quotedStringSchema,
     signedDecimalFloatingPointSchema,
-    UNRECOGNIZED_REQUIRED_ATTRIBUTE,
 } from "../../src/4-playlists/4.2-attribute-lists.js";
+import { ignoreReasons } from "../../src/6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
 
 const DECIMAL_INTEGER_MAX = 18446744073709551615n;
 
@@ -242,7 +242,7 @@ describe("attributeListTagSchema", () => {
     test("marks an unrecognized REQ- attribute with its own issue", () => {
         const result = startLikeSchema.safeParse({ "TIME-OFFSET": "2", "REQ-FUTURE": "1" });
         expect(result.error?.issues).toMatchObject([
-            { code: "custom", path: [], params: { reason: UNRECOGNIZED_REQUIRED_ATTRIBUTE } },
+            { code: "custom", path: [], params: { ignoreReason: ignoreReasons.unrecognizedRequiredAttribute } },
         ]);
     });
 

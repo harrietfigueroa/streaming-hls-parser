@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { AssertionError, assertCondition } from "../library/assert.js";
 import { type Issue, type Rule, Severity } from "../library/rule.js";
+import { ignoreReasons } from "../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
 
 const SECTION = "4.2";
 
@@ -249,16 +250,13 @@ export function enumeratedStringListSchema<const Values extends EnumeratedValues
 
 const REQUIRED_ATTRIBUTE_PREFIX = "REQ-";
 
-/** The `params.reason` of the issue an attribute-list tag reports for an unrecognized `REQ-` attribute. */
-export const UNRECOGNIZED_REQUIRED_ATTRIBUTE = "unrecognizedRequiredAttribute";
-
 type AttributesShape = Readonly<Record<string, z.ZodType>>;
 
 /**
  * Converts an attribute-list tag's raw attributes by `shape`, its attribute table. Unrecognized
  * attributes are kept as written in a frozen `ignored` array, absent when there are none, as
  * section 6.3.1 requires. An unrecognized attribute starting with `REQ-` reports a custom issue
- * whose `params.reason` is UNRECOGNIZED_REQUIRED_ATTRIBUTE, since 6.3.1 ignores that tag whole.
+ * whose `params.ignoreReason` is 6.3.1's reason to ignore the tag whole.
  */
 export function attributeListTagSchema<const Shape extends AttributesShape>(shape: Shape) {
     const recognizedNames: ReadonlySet<string> = new Set(Object.keys(shape));
@@ -271,7 +269,7 @@ export function attributeListTagSchema<const Shape extends AttributesShape>(shap
                 continue;
             }
             if (name.startsWith(REQUIRED_ATTRIBUTE_PREFIX)) {
-                const params = { reason: UNRECOGNIZED_REQUIRED_ATTRIBUTE };
+                const params = { ignoreReason: ignoreReasons.unrecognizedRequiredAttribute };
                 context.addIssue({ code: "custom", message: `Unrecognized attribute ${name}.`, params });
             }
             ignored.push(`${name}${NAME_VALUE_SEPARATOR}${value}`);

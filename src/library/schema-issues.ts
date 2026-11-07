@@ -4,9 +4,9 @@
 // from their unit into the ignored lines, in position.
 import type { z } from "zod";
 
-import { UNRECOGNIZED_REQUIRED_ATTRIBUTE } from "../4-playlists/4.2-attribute-lists.js";
 import {
     type IgnoreReason,
+    ignoreReasonSchema,
     ignoreReasons,
 } from "../6-client-server-responsibilities/6.3-client-responsibilities/6.3.1-general-client-responsibilities.js";
 import { assertCondition } from "./assert.js";
@@ -100,18 +100,18 @@ function locateTag(options: { readonly path: readonly PropertyKey[]; readonly pl
 }
 
 /**
- * Finds the 6.3.1 reason an attribute-list tag is ignored for, from its issue: the custom issue an
- * unrecognized REQ- attribute raises at the tag, or a rejected value at one of its attributes, which
- * in an attribute schema is an enumerated-string's unrecognized value.
+ * Finds the reason an attribute-list tag is ignored for, from its issue: the reason a custom issue
+ * carries in `params.ignoreReason`, or a rejected value at one of its attributes, which in an
+ * attribute schema is an enumerated-string's unrecognized value.
  */
 function ignoreReasonOf(options: { readonly issue: z.core.$ZodIssue; readonly form: ValueForm; readonly depth: number }) {
     const { issue, form, depth } = options;
     if (form === ValueForm.attributeList) {
         if (issue.code === "custom") {
-            const reason: unknown = issue.params?.["reason"];
-            const isRequiredAttributeIssue = depth === 0 && reason === UNRECOGNIZED_REQUIRED_ATTRIBUTE;
-            if (isRequiredAttributeIssue) {
-                const ignored: Ignore = { kind: IgnoreKind.ignored, reason: ignoreReasons.unrecognizedRequiredAttribute };
+            const carried: unknown = issue.params?.["ignoreReason"];
+            const reason = ignoreReasonSchema.safeParse(carried);
+            if (reason.success) {
+                const ignored: Ignore = { kind: IgnoreKind.ignored, reason: reason.data };
                 return ignored;
             }
         }

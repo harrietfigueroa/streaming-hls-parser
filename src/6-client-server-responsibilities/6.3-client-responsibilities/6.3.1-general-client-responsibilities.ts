@@ -1,5 +1,7 @@
 // Section 6.3.1, General Client Responsibilities. This module declares the
 // section's parsing rules, and the reasons it gives for ignoring a whole tag.
+import { z } from "zod";
+
 import { type Rule, Severity } from "../../library/rule.js";
 
 const SECTION = "6.3.1";
@@ -26,4 +28,11 @@ export const ignoreReasons = {
         requirement:
             "A tag containing an enumerated-string attribute whose AttributeName is recognized and whose AttributeValue is not is ignored.",
     },
+    followsIgnoredStreamInf: {
+        section: SECTION,
+        requirement: "The URI line that follows an ignored EXT-X-STREAM-INF tag is ignored too.",
+    },
 } as const satisfies Record<string, IgnoreReason>;
+
+/** Validates the ignore reason a schema's custom issue carries in its params, under `ignoreReason`. */
+export const ignoreReasonSchema = z.object({ section: z.string(), requirement: z.string() }).readonly();
