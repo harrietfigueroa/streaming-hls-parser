@@ -9,6 +9,13 @@ import {
     extXStreamInfRules,
 } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.2-ext-x-stream-inf/4.4.6.2-ext-x-stream-inf.js";
 import { multivariantPlaylistTagRules } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6-multivariant-playlist-tags.js";
+import {
+    extXMediaRules,
+    MediaType,
+    YesNo,
+} from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.1-ext-x-media/4.4.6.1-ext-x-media.js";
+import { renditionGroupRules } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.1-ext-x-media/4.4.6.1.1-rendition-groups.js";
+import { alternativeRenditionRules } from "../src/4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.2-ext-x-stream-inf/4.4.6.2.1-alternative-renditions.js";
 import { AssertionError } from "../src/library/assert.js";
 import { attributeListRules } from "../src/4-playlists/4.2-attribute-lists.js";
 import { extXStartRules } from "../src/4-playlists/4.4-playlist-tags/4.4.2-media-or-multivariant-playlist-tags/4.4.2.2-ext-x-start.js";
@@ -538,6 +545,50 @@ mid/audio-video.m3u8
         });
     });
 
+    // Section 9.6, Multivariant Playlist with Alternative Audio, with its continued lines joined and CODECS written out.
+    const ALTERNATIVE_AUDIO_PLAYLIST = `#EXTM3U
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="English",DEFAULT=YES,AUTOSELECT=YES,LANGUAGE="en",URI="main/english-audio.m3u8"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="Deutsch",DEFAULT=NO,AUTOSELECT=YES,LANGUAGE="de",URI="main/german-audio.m3u8"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="Commentary",DEFAULT=NO,AUTOSELECT=NO,LANGUAGE="en",URI="commentary/audio-only.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=1280000,CODECS="avc1.4d401e,mp4a.40.2",AUDIO="aac"
+low/video-only.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=65000,CODECS="mp4a.40.5",AUDIO="aac"
+main/english-audio.m3u8
+`;
+
+    test("keeps section 9.6's alternative audio Renditions on the playlist", () => {
+        const outcome = HLS.safeParse(ALTERNATIVE_AUDIO_PLAYLIST);
+        const english = { TYPE: MediaType.audio, "GROUP-ID": "aac", NAME: "English", DEFAULT: YesNo.yes, AUTOSELECT: YesNo.yes, LANGUAGE: "en", URI: "main/english-audio.m3u8" };
+        expect(outcome).toMatchObject({
+            kind: ParseKind.parsed,
+            playlist: { kind: PlaylistKind.multivariant, "EXT-X-MEDIA": [english, { NAME: "Deutsch" }, { NAME: "Commentary" }] },
+            violations: [],
+        });
+    });
+
+    test("parses section 9.7's matching video Groups", () => {
+        const groups = ["low", "mid", "hi"];
+        const lines = ["#EXTM3U"];
+        for (const [groupIndex, groupId] of groups.entries()) {
+            lines.push(`#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="${groupId}",NAME="Main",DEFAULT=YES,URI="${groupId}/main/audio-video.m3u8"`);
+            lines.push(`#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="${groupId}",NAME="Centerfield",DEFAULT=NO,URI="${groupId}/centerfield/audio-video.m3u8"`);
+            lines.push(`#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="${groupId}",NAME="Dugout",DEFAULT=NO,URI="${groupId}/dugout/audio-video.m3u8"`);
+            lines.push(`#EXT-X-STREAM-INF:BANDWIDTH=${groupIndex + 1}280000,CODECS="avc1.4d401e,mp4a.40.2",VIDEO="${groupId}"`);
+            lines.push(`${groupId}/main/audio-video.m3u8`);
+        }
+        const outcome = HLS.safeParse(`${lines.join("\n")}\n`);
+        expect(outcome).toMatchObject({ kind: ParseKind.parsed, violations: [] });
+    });
+
+    test("ignores an EXT-X-MEDIA whose TYPE is unrecognized, keeping it on the next variant", () => {
+        const media = '#EXT-X-MEDIA:TYPE=HAPTICS,GROUP-ID="h",NAME="Rumble"';
+        const outcome = HLS.safeParse(`#EXTM3U\n${media}\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n`);
+        expect(outcome).toMatchObject({
+            kind: ParseKind.parsed,
+            playlist: { variants: [{ ignored: [{ kind: IgnoredKind.ignoredTag, line: media, reason: ignoreReasons.unrecognizedEnumeratedValue }] }] },
+        });
+    });
+
     const malformed = [
         { name: "a Media Segment tag after a variant", text: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n#EXTINF:1,\nb.ts\n", rule: mediaSegmentTagRules.notInMultivariant },
         { name: "a Media Playlist tag after a variant", text: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n#EXT-X-TARGETDURATION:10\n", rule: mediaPlaylistTagRules.notInMultivariant },
@@ -545,6 +596,20 @@ mid/audio-video.m3u8
         { name: "an EXT-X-STREAM-INF with no URI after it", text: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\n", rule: extXStreamInfRules.uriRequired },
         { name: "an EXT-X-STREAM-INF without BANDWIDTH", text: "#EXTM3U\n#EXT-X-STREAM-INF:CODECS=\"a\"\na.m3u8\n", rule: extXStreamInfRules.format },
         { name: "a variant URI without EXT-X-STREAM-INF", text: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\nb.m3u8\n", rule: extXStreamInfRules.precedesUri },
+        { name: "an EXT-X-MEDIA in a Media Playlist", text: '#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="a",NAME="A"\n#EXTINF:1,\na.ts\n', rule: multivariantPlaylistTagRules.notInMedia },
+        { name: "an EXT-X-MEDIA without NAME", text: '#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="a"\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n', rule: extXMediaRules.format },
+        {
+            name: "a CLOSED-CAPTIONS Rendition with a URI",
+            text: '#EXTM3U\n#EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS,GROUP-ID="cc",NAME="A",INSTREAM-ID="CC1",URI="cc.m3u8"\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n',
+            rule: extXMediaRules.closedCaptionsUri,
+        },
+        { name: "a SUBTITLES Rendition without a URI", text: '#EXTM3U\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="s",NAME="A"\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n', rule: alternativeRenditionRules.subtitlesUri },
+        {
+            name: "two Renditions of one Group with one NAME",
+            text: '#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="a",NAME="A"\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="a",NAME="A"\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n',
+            rule: renditionGroupRules.distinctNames,
+        },
+        { name: "an AUDIO naming no Group", text: '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,AUDIO="aac"\na.m3u8\n', rule: extXStreamInfRules.groupReference },
     ] as const;
 
     test.each(malformed)("reports $name as malformed", ({ text, rule }) => {

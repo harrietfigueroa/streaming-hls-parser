@@ -91,6 +91,11 @@ import {
 } from "../4-playlists/4.4-playlist-tags/4.4.5-media-metadata-tags/4.4.5.1-ext-x-daterange.js";
 import { multivariantPlaylistTagRules } from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6-multivariant-playlist-tags.js";
 import {
+    EXT_X_MEDIA_TAG_NAME,
+    extXMediaRules,
+    extXMediaSchema,
+} from "../4-playlists/4.4-playlist-tags/4.4.6-multivariant-playlist-tags/4.4.6.1-ext-x-media/4.4.6.1-ext-x-media.js";
+import {
     EXT_X_STREAM_INF_TAG_NAME,
     extXStreamInfRules,
     extXStreamInfSchema,
@@ -347,11 +352,17 @@ const mediaSegmentEntries = {
 
 const multivariantPlaylistShape = {
     ...sharedPlaylistShape,
+    [EXT_X_MEDIA_TAG_NAME]: z.array(extXMediaSchema).readonly().optional(),
     [EXT_X_I_FRAME_STREAM_INF_TAG_NAME]: z.array(extXIFrameStreamInfSchema).readonly().optional(),
 } as const;
 
 const multivariantPlaylistEntries = {
     ...sharedPlaylistEntries,
+    [EXT_X_MEDIA_TAG_NAME]: {
+        form: ValueForm.attributeList,
+        format: extXMediaRules.format,
+        occurrence: { kind: OccurrenceKind.repeated },
+    },
     [EXT_X_I_FRAME_STREAM_INF_TAG_NAME]: {
         form: ValueForm.attributeList,
         format: extXIFrameStreamInfRules.format,
