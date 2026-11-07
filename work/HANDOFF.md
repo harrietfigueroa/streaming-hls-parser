@@ -1,10 +1,10 @@
 # Handoff: streaming-hls-parser rebuild
 
-This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-parser`, published as `streaming-hls-parser` 0.2.0. Design is complete. Every tag of section 4.4 parses through `HLS.safeParse`, in Media Playlists and Multivariant Playlists alike, and an `IMPORT` resolves against the `multivariant` option. The precompiled entry, resolved fields, the reviver, and prototypes with exact `toHLS` are built; `HLS.stringify` and the streaming scanner come next. Read this file first, then `work/decisions/decisions.jsonl` for the reasoning behind any rule below.
+This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-parser`, published as `streaming-hls-parser` 0.2.0. Design is complete. Every tag of section 4.4 parses through `HLS.safeParse`, in Media Playlists and Multivariant Playlists alike, and an `IMPORT` resolves against the `multivariant` option. The precompiled entry, resolved fields, the reviver, prototypes with exact `toHLS`, and `HLS.stringify` are built; the streaming scanner comes next. Read this file first, then `work/decisions/decisions.jsonl` for the reasoning behind any rule below.
 
 ## Where things stand
 
-The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 725 tests pass, `tsc --noEmit` is clean, and `npm run lint` (oxlint) is clean. `style-lint` is clean on every committed file except three kinds of finding, and no disable comment names a rule, since the repository does not run `style-lint`:
+The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 736 tests pass, `tsc --noEmit` is clean, and `npm run lint` (oxlint) is clean. `style-lint` is clean on every committed file except three kinds of finding, and no disable comment names a rule, since the repository does not run `style-lint`:
 
 - `style/no-schema-parse` on the `HLS.parse(...)` calls in `tests/index.test.ts`, which it reads as zod's `.parse`. The user chose to leave these open.
 - `style/positional-parameters-max` on the `(text, reviver, options)` overloads of `safeParse` and `parse` in `create-hls.ts`. Decision 15, which the user decided, declares this shape an exception. Claude left these open without asking.
@@ -33,11 +33,12 @@ The work is on the branch `rebuild`, created from `origin/main`, and is open as 
 | `c8ad635` | Resolved fields on each segment and the pending segment, in `resolve.ts`, with the converted schema types moved to `schemas.ts` (decision 69). |
 | `69e69f9` | The reviver, `revive.ts`, through `safeParse` and `parse` overloads (decision 70). |
 | `82adeca` | Prototypes in `output.ts` with `toHLS`, `toString`, `toJSON`, and `toStream`, unit text ranges in the scanner, `jsonify.ts`, and `DataOf` (decision 71). |
+| `9bc519c` | `HLS.stringify` in `stringify.ts`, `toHLS({ canonical: true })`, per-tag `AttributeWriters` tables, and section 4.2's value writers (decision 72). |
 
 ## Where to look
 
 - `spec/draft-pantos-hls-rfc8216bis-22.txt` is the pinned spec (decision 1). Code mirrors its section numbering.
-- `work/decisions/decisions.jsonl` holds 71 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
+- `work/decisions/decisions.jsonl` holds 72 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
 - `work/backlog/backlog.jsonl` is append-only too. The latest line for an `id` gives that item's current state.
 - `lint/` holds the oxlint plugin (`plugin.ts`) and its rules under `lint/rules/`. `.oxlintrc.json` enables them, and `tests/lint/` tests them through oxlint's `RuleTester`.
 - `src/<n>-<heading>/<n.n>-<heading>/…` holds one file per spec section (decision 33). A section that is a directory keeps its section-wide rules in a file named after it inside the directory (decision 54). `src/library/` holds code that belongs to no section.
@@ -56,13 +57,14 @@ A parse runs in three passes, each in its own module under `src/library/`:
 
 ## Next steps
 
-1. Extend `src/library/` with the rest:
-   - `HLS.stringify` and `toHLS({ canonical: true })` (decision 43; backlog item 2): a canonical writer for every tag, working from data alone, so it serializes spreads and `DataOf` values built by hand.
-   - the streaming scanner (decisions 6 and 21). The static path converts the whole playlist in one `safeParse`, and `schema-issues.ts` classifies issues against the whole raw playlist, so streaming needs a per-unit conversion path, and the spanning checks in `findMediaPlaylistIssues` need either the retained units or incremental forms.
+1. Extend `src/library/` with the streaming scanner (decisions 6 and 21). The static path converts the whole playlist in one `safeParse`, and `schema-issues.ts` classifies issues against the whole raw playlist, so streaming needs a per-unit conversion path, and the spanning checks in `findMediaPlaylistIssues` need either the retained units or incremental forms. Background research the user asked for on 2026-11-07 bears on cleanup:
+   - An async generator's iterator already disposes through `AsyncIterator.prototype[Symbol.asyncDispose]`, which calls `return()`, so a yielded stream works with `await using` where the runtime supports it.
+   - `using` syntax and `DisposableStack` are absent from Node 22 and Safari, so shipped code keeps to `try/finally`.
+   - `toStream()` has no `cancel()`, which would call the chunk generator's `return()`.
 2. Extract the spec's 15 embedded playlists into `tests/fixtures/` with a TypeScript script, and add one negative fixture per rule with a test that every rule has one (decision 32). Several examples are excerpts with `...` lines, which parse as URIs, so the script has to drop or mark them. Section 9.11's example breaks section 4.4.6.1.1 (see the open questions), and sections 9.6 and 9.7 write `CODECS="..."`, which parses as a quoted-string.
 3. Add section barrels (decision 33) when a module outside a section first imports through a public surface. None exist yet.
 4. Packaging: `package.json` has no `exports` map, `main`, or build script, so neither entry is importable from the published package yet. Decision 46's esbuild bundles and the `./precompiled` export path are unbuilt.
-5. Backlog item 7: building the output objects costs about 5 to 8% at p75 on the large fixture, with GC tails up to about 150 ms that Claude believes come from the 11,701 WeakMap entries in `output.ts` but has not verified.
+5. Backlog item 7: building the output objects costs about 5 to 8% at p75 on the large fixture, with GC tails up to about 150 ms that Claude believes come from the 11,701 WeakMap entries in `output.ts` but has not verified. The same research found that V8 marks WeakMap ephemerons in a fixpoint loop, and that private class fields are ordinary on-object slots. Verify with `--trace-gc` first; if the WeakMap is the cause, the fix is `#source` and `#range` fields set in the `UnitMethods` and `PlaylistMethods` constructors, which also removes the per-unit intermediate objects.
 
 Backlog items 2, 4 to 25, 30 to 39, and 45 to 49 remain open. Items 7 (performance checks) and 10 (lenient policy) most affect the build order. Items 11 to 14 are section 4 rules waiting on something else: section 8's version table, the raw `EXTINF` text, the line order between `EXT-X-KEY` and `EXT-X-MAP`, and Date Range Following Range resolution. Three groups came from background research on 2026-11-06:
 
@@ -103,6 +105,7 @@ Backlog items 2, 4 to 25, 30 to 39, and 45 to 49 remain open. Items 7 (performan
 - **`HLS.parse` throws a RangeError for an exceeded limit (decision 67).** Decision 7 named only the SyntaxError, before the `limitExceeded` outcome existed.
 - **Decisions 68, 69, and 70 record readings Claude made without gating.** They cover:
 - **Decision 71 records readings Claude made without gating.** They cover two prototypes in place of one per object kind, building objects after conversion rather than in a schema step, the unit text-range rule, and a head comment sitting in the playlist's text while decision 29 puts it in the next segment's ignored lines. Also, `toJSON` leaves a Map unchanged per decision 38, so `JSON.stringify` writes a Multivariant Playlist's `variables` as `{}`; converting it to an object would amend decision 38.
+- **Decision 72 records readings Claude made without gating.** They cover the canonical tag order, CLOSED-CAPTIONS NONE written as the enumerated-string, a hexadecimal-looking Date Range X- attribute written unquoted, and an assertion on a quoted-string holding a quote or line break.
   - `createTagTables(prepare)` in place of decision 18's mapped type, and the precompiled entry compiling with `strict: false` so a refused schema falls back rather than failing the import;
   - the precompiled entry's measured gain, about 4% on the large fixture, which is far below the per-tag benchmark's;
   - `keys` as an always-present array, empty when unencrypted, with METHOD=NONE ending every key;
