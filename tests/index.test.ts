@@ -871,3 +871,35 @@ describe("HLS.safeParse resolved fields", () => {
 function uriOfKey(key: { readonly URI?: string | undefined }) {
     return key.URI;
 }
+
+// A reviver passed second runs over the parsed playlist as JSON.parse runs one, and options then go third.
+describe("HLS.safeParse and HLS.parse with a reviver", () => {
+    function bigIntsToStrings(this: unknown, _key: string, value: unknown) {
+        if (typeof value === "bigint") {
+            return value.toString();
+        }
+        return value;
+    }
+
+    test("safeParse returns the revived playlist", () => {
+        const outcome = HLS.safeParse(SIMPLE_MEDIA_PLAYLIST, bigIntsToStrings);
+        const segments = [{ mediaSequenceNumber: "0" }, { mediaSequenceNumber: "1" }, { mediaSequenceNumber: "2" }];
+        expect(outcome).toMatchObject({ kind: ParseKind.parsed, playlist: { "EXT-X-TARGETDURATION": "10", segments } });
+    });
+
+    test("safeParse reads the options after a reviver", () => {
+        const text = "#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXT-X-DEFINE:QUERYPARAM=\"token\"\n#EXTINF:1,\na.ts?t={$token}\n";
+        const outcome = HLS.safeParse(text, bigIntsToStrings, { uri: new URL("https://example.com/media.m3u8?token=abc") });
+        expect(outcome).toMatchObject({ kind: ParseKind.parsed, playlist: { segments: [{ uri: "a.ts?t=abc" }] } });
+    });
+
+    test("safeParse leaves a malformed outcome unrevived", () => {
+        const text = "#EXTM3U\n#EXTINF:1,\na.ts\n";
+        const expected = HLS.safeParse(text);
+        expect(HLS.safeParse(text, bigIntsToStrings)).toEqual(expected);
+    });
+
+    test("parse returns the revived playlist", () => {
+        expect(HLS.parse(SIMPLE_MEDIA_PLAYLIST, bigIntsToStrings)).toMatchObject({ "EXT-X-VERSION": "3" });
+    });
+});

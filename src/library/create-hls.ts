@@ -25,6 +25,7 @@ import { assertCondition, unreachable } from "./assert.js";
 import { type Limit, type ParseOptions, resolveLimits } from "./options.js";
 import { defaultPolicy, type Policy } from "./policy.js";
 import { type MediaPlaylist, resolveMediaPlaylist } from "./resolve.js";
+import { revive, type Reviver } from "./revive.js";
 import { CheckKind, type Issue, Severity } from "./rule.js";
 import { type RawPlaylist, type RawTag, type RawTags, ScanKind, scanPlaylist } from "./scan.js";
 import {
@@ -58,14 +59,19 @@ export type Playlist = MediaPlaylist | MultivariantPlaylist;
 
 
 
-type ParsePayloads = {
-    [ParseKind.parsed]: { readonly playlist: Playlist; readonly violations: readonly Issue[] };
+type ParsePayloads<P> = {
+    [ParseKind.parsed]: { readonly playlist: P; readonly violations: readonly Issue[] };
     [ParseKind.malformed]: { readonly issues: readonly Issue[] };
     [ParseKind.limitExceeded]: { readonly limit: Limit; readonly value: number };
 };
-type ParseMember<K extends ParseKind> = { readonly kind: K } & ParsePayloads[K];
+type ParseMember<P, K extends ParseKind> = { readonly kind: K } & ParsePayloads<P>[K];
+type ParseOf<P> = { [K in ParseKind]: ParseMember<P, K> }[ParseKind];
 /** The outcome of HLS.safeParse, keyed by kind. */
-export type Parse = { [K in ParseKind]: ParseMember<K> }[ParseKind];
+export type Parse = ParseOf<Playlist>;
+/** The outcome of HLS.safeParse with a reviver: a parsed outcome's playlist is the reviver's return for the root. */
+export type RevivedParse = ParseOf<unknown>;
+
+export type { Reviver } from "./revive.js";
 
 const ConversionKind = { converted: "converted", failed: "failed" } as const;
 type ConversionKind = (typeof ConversionKind)[keyof typeof ConversionKind];
@@ -339,7 +345,7 @@ function findPlaylistIssues(playlist: ConvertedPlaylist) {
  * RangeError, a bound the caller set rather than a fault in the text. Each error's cause carries the
  * outcome's data.
  */
-function playlistOf(outcome: Parse) {
+function playlistOf<P>(outcome: ParseOf<P>) {
     switch (outcome.kind) {
         case ParseKind.parsed: {
             return outcome.playlist;
@@ -359,6 +365,16 @@ function playlistOf(outcome: Parse) {
             return unreachable(outcome);
         }
     }
+}
+
+/** Runs `reviver` over a parsed outcome's playlist; every other outcome carries no playlist and is returned as it is. */
+function reviveOutcome(outcome: Parse, reviver: Reviver) {
+    if (outcome.kind !== ParseKind.parsed) {
+        return outcome;
+    }
+    const playlist = revive({ value: outcome.playlist, reviver });
+    const revived: RevivedParse = { kind: ParseKind.parsed, playlist, violations: outcome.violations };
+    return revived;
 }
 
 /** The parsed form of a converted playlist: a Media Playlist's segments gain their resolved fields. */
@@ -455,7 +471,7 @@ export function createHLS(tables: TagTables) {
         return failed;
     }
 
-    function safeParse(text: string, options: ParseOptions = {}) {
+    function parseText(text: string, options: ParseOptions = {}) {
         const limits = resolveLimits(options);
         let imported: ReadonlyMap<string, string> | undefined;
         if (options.multivariant !== undefined) {
@@ -489,9 +505,29 @@ export function createHLS(tables: TagTables) {
         return malformedParse(second.broken);
     }
 
-    /** Parses `text` as safeParse does, returning the playlist and throwing for any other outcome. */
-    function parse(text: string, options: ParseOptions = {}) {
-        const outcome = safeParse(text, options);
+    /**
+     * Parses `text`, returning each outcome. A reviver passed second runs over a parsed playlist as
+     * JSON.parse runs one over its value, and the options then go third.
+     */
+    function safeParse(text: string, options?: ParseOptions): Parse;
+    function safeParse(text: string, reviver: Reviver, options?: ParseOptions): RevivedParse;
+    function safeParse(text: string, reviverOrOptions?: Reviver | ParseOptions, revivedOptions?: ParseOptions) {
+        if (typeof reviverOrOptions === "function") {
+            const outcome = parseText(text, revivedOptions);
+            return reviveOutcome(outcome, reviverOrOptions);
+        }
+        return parseText(text, reviverOrOptions);
+    }
+
+    /** Parses `text` as safeParse does, returning the playlist, or the reviver's return, and throwing for any other outcome. */
+    function parse(text: string, options?: ParseOptions): Playlist;
+    function parse(text: string, reviver: Reviver, options?: ParseOptions): unknown;
+    function parse(text: string, reviverOrOptions?: Reviver | ParseOptions, revivedOptions?: ParseOptions) {
+        if (typeof reviverOrOptions === "function") {
+            const revived = safeParse(text, reviverOrOptions, revivedOptions);
+            return playlistOf(revived);
+        }
+        const outcome = safeParse(text, reviverOrOptions);
         return playlistOf(outcome);
     }
 

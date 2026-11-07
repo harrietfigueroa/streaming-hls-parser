@@ -9,6 +9,8 @@ export {
     type PendingSegment,
     type Playlist,
     PlaylistKind,
+    type RevivedParse,
+    type Reviver,
     type Variant,
 } from "./create-hls.js";
 export type { Issue, Rule, Severity } from "./rule.js";
