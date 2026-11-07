@@ -175,6 +175,39 @@ function lastOf(parts: readonly StreamPart[]) {
     return last;
 }
 
+/** A source of `chunks` that counts how many times its iteration is closed early or completes. */
+function createClosingSource(chunks: readonly string[]) {
+    const state = { closedCount: 0 };
+    async function* read() {
+        try {
+            for (const chunk of chunks) {
+                yield chunk;
+            }
+        } finally {
+            state.closedCount += 1;
+        }
+    }
+    return { state, chunks: read() };
+}
+
+function safeParseParts(chunks: AsyncIterable<string>) {
+    return HLS.safeParse(chunks);
+}
+
+function parseParts(chunks: AsyncIterable<string>) {
+    return HLS.parse(chunks);
+}
+
+function revivedParts(chunks: AsyncIterable<string>) {
+    return HLS.safeParse(chunks, bigIntsToStrings);
+}
+
+const streamParsers = [
+    { name: "safeParse", parseStream: safeParseParts },
+    { name: "parse", parseStream: parseParts },
+    { name: "safeParse with a reviver", parseStream: revivedParts },
+] as const;
+
 describe("the streaming parse", () => {
     test.each(playlists)("yields the static playlist's units for $name", async ({ text }) => {
         const parts = await streamText(text);
@@ -303,6 +336,17 @@ describe("the streaming parse", () => {
         expect(parts).toContainEqual(
             expect.objectContaining({ kind: StreamPartKind.segment, segment: expect.objectContaining({ mediaSequenceNumber: "2" }) }),
         );
+    });
+
+    // A source read through a lazy chain of async generators closes only if each layer forwards return().
+    test.each(streamParsers)("$name closes the source when the consumer stops after the first part", async ({ parseStream }) => {
+        const source = createClosingSource(cut(SIMPLE_MEDIA_PLAYLIST, 5));
+        const parts = parseStream(source.chunks);
+        for await (const part of parts) {
+            expect(part).toBeDefined();
+            break;
+        }
+        expect(source.state.closedCount).toBe(1);
     });
 
     test("parse yields the parts safeParse yields when the playlist parses", async () => {
