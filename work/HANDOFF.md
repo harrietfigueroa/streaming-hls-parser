@@ -1,6 +1,6 @@
 # Handoff: streaming-hls-parser rebuild
 
-This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-parser`, published as `streaming-hls-parser` 0.2.0. Design is complete, and implementation has reached section 4.3 of the spec. Read this file first, then `work/decisions/decisions.jsonl` for the reasoning behind any rule below.
+This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-parser`, published as `streaming-hls-parser` 0.2.0. Design is complete, and a minimal static path parses section 9.1's Media Playlist end to end through `HLS.safeParse`. Read this file first, then `work/decisions/decisions.jsonl` for the reasoning behind any rule below.
 
 ## Where things stand
 
@@ -15,13 +15,16 @@ The work is on the local branch `rebuild`, created from `origin/main` and not ye
 | `95c228e` | Adds section 4.2: attribute lists and value types. |
 | `a9ebac9` | Adds section 4.1: line splitting, line checks, and line classification. |
 | `c962e55` | Adds section 4.3: variable substitution. |
+| `692502f` | Adds section 4.4.1: `EXTM3U` and `EXT-X-VERSION`. |
+| `ab08e6b` | Adds `EXT-X-TARGETDURATION`, `EXT-X-ENDLIST`, `EXTINF`, and the section-wide rules of 4.4.3 and 4.4.4. |
+| `b37983c` | Adds `src/library/`: the tag table, the static scanner, the severity policy, `createHLS`, and the default entry `src/index.ts`. |
 
-All 146 tests pass, `tsc --noEmit` is clean, and `style-lint` is clean on every committed file.
+All 214 tests pass, `tsc --noEmit` is clean, and `style-lint` is clean on every committed file. The 11,701-segment fixture parses in about 16 ms median, against 3.1 ms for the benchmark's minimal loop (decision 48).
 
 ## Where to look
 
 - `spec/draft-pantos-hls-rfc8216bis-22.txt` is the pinned spec (decision 1). Code mirrors its section numbering.
-- `work/decisions/decisions.jsonl` holds 51 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
+- `work/decisions/decisions.jsonl` holds 54 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9). Decision 53 fixes the tag table's shape, and decision 54 records two spec readings open to the user's correction.
 - `work/backlog/backlog.jsonl` is append-only too. The latest line for an `id` gives that item's current state.
 - `src/<n>-<heading>/<n.n>-<heading>/…` holds one file per spec section (decision 33). `src/library/` holds code that belongs to no section.
 - `tests/` mirrors `src/`. `tests/fixtures/very-large-playlist.m3u8` is the 11,701-segment real-world fixture.
@@ -29,12 +32,12 @@ All 146 tests pass, `tsc --noEmit` is clean, and `style-lint` is clean on every 
 
 ## Next steps
 
-1. Build section 4.4.1 (`EXTM3U`, `EXT-X-VERSION`), then a minimal Media Playlist path from text to typed output, so the section 9 VOD example parses end to end before the remaining tags are added.
-2. Continue through sections 4.4.2 to 4.4.6, one module per tag, each tag's zod schema in its own section file (decision 16).
-3. Build `src/library/`: the static and streaming scanners, the `createHLS` factory (decision 18), the two entry points (decision 17), the outcome unions, and the severity policy table (decisions 7, 8, 50).
-4. Extract the spec's 15 embedded playlists into `tests/fixtures/` with a TypeScript script, and add one negative fixture per rule with a test that every rule has one (decision 32).
+1. Continue through sections 4.4.2 to 4.4.6, one module per tag, each added to `src/library/tag-table.ts` with its rules. Attribute-list tags are the first to need a raw form beyond a string, which changes the scanner's `RawValue`. Multivariant Playlist tags need a second playlist kind and section 4.4.4's mixed-tags rule.
+2. Extend `src/library/`: `HLS.parse` (decision 7), the precompiled entry (decisions 17 and 18; the composed segment schema compiles under `strict: true`), the streaming scanner (decisions 6 and 21), the options and limits (decision 30), prototypes and `toHLS` (decisions 42 and 43), resolved fields (decision 26), and the reviver (decision 20). `createHLS` is one line over the 70-line prompt, and its post-parse duration loop is the seam to cut once more cross-unit checks arrive.
+3. Extract the spec's 15 embedded playlists into `tests/fixtures/` with a TypeScript script, and add one negative fixture per rule with a test that every rule has one (decision 32).
+4. Add section barrels (decision 33) when a module outside a section first imports from it through a public surface. None exist yet.
 
-Backlog items 2 and 4 to 10 remain open. Items 7 (performance checks) and 10 (lenient policy) most affect the build order.
+Backlog items 2 and 4 to 12 remain open. Items 7 (performance checks) and 10 (lenient policy) most affect the build order. Items 11 and 12 are section 4 rules that wait on section 8's version table and on the raw EXTINF text.
 
 ## Conventions this codebase follows
 
