@@ -4,7 +4,7 @@ This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-p
 
 ## Where things stand
 
-The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 633 tests pass, `tsc --noEmit` is clean, `npm run lint` (oxlint) is clean, and `style-lint` is clean on every committed file.
+The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 637 tests pass, `tsc --noEmit` is clean, and `npm run lint` (oxlint) is clean. `style-lint` is clean on every committed file but the `HLS.parse(...)` calls in `tests/index.test.ts`, which `style/no-schema-parse` reports because it reads every `.parse(...)` call as zod's; the user chose to leave those findings open, and no disable comment names the rule, since the repository does not run `style-lint`.
 
 | Commit | Content |
 | --- | --- |
@@ -48,7 +48,6 @@ A parse runs in three passes, each in its own module under `src/library/`:
 ## Next steps
 
 1. Extend `src/library/` with the rest:
-   - `HLS.parse` (decision 7);
    - the precompiled entry (decisions 17 and 18);
    - the streaming scanner (decisions 6 and 21);
    - prototypes and `toHLS` (decisions 42 and 43);
@@ -93,6 +92,7 @@ Backlog items 2, 4 to 25, 30 to 39, and 45 to 49 remain open. Items 7 (performan
   - a variant without PATHWAY-ID on the default Pathway `.`;
   - the Multivariant Playlist's `variables` Map, the one output change among them.
 - **Section 9.11's Content Steering example breaks section 4.4.6.1.1.** Its two AUDIO Groups name their members "English" and "ENGLISH". NAME is not among the attributes corresponding members may differ in, so the example is malformed under any matching of members, and the parser reports it. Either the example is in error or the rule compares NAME case-insensitively, which the spec does not say.
+- **`HLS.parse` throws a RangeError for an exceeded limit (decision 67).** Decision 7 named only the SyntaxError, before the `limitExceeded` outcome existed.
 
 ## Conventions this codebase follows
 

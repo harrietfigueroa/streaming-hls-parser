@@ -373,6 +373,35 @@ function findPlaylistIssues(playlist: Playlist) {
     }
 }
 
+/**
+ * The playlist of a parsed outcome. Every other outcome throws, because HLS.parse keeps JSON.parse's
+ * contract of returning the value or throwing; HLS.safeParse is the path that returns each outcome.
+ * A malformed playlist is a SyntaxError, as JSON.parse reports bad text, and an exceeded limit is a
+ * RangeError, a bound the caller set rather than a fault in the text. Each error's cause carries the
+ * outcome's data.
+ */
+function playlistOf(outcome: Parse) {
+    switch (outcome.kind) {
+        case ParseKind.parsed: {
+            return outcome.playlist;
+        }
+        case ParseKind.malformed: {
+            const [first] = outcome.issues;
+            assertCondition(first !== undefined, "A malformed outcome carries no issue.");
+            const message = `The playlist is malformed, with ${outcome.issues.length} broken rules. Section ${first.rule.section}: ${first.detail}`;
+            throw new SyntaxError(message, { cause: outcome.issues });
+        }
+        case ParseKind.limitExceeded: {
+            const message = `The playlist exceeds ${outcome.limit}, ${outcome.value}.`;
+            throw new RangeError(message, { cause: { limit: outcome.limit, value: outcome.value } });
+        }
+        default: {
+            outcome satisfies never;
+            return unreachable(outcome);
+        }
+    }
+}
+
 /** Checks the rules spanning a converted playlist, resolving each issue through `policy`. */
 function checkPlaylist(options: {
     readonly playlist: Playlist;
@@ -491,5 +520,11 @@ export function createHLS(tables: TagTables) {
         return malformedParse(second.broken);
     }
 
-    return Object.freeze({ safeParse });
+    /** Parses `text` as safeParse does, returning the playlist and throwing for any other outcome. */
+    function parse(text: string, options: ParseOptions = {}) {
+        const outcome = safeParse(text, options);
+        return playlistOf(outcome);
+    }
+
+    return Object.freeze({ safeParse, parse });
 }

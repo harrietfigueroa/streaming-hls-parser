@@ -706,3 +706,37 @@ https://backup.example.com/128/video.m3u8
         expect(outcome).toMatchObject({ kind: ParseKind.malformed, issues: [{ rule }] });
     });
 });
+
+// HLS.parse returns safeParse's playlist and throws for every other outcome, as JSON.parse throws.
+describe("HLS.parse", () => {
+    const MISSING_TARGET_DURATION = "#EXTM3U\n#EXTINF:1,\na.ts\n";
+
+    test("returns the playlist safeParse parses", () => {
+        const outcome = HLS.safeParse(SIMPLE_MEDIA_PLAYLIST);
+        assertCondition(outcome.kind === ParseKind.parsed, `Section 9.1's playlist parsed as ${outcome.kind}.`);
+        expect(HLS.parse(SIMPLE_MEDIA_PLAYLIST)).toEqual(outcome.playlist);
+    });
+
+    test("passes its options to the parse", () => {
+        const text = "#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXT-X-DEFINE:QUERYPARAM=\"token\"\n#EXTINF:1,\na.ts?t={$token}\n";
+        const playlist = HLS.parse(text, { uri: new URL("https://example.com/media.m3u8?token=abc") });
+        expect(playlist).toMatchObject({ segments: [{ uri: "a.ts?t=abc" }] });
+    });
+
+    test("throws a SyntaxError whose cause is the malformed outcome's issues", () => {
+        const outcome = HLS.safeParse(MISSING_TARGET_DURATION);
+        assertCondition(outcome.kind === ParseKind.malformed, `The playlist parsed as ${outcome.kind}.`);
+        function parseMalformed() {
+            return HLS.parse(MISSING_TARGET_DURATION);
+        }
+        expect(parseMalformed).toThrow(expect.objectContaining({ name: "SyntaxError", cause: outcome.issues }));
+    });
+
+    test("throws a RangeError whose cause is the exceeded limit and its value", () => {
+        const unitCountMax = 1;
+        function parseOverLimit() {
+            return HLS.parse(SIMPLE_MEDIA_PLAYLIST, { limits: { unitCountMax } });
+        }
+        expect(parseOverLimit).toThrow(expect.objectContaining({ name: "RangeError", cause: { limit: Limit.unitCountMax, value: unitCountMax } }));
+    });
+});
