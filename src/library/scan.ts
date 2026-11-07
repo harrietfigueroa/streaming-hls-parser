@@ -190,8 +190,9 @@ export function scanPlaylist(options: {
                 break;
             }
             case LineKind.uri: {
-                // The playlist is a unit too, so the segment about to be added makes the count segments + 2.
-                const unitCount = segments.length + 2;
+                // The playlist is a unit too, so it adds one to the segment count.
+                const segmentCount = segments.length + 1;
+                const unitCount = segmentCount + 1;
                 if (unitCount > limits.unitCountMax) {
                     return limitExceededScan(Limit.unitCountMax, limits);
                 }
