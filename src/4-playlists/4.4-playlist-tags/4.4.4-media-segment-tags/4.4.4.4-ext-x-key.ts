@@ -99,3 +99,38 @@ export function checkKey(key: Key) {
 function isPresent(attribute: string | undefined) {
     return attribute !== undefined;
 }
+
+// An EXT-X-KEY without KEYFORMAT has the implicit KEYFORMAT "identity".
+const IMPLICIT_KEYFORMAT = "identity";
+
+function keyFormatOf(key: Key) {
+    if (key.KEYFORMAT === undefined) {
+        return IMPLICIT_KEYFORMAT;
+    }
+    return key.KEYFORMAT;
+}
+
+/**
+ * The keys applying to a Media Segment, given those applying before its own EXT-X-KEY tags and those
+ * tags in line order: each key ends the applying key of its KEYFORMAT, and a METHOD of NONE ends every
+ * key, so the segments after it are unencrypted.
+ */
+export function applyKeys<K extends Key>(options: { readonly applying: readonly K[]; readonly written: readonly K[] }) {
+    let applying = options.applying;
+    for (const key of options.written) {
+        if (key.METHOD === KeyMethod.none) {
+            applying = [];
+            continue;
+        }
+        const keyFormat = keyFormatOf(key);
+        const kept: K[] = [];
+        for (const other of applying) {
+            if (keyFormatOf(other) !== keyFormat) {
+                kept.push(other);
+            }
+        }
+        kept.push(key);
+        applying = kept;
+    }
+    return Object.freeze(applying);
+}

@@ -69,9 +69,30 @@ const simpleMediaPlaylist: MediaPlaylist = {
     "EXT-X-VERSION": 3n,
     "EXT-X-ENDLIST": true,
     segments: [
-        { uri: "http://media.example.com/first.ts", EXTINF: { duration: 9.009 }, ignored: [] },
-        { uri: "http://media.example.com/second.ts", EXTINF: { duration: 9.009 }, ignored: [] },
-        { uri: "http://media.example.com/third.ts", EXTINF: { duration: 3.003 }, ignored: [] },
+        {
+            uri: "http://media.example.com/first.ts",
+            EXTINF: { duration: 9.009 },
+            ignored: [],
+            keys: [],
+            mediaSequenceNumber: 0n,
+            discontinuitySequenceNumber: 0n,
+        },
+        {
+            uri: "http://media.example.com/second.ts",
+            EXTINF: { duration: 9.009 },
+            ignored: [],
+            keys: [],
+            mediaSequenceNumber: 1n,
+            discontinuitySequenceNumber: 0n,
+        },
+        {
+            uri: "http://media.example.com/third.ts",
+            EXTINF: { duration: 3.003 },
+            ignored: [],
+            keys: [],
+            mediaSequenceNumber: 2n,
+            discontinuitySequenceNumber: 0n,
+        },
     ],
     ignored: [],
 };
@@ -740,3 +761,113 @@ describe("HLS.parse", () => {
         expect(parseOverLimit).toThrow(expect.objectContaining({ name: "RangeError", cause: { limit: Limit.unitCountMax, value: unitCountMax } }));
     });
 });
+
+// Each segment carries the carry-forward tags that apply to it as resolved fields, computed from the
+// tags written before it, so a caller reading one segment needs no state from the segments before it.
+describe("HLS.safeParse resolved fields", () => {
+    function parseMedia(lines: readonly string[]) {
+        const text = ["#EXTM3U", "#EXT-X-TARGETDURATION:10", ...lines, ""].join("\n");
+        const outcome = HLS.safeParse(text);
+        assertCondition(outcome.kind === ParseKind.parsed, `The Media Playlist parsed as ${outcome.kind}.`);
+        const playlist = outcome.playlist;
+        assertCondition(playlist.kind === PlaylistKind.media, `The playlist parsed as ${playlist.kind}.`);
+        return playlist;
+    }
+
+    test("numbers segments from 0 without an EXT-X-MEDIA-SEQUENCE", () => {
+        const playlist = parseMedia(["#EXTINF:1,", "a.ts", "#EXTINF:1,", "b.ts"]);
+        expect(playlist.segments).toMatchObject([{ mediaSequenceNumber: 0n }, { mediaSequenceNumber: 1n }]);
+    });
+
+    test("numbers segments from the EXT-X-MEDIA-SEQUENCE", () => {
+        const playlist = parseMedia(["#EXT-X-MEDIA-SEQUENCE:7", "#EXTINF:1,", "a.ts", "#EXTINF:1,", "b.ts"]);
+        expect(playlist.segments).toMatchObject([{ mediaSequenceNumber: 7n }, { mediaSequenceNumber: 8n }]);
+    });
+
+    test("counts discontinuities up from the EXT-X-DISCONTINUITY-SEQUENCE, at each segment with EXT-X-DISCONTINUITY", () => {
+        const lines = ["#EXT-X-DISCONTINUITY-SEQUENCE:3", "#EXTINF:1,", "a.ts", "#EXT-X-DISCONTINUITY", "#EXTINF:1,", "b.ts", "#EXTINF:1,", "c.ts"];
+        const playlist = parseMedia(lines);
+        const numbers = [{ discontinuitySequenceNumber: 3n }, { discontinuitySequenceNumber: 4n }, { discontinuitySequenceNumber: 4n }];
+        expect(playlist.segments).toMatchObject(numbers);
+    });
+
+    test("applies each EXT-X-MAP to every segment until the next one, as the written tag", () => {
+        const lines = ["#EXTINF:1,", "a.ts", '#EXT-X-MAP:URI="one.mp4"', "#EXTINF:1,", "b.ts", "#EXTINF:1,", "c.ts", '#EXT-X-MAP:URI="two.mp4"', "#EXTINF:1,", "d.ts"];
+        const [first, second, third, fourth] = parseMedia(lines).segments;
+        expect(first).not.toHaveProperty("map");
+        expect(second?.map).toBe(second?.["EXT-X-MAP"]);
+        expect(third?.map).toBe(second?.["EXT-X-MAP"]);
+        expect(fourth?.map).toEqual({ URI: "two.mp4" });
+    });
+
+    test("applies each EXT-X-BITRATE to the later segments without an EXT-X-BYTERANGE", () => {
+        const lines = ["#EXTINF:1,", "a.ts", "#EXT-X-BITRATE:900", "#EXTINF:1,", "b.ts", "#EXT-X-BYTERANGE:10@0", "#EXTINF:1,", "c.ts", "#EXTINF:1,", "d.ts"];
+        const [first, second, third, fourth] = parseMedia(lines).segments;
+        expect(first).not.toHaveProperty("bitrate");
+        expect(second?.bitrate).toBe(900n);
+        expect(third).not.toHaveProperty("bitrate");
+        expect(fourth?.bitrate).toBe(900n);
+    });
+
+    test("resolves a missing byte range offset to the byte after the previous sub-range", () => {
+        const lines = ["#EXT-X-BYTERANGE:100@50", "#EXTINF:1,", "a.ts", "#EXT-X-BYTERANGE:20", "#EXTINF:1,", "a.ts", "#EXTINF:1,", "b.ts"];
+        const [first, second, third] = parseMedia(lines).segments;
+        expect(first?.byteRange).toEqual({ length: 100n, offset: 50n });
+        expect(second?.byteRange).toEqual({ length: 20n, offset: 150n });
+        expect(third).not.toHaveProperty("byteRange");
+    });
+
+    const KEY_A = '#EXT-X-KEY:METHOD=AES-128,URI="a.key"';
+    const KEY_B = '#EXT-X-KEY:METHOD=AES-128,URI="b.key"';
+    const KEY_STREAMING = '#EXT-X-KEY:METHOD=SAMPLE-AES,URI="skd://c",KEYFORMAT="com.apple.streamingkeydelivery"';
+    const KEY_NONE = "#EXT-X-KEY:METHOD=NONE";
+
+    const keyCases = [
+        { name: "no key before the first EXT-X-KEY", lines: [], uris: [] },
+        { name: "a key on the segments after it", lines: [KEY_A, "#EXTINF:1,", "x.ts"], uris: ["a.key"] },
+        { name: "a later key of the same KEYFORMAT in place of the earlier", lines: [KEY_A, "#EXTINF:1,", "x.ts", KEY_B], uris: ["b.key"] },
+        { name: "keys of different KEYFORMATs together", lines: [KEY_A, KEY_STREAMING], uris: ["a.key", "skd://c"] },
+        { name: "no key after a METHOD of NONE", lines: [KEY_A, KEY_STREAMING, "#EXTINF:1,", "x.ts", KEY_NONE], uris: [] },
+    ] as const;
+
+    test.each(keyCases)("applies $name", ({ lines, uris }) => {
+        const playlist = parseMedia([...lines, "#EXTINF:1,", "last.ts"]);
+        const last = playlist.segments.at(-1);
+        assertCondition(last !== undefined, "The playlist has no segment.");
+        const keyUris = Array.from(last.keys, uriOfKey);
+        expect(keyUris).toEqual(uris);
+    });
+
+    test("applies the written EXT-X-KEY object itself", () => {
+        const [first, second] = parseMedia([KEY_A, "#EXTINF:1,", "a.ts", "#EXTINF:1,", "b.ts"]).segments;
+        const written = first?.["EXT-X-KEY"]?.[0];
+        expect(written).toBeDefined();
+        expect(second?.keys[0]).toBe(written);
+    });
+
+    test("resolves the pending Parent Segment's fields too", () => {
+        const lines = [
+            "#EXT-X-PART-INF:PART-TARGET=1",
+            "#EXT-X-SERVER-CONTROL:PART-HOLD-BACK=3",
+            "#EXT-X-MEDIA-SEQUENCE:4",
+            '#EXT-X-MAP:URI="init.mp4"',
+            "#EXTINF:1,",
+            "a.ts",
+            '#EXT-X-PART:DURATION=1,URI="b.0.mp4"',
+        ];
+        const playlist = parseMedia(lines);
+        expect(playlist.pendingSegment).toMatchObject({ mediaSequenceNumber: 5n, discontinuitySequenceNumber: 0n, map: { URI: "init.mp4" }, keys: [] });
+    });
+
+    test("freezes the resolved fields", () => {
+        const [, second] = parseMedia(["#EXT-X-BYTERANGE:1@0", "#EXTINF:1,", "a.ts", "#EXT-X-BYTERANGE:1", "#EXTINF:1,", "a.ts"]).segments;
+        assertCondition(second !== undefined, "The playlist has no second segment.");
+        expect(second.byteRange).toBeDefined();
+        expect(Object.isFrozen(second.keys)).toBe(true);
+        expect(Object.isFrozen(second.byteRange)).toBe(true);
+    });
+});
+
+function uriOfKey(key: { readonly URI?: string | undefined }) {
+    return key.URI;
+}

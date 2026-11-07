@@ -112,3 +112,33 @@ export function checkByteRangeOffsets(segments: readonly RangedSegment[]) {
     }
     return issues;
 }
+
+export const ByteRangeResolutionKind = { resolved: "resolved", unresolvable: "unresolvable" } as const;
+export type ByteRangeResolutionKind = (typeof ByteRangeResolutionKind)[keyof typeof ByteRangeResolutionKind];
+
+type ByteRangeResolutionPayloads = {
+    [ByteRangeResolutionKind.resolved]: { readonly byteRange: Readonly<{ length: bigint; offset: bigint }> };
+    /** The range has no offset and follows no sub-range of its resource, which breaks offsetFollowsSubRange. */
+    [ByteRangeResolutionKind.unresolvable]: Record<never, never>;
+};
+type ByteRangeResolutionMember<K extends ByteRangeResolutionKind> = { readonly kind: K } & ByteRangeResolutionPayloads[K];
+type ByteRangeResolution = { [K in ByteRangeResolutionKind]: ByteRangeResolutionMember<K> }[ByteRangeResolutionKind];
+
+/**
+ * A byte range with its offset, the written one or else the byte after `previousEnd`, the end of the
+ * previous Media Segment's sub-range when that segment is a sub-range of the same resource.
+ */
+export function resolveByteRange(options: { readonly byteRange: ByteRange; readonly previousEnd: bigint | undefined }) {
+    const { byteRange, previousEnd } = options;
+    let offset = byteRange.offset;
+    if (offset === undefined) {
+        offset = previousEnd;
+    }
+    if (offset === undefined) {
+        const unresolvable: ByteRangeResolution = { kind: ByteRangeResolutionKind.unresolvable };
+        return unresolvable;
+    }
+    const resolvedRange = Object.freeze({ length: byteRange.length, offset });
+    const resolved: ByteRangeResolution = { kind: ByteRangeResolutionKind.resolved, byteRange: resolvedRange };
+    return resolved;
+}

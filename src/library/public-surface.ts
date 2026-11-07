@@ -6,6 +6,7 @@ export {
     type MultivariantPlaylist,
     type Parse,
     ParseKind,
+    type PendingSegment,
     type Playlist,
     PlaylistKind,
     type Variant,

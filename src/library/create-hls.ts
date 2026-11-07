@@ -24,8 +24,18 @@ import { checkMultivariantDefinitions } from "../4-playlists/4.4-playlist-tags/4
 import { assertCondition, unreachable } from "./assert.js";
 import { type Limit, type ParseOptions, resolveLimits } from "./options.js";
 import { defaultPolicy, type Policy } from "./policy.js";
+import { type MediaPlaylist, resolveMediaPlaylist } from "./resolve.js";
 import { CheckKind, type Issue, Severity } from "./rule.js";
-import { IgnoredKind, type RawPlaylist, type RawTag, type RawTags, ScanKind, scanPlaylist } from "./scan.js";
+import { type RawPlaylist, type RawTag, type RawTags, ScanKind, scanPlaylist } from "./scan.js";
+import {
+    buildSchemas,
+    type ConvertedMediaPlaylist,
+    type ConvertedMediaSegment,
+    type ConvertedPendingSegment,
+    type ConvertedPlaylist,
+    type MultivariantPlaylist,
+    type Variant,
+} from "./schemas.js";
 import {
     classifySchemaIssue,
     type IgnorableTag,
@@ -40,62 +50,13 @@ export { PlaylistKind } from "./tag-table.js";
 export const ParseKind = { parsed: "parsed", malformed: "malformed", limitExceeded: "limitExceeded" } as const;
 export type ParseKind = (typeof ParseKind)[keyof typeof ParseKind];
 
-const ignoreReasonSchema = z.object({ section: z.string(), requirement: z.string() }).readonly();
-const ignoredLinesSchema = z
-    .array(
-        z
-            .discriminatedUnion("kind", [
-                z.object({ kind: z.literal(IgnoredKind.comment), line: z.string() }),
-                z.object({ kind: z.literal(IgnoredKind.unrecognizedTag), line: z.string() }),
-                z.object({ kind: z.literal(IgnoredKind.ignoredTag), line: z.string(), reason: ignoreReasonSchema }),
-                z.object({ kind: z.literal(IgnoredKind.ignoredUri), line: z.string(), reason: ignoreReasonSchema }),
-            ])
-            .readonly(),
-    )
-    .readonly();
-
-function buildSchemas(tables: TagTables) {
-    const segmentObjectSchema = z.object({ ...tables.media.unit.shape, uri: z.string(), ignored: ignoredLinesSchema });
-    const segmentSchema = segmentObjectSchema.readonly();
-    // The pending Parent Segment has no URI yet, and none of a segment's tags is required of it.
-    const pendingSegmentSchema = segmentObjectSchema.omit({ uri: true }).partial().required({ ignored: true }).readonly();
-    const segmentsSchema = z.array(segmentSchema).readonly();
-    const mediaPlaylistSchema = z
-        .object({
-            ...tables.media.playlist.shape,
-            kind: z.literal(PlaylistKind.media),
-            segments: segmentsSchema,
-            pendingSegment: pendingSegmentSchema.optional(),
-            ignored: ignoredLinesSchema,
-        })
-        .readonly();
-    const variantSchema = z.object({ ...tables.multivariant.unit.shape, uri: z.string(), ignored: ignoredLinesSchema }).readonly();
-    const multivariantPlaylistSchema = z
-        .object({
-            ...tables.multivariant.playlist.shape,
-            kind: z.literal(PlaylistKind.multivariant),
-            variants: z.array(variantSchema).readonly(),
-            variables: z.map(z.string(), z.string()).readonly().optional(),
-            ignored: ignoredLinesSchema,
-        })
-        .readonly();
-    return { segmentSchema, mediaPlaylistSchema, variantSchema, multivariantPlaylistSchema };
-}
-
-/** A parsed Media Playlist. */
-export type MediaPlaylist = z.output<ReturnType<typeof buildSchemas>["mediaPlaylistSchema"]>;
-
-/** A parsed Media Segment. */
-export type MediaSegment = z.output<ReturnType<typeof buildSchemas>["segmentSchema"]>;
-
-/** A parsed Multivariant Playlist. */
-export type MultivariantPlaylist = z.output<ReturnType<typeof buildSchemas>["multivariantPlaylistSchema"]>;
-
-/** A parsed Variant Stream: its EXT-X-STREAM-INF and the URI line after it. */
-export type Variant = z.output<ReturnType<typeof buildSchemas>["variantSchema"]>;
+export type { MediaPlaylist, MediaSegment, PendingSegment } from "./resolve.js";
+export type { MultivariantPlaylist, Variant } from "./schemas.js";
 
 /** A parsed playlist of either kind. */
 export type Playlist = MediaPlaylist | MultivariantPlaylist;
+
+
 
 type ParsePayloads = {
     [ParseKind.parsed]: { readonly playlist: Playlist; readonly violations: readonly Issue[] };
@@ -110,7 +71,7 @@ const ConversionKind = { converted: "converted", failed: "failed" } as const;
 type ConversionKind = (typeof ConversionKind)[keyof typeof ConversionKind];
 
 type ConversionPayloads = {
-    [ConversionKind.converted]: { readonly playlist: Playlist };
+    [ConversionKind.converted]: { readonly playlist: ConvertedPlaylist };
     [ConversionKind.failed]: { readonly broken: readonly Issue[]; readonly ignorables: readonly IgnorableTag[] };
 };
 type ConversionMember<K extends ConversionKind> = { readonly kind: K } & ConversionPayloads[K];
@@ -183,11 +144,9 @@ function toPlaylistInput(playlist: RawPlaylist, entries: EntriesByKind) {
     return { ...values, kind: playlist.kind, [unitsKey]: units, pendingSegment, ignored: playlist.ignored };
 }
 
-type PendingSegment = NonNullable<MediaPlaylist["pendingSegment"]>;
-
 /** Finds the broken rules within one segment's tags, the pending segment's included, without its location. */
 function findUnitIssues(options: {
-    readonly unit: MediaSegment | PendingSegment;
+    readonly unit: ConvertedMediaSegment | ConvertedPendingSegment;
     readonly partTarget: number | undefined;
 }) {
     const { unit, partTarget } = options;
@@ -217,11 +176,11 @@ function findUnitIssues(options: {
 }
 
 /** Finds every broken rule that spans a converted Media Playlist's tags or units. */
-function findMediaPlaylistIssues(playlist: MediaPlaylist) {
+function findMediaPlaylistIssues(playlist: ConvertedMediaPlaylist) {
     const issues: Issue[] = [];
     const targetDuration = playlist["EXT-X-TARGETDURATION"];
     const partTarget = playlist["EXT-X-PART-INF"]?.["PART-TARGET"];
-    const units: { readonly unit: MediaSegment | PendingSegment; readonly where: string }[] = [];
+    const units: { readonly unit: ConvertedMediaSegment | ConvertedPendingSegment; readonly where: string }[] = [];
     for (const [segmentIndex, segment] of playlist.segments.entries()) {
         const duration = segment.EXTINF.duration;
         const check = checkSegmentDuration({ targetDuration, duration, segmentIndex });
@@ -282,7 +241,7 @@ function findMediaPlaylistIssues(playlist: MediaPlaylist) {
     return issues;
 }
 
-function hasAnyProgramDateTime(playlist: MediaPlaylist) {
+function hasAnyProgramDateTime(playlist: ConvertedMediaPlaylist) {
     for (const segment of playlist.segments) {
         if (segment["EXT-X-PROGRAM-DATE-TIME"] !== undefined) {
             return true;
@@ -358,7 +317,7 @@ function findMultivariantPlaylistIssues(playlist: MultivariantPlaylist) {
 }
 
 /** Finds every broken rule that spans a converted playlist's tags or units, by its kind. */
-function findPlaylistIssues(playlist: Playlist) {
+function findPlaylistIssues(playlist: ConvertedPlaylist) {
     switch (playlist.kind) {
         case PlaylistKind.media: {
             return findMediaPlaylistIssues(playlist);
@@ -402,9 +361,17 @@ function playlistOf(outcome: Parse) {
     }
 }
 
+/** The parsed form of a converted playlist: a Media Playlist's segments gain their resolved fields. */
+function toParsedPlaylist(playlist: ConvertedPlaylist) {
+    if (playlist.kind === PlaylistKind.media) {
+        return resolveMediaPlaylist(playlist);
+    }
+    return playlist;
+}
+
 /** Checks the rules spanning a converted playlist, resolving each issue through `policy`. */
 function checkPlaylist(options: {
-    readonly playlist: Playlist;
+    readonly playlist: ConvertedPlaylist;
     readonly violations: readonly Issue[];
     readonly policy: Policy;
 }) {
@@ -422,7 +389,9 @@ function checkPlaylist(options: {
     if (malformedIssues.length > 0) {
         return malformedParse(malformedIssues);
     }
-    const parsed: Parse = { kind: ParseKind.parsed, playlist, violations };
+    // Resolution reads the rules just checked as holding, such as each offset-less byte range following a sub-range.
+    const parsedPlaylist = toParsedPlaylist(playlist);
+    const parsed: Parse = { kind: ParseKind.parsed, playlist: parsedPlaylist, violations };
     return parsed;
 }
 
