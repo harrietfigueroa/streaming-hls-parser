@@ -17,5 +17,5 @@
         "allowImportingTsExtensions": true,
         "types": ["node"]
     },
-    "include": ["bench", "lint", "scripts", "src", "tests"]
+    "include": ["lint", "scripts", "src", "tests"]
 }
