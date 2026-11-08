@@ -22,9 +22,10 @@ const SECOND_LAST = 59;
 const OFFSET_HOUR_LAST = 23;
 
 function daysInMonth(date: { readonly year: number; readonly month: number }) {
-    // Day 0 of the next month is the last day of this one; Date.UTC counts months from 0.
-    const lastDayTime = Date.UTC(date.year, date.month, 0);
-    const lastDay = new Date(lastDayTime);
+    // Day 0 of the next month is the last day of this one, and months count from 0.
+    // setUTCFullYear takes the year as written, where Date.UTC reads 0 to 99 as 1900 to 1999.
+    const lastDay = new Date(0);
+    lastDay.setUTCFullYear(date.year, date.month, 0);
     return lastDay.getUTCDate();
 }
 
