@@ -9,8 +9,6 @@ import * as defaultEntry from "../src/index.js";
 import { assertCondition } from "../src/library/assert.js";
 import * as precompiledEntry from "../src/precompiled.js";
 
-// Vitest's module runner reads each import through an export getter, so each
-// namespace is read once here and both cases pay the same per-call cost.
 const { HLS: defaultHLS, ParseKind } = defaultEntry;
 const { HLS: precompiledHLS } = precompiledEntry;
 

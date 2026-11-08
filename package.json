@@ -16,7 +16,7 @@
         "node": ">=22.12.0"
     },
     "scripts": {
-        "bench": "vitest bench --run",
+        "bench": "vitest bench --run --config bench/vitest.config.ts",
         "lint": "oxlint",
         "test": "vitest run",
         "typecheck": "tsc --noEmit && tsc --noEmit --project tsconfig.bench.json",

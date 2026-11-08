@@ -10,10 +10,6 @@ import { z } from "zod";
 import { assertCondition } from "../src/library/assert.js";
 import * as prototypeTags from "./prototype-tags.js";
 
-// Vitest's module runner reads each import through an export getter, which would
-// add a getter call to every iteration of the runtime and hand-written cases but
-// not the locally declared compiled schemas. Reading each export once here
-// measures all three methods the same way.
 const { ConversionKind, convertExtinf, convertProgramDateTime, extinfSchema, programDateTimeSchema } =
     prototypeTags;
 

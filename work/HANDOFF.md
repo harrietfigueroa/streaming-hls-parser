@@ -47,7 +47,7 @@ The work is on the branch `rebuild`, created from `origin/main`, and is open as 
 ## Where to look
 
 - `spec/draft-pantos-hls-rfc8216bis-22.txt` is the pinned spec (decision 1). Code mirrors its section numbering.
-- `work/decisions/decisions.jsonl` holds 78 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
+- `work/decisions/decisions.jsonl` holds 80 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
 - `work/backlog/backlog.jsonl` is append-only too. The latest line for an `id` gives that item's current state.
 - `lint/` holds the oxlint plugin (`plugin.ts`) and its rules under `lint/rules/`. `.oxlintrc.json` enables them, and `tests/lint/` tests them through oxlint's `RuleTester`.
 - `src/<n>-<heading>/<n.n>-<heading>/…` holds one file per spec section (decision 33). A section that is a directory keeps its section-wide rules in a file named after it inside the directory (decision 54). `src/library/` holds code that belongs to no section.
@@ -83,7 +83,7 @@ A streaming parse runs the same layers per unit, in `parse-stream.ts` (decisions
    - The streaming parse has no benchmark. `bench/entries.bench.ts` is where one belongs, and backlog item 50 asks that it compare with other popular HLS parsers.
 3. Add section barrels (decision 33) when a module outside a section first imports through a public surface. None exist yet.
 4. Packaging: `package.json` has no `exports` map, `main`, or build script, so neither entry is importable from the published package yet. Decision 46's esbuild bundles and the `./precompiled` export path are unbuilt.
-5. Backlog items 7 and 50. The user asked on 2026-11-07 that the performance work web-search for other popular HLS parsers and benchmark this library against them, which adds each parser as a dev dependency to justify. The GC tails are fixed (decision 78), and `npx vitest bench --run bench/entries.bench.ts --reporter=verbose` runs the entry benchmark. `--trace-gc` reaches the test process as `npx vitest run <file> --pool=forks --execArgv=--trace-gc`, since Node refuses it in `NODE_OPTIONS`.
+5. Backlog items 7 and 50. The user asked on 2026-11-07 that the performance work web-search for other popular HLS parsers and benchmark this library against them, which adds each parser as a dev dependency to justify. The GC tails are fixed (decision 78), and `npm run bench -- bench/entries.bench.ts --reporter=verbose` runs the entry benchmark under native imports (decision 80), which a bare `npx vitest bench` skips. `--trace-gc` reaches the test process as `npx vitest run <file> --pool=forks --execArgv=--trace-gc`, since Node refuses it in `NODE_OPTIONS`.
 
 Backlog items 2, 4 to 25, 30 to 39, and 45 to 50 remain open. Items 7 (performance checks) and 10 (lenient policy) most affect the build order. Items 11 to 14 are section 4 rules waiting on something else: section 8's version table, the raw `EXTINF` text, the line order between `EXT-X-KEY` and `EXT-X-MAP`, and Date Range Following Range resolution. Three groups came from background research on 2026-11-06:
 
