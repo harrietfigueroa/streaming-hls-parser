@@ -163,6 +163,9 @@ type SubstitutionContext = {
 const QUOTE = '"';
 const CARRIAGE_RETURN_LINE_FEED = "\r\n";
 const LINE_FEED = "\n";
+// A UTF-16 code unit encodes to at most 3 UTF-8 bytes: a surrogate pair's two encode to 4, and a
+// lone surrogate to U+FFFD's 3.
+const UTF8_BYTES_PER_CODE_UNIT_MAX = 3;
 // Section 4.3 substitutes into quoted-string and hexadecimal-sequence values, which are told apart from
 // the other value types by their first characters.
 const HEXADECIMAL_PREFIX_PATTERN = /^0[xX]/;
@@ -237,15 +240,16 @@ function isSubstitutable(value: string) {
 }
 
 /** Parses an attribute-list and substitutes into its values, keeping the substituted line within its bound. */
-function readAttributes(options: { readonly text: string; readonly lineBytes: number } & SubstitutionContext) {
-    const { text, lineBytes, substitutedLineBytesMax } = options;
+function readAttributes(options: { readonly text: string; readonly rawLine: string } & SubstitutionContext) {
+    const { text, rawLine, substitutedLineBytesMax } = options;
     const attributeList = parseAttributeList(text);
     if (attributeList.kind === AttributeListKind.malformed) {
         const invalid: Read<RawValue> = { kind: ReadKind.invalidSyntax, issue: attributeList.issue };
         return invalid;
     }
     const attributes: Record<string, string> = {};
-    let substitutedLineBytes = lineBytes;
+    // Counted at the first substitutable value, since a line with none is never measured against the bound.
+    let substitutedLineBytes: number | undefined;
     for (const [name, value] of Object.entries(attributeList.attributes)) {
         if (!isSubstitutable(value)) {
             attributes[name] = value;
@@ -259,6 +263,9 @@ function readAttributes(options: { readonly text: string; readonly lineBytes: nu
         if (substituted.kind !== ReadKind.read) {
             const exceeded: Read<RawValue> = { kind: ReadKind.limitExceeded };
             return exceeded;
+        }
+        if (substitutedLineBytes === undefined) {
+            substitutedLineBytes = utf8ByteLength(rawLine);
         }
         const valueBytes = utf8ByteLength(value);
         const substitutedBytes = utf8ByteLength(substituted.value);
@@ -274,7 +281,7 @@ function readAttributes(options: { readonly text: string; readonly lineBytes: nu
 }
 
 /** Reads a tag's raw value in its entry's form; an attribute-list tag written without a value has no attributes. */
-function readRawValue(options: { readonly tag: TagLine; readonly form: ValueForm; readonly lineBytes: number } & SubstitutionContext) {
+function readRawValue(options: { readonly tag: TagLine; readonly form: ValueForm; readonly rawLine: string } & SubstitutionContext) {
     const { tag, form } = options;
     if (form === ValueForm.text) {
         let value: RawValue = true;
@@ -572,10 +579,9 @@ export function createScanner(options: ScannerOptions) {
         readonly rawLine: string;
         readonly line: TagLine;
         readonly lineNumber: number;
-        readonly lineBytes: number;
         readonly lineEnd: number;
     }) {
-        const { rawLine, line, lineNumber, lineBytes, lineEnd } = options;
+        const { rawLine, line, lineNumber, lineEnd } = options;
         const placement = placeTag(line.name);
         if (placement.kind === PlacementKind.unrecognized) {
             ignored.push({ kind: IgnoredKind.unrecognizedTag, line: rawLine });
@@ -599,7 +605,7 @@ export function createScanner(options: ScannerOptions) {
             }
             unitEnd = lineEnd;
         }
-        const read = readRawValue({ tag: line, form: entry.form, lineBytes, ...context });
+        const read = readRawValue({ tag: line, form: entry.form, rawLine, ...context });
         if (read.kind === ReadKind.limitExceeded) {
             return exceed(Limit.substitutedLineBytesMax);
         }
@@ -669,9 +675,13 @@ export function createScanner(options: ScannerOptions) {
         lineCount += 1;
         const lineEnd = nextLineStart + rawLine.length + terminatorLength;
         nextLineStart = lineEnd;
-        const lineBytes = utf8ByteLength(rawLine);
-        if (lineBytes > limits.lineBytesMax) {
-            return exceed(Limit.lineBytesMax);
+        const lineBytesBound = rawLine.length * UTF8_BYTES_PER_CODE_UNIT_MAX;
+        const mayExceedLineBytes = lineBytesBound > limits.lineBytesMax;
+        if (mayExceedLineBytes) {
+            const lineBytes = utf8ByteLength(rawLine);
+            if (lineBytes > limits.lineBytesMax) {
+                return exceed(Limit.lineBytesMax);
+            }
         }
         const lineCheck = checkRawLine(rawLine, lineIndex);
         if (lineCheck.kind === LineCheckKind.malformed) {
@@ -702,7 +712,7 @@ export function createScanner(options: ScannerOptions) {
                 return scanUri({ rawLine, uriText: line.uri, lineNumber, lineEnd });
             }
             case LineKind.tag: {
-                return scanTag({ rawLine, line, lineNumber, lineBytes, lineEnd });
+                return scanTag({ rawLine, line, lineNumber, lineEnd });
             }
             default: {
                 line satisfies never;

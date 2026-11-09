@@ -541,6 +541,24 @@ describe("HLS.safeParse variable substitution", () => {
             value: SUBSTITUTED_LINE_BYTES_MAX,
         });
     });
+
+    // The EXT-X-MAP line is 42 code units and 43 bytes as written, and its 'é' keeps it a byte longer
+    // than its 41 code units once {$v} becomes "abc": 42 bytes, so 42 is the least bound it parses under.
+    const substitutedAttributeBounds = [
+        { substitutedLineBytesMax: 42, kind: ParseKind.parsed },
+        { substitutedLineBytesMax: 41, kind: ParseKind.limitExceeded },
+    ] as const;
+
+    test.each(substitutedAttributeBounds)(
+        "counts a substituted attribute line's bytes against $substitutedLineBytesMax",
+        ({ substitutedLineBytesMax, kind }) => {
+            const define = '#EXT-X-DEFINE:NAME="v",VALUE="abc"\n';
+            const map = `#EXT-X-MAP:URI="é{$v}${"x".repeat(20)}"\n`;
+            const text = `${HEAD}${define}${map}#EXTINF:1,\na.ts\n`;
+            const outcome = HLS.safeParse(text, { limits: { substitutedLineBytesMax } });
+            expect(outcome.kind).toBe(kind);
+        },
+    );
 });
 
 function isNotPartInf(line: string) {

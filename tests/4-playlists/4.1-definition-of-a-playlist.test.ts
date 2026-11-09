@@ -15,6 +15,9 @@ import {
 
 const BYTE_ORDER_MARK = "﻿";
 const LONE_HIGH_SURROGATE = "\uD800";
+const NO_BREAK_SPACE = "\u{A0}";
+const IDEOGRAPHIC_SPACE = "\u{3000}";
+const LINE_SEPARATOR = "\u{2028}";
 const DECOMPOSED_E_ACUTE = "é";
 const COMPOSED_E_ACUTE = "é";
 
@@ -41,6 +44,9 @@ describe("checkLine", () => {
         `#EXT-X-SESSION-DATA:DATA-ID="com.example",VALUE="caf${COMPOSED_E_ACUTE}"`,
         "",
         "https://example.com/segment.ts",
+        "a b",
+        `a${NO_BREAK_SPACE}b`,
+        `caf${COMPOSED_E_ACUTE}`,
     ] as const;
     const invalid = [
         { line: "#EXT\u0000M3U", rule: definitionRules.noControlCharacters },
@@ -51,6 +57,15 @@ describe("checkLine", () => {
         { line: `#EXTINF:1,caf${DECOMPOSED_E_ACUTE}`, rule: definitionRules.nfcNormalization },
         { line: " #EXTM3U", rule: definitionRules.noWhitespace },
         { line: "segment.ts ", rule: definitionRules.noWhitespace },
+        { line: " ", rule: definitionRules.noWhitespace },
+        { line: "a\u007Fb", rule: definitionRules.noControlCharacters },
+        { line: "a\u009F", rule: definitionRules.noControlCharacters },
+        { line: `caf${COMPOSED_E_ACUTE}\u0001`, rule: definitionRules.noControlCharacters },
+        { line: `a${NO_BREAK_SPACE}`, rule: definitionRules.noWhitespace },
+        { line: `${IDEOGRAPHIC_SPACE}#EXTM3U`, rule: definitionRules.noWhitespace },
+        { line: `a${LINE_SEPARATOR}`, rule: definitionRules.noWhitespace },
+        { line: `${LONE_HIGH_SURROGATE} `, rule: definitionRules.utf8Encoding },
+        { line: "a\tb ", rule: definitionRules.noControlCharacters },
     ] as const;
 
     test.each(valid)("accepts %j", (line) => {
@@ -59,6 +74,11 @@ describe("checkLine", () => {
 
     test.each(invalid)("reports $line", ({ line, rule }) => {
         expect(checkLine(line)).toMatchObject({ kind: LineCheckKind.malformed, issue: { rule } });
+    });
+
+    test("reports a control character's code point and column", () => {
+        const detail = "U+0000 at column 5.";
+        expect(checkLine("#EXT\u0000M3U")).toMatchObject({ issue: { detail } });
     });
 });
 

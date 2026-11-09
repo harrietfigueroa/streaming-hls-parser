@@ -78,6 +78,7 @@ const ASCII_LAST = 0x7f;
 const BYTE_ORDER_MARK = "﻿";
 const NFC = "NFC";
 const EDGE_WHITESPACE_PATTERN = /^\s|\s$/;
+const SPACE = " ";
 const HEXADECIMAL_RADIX = 16;
 // A code point is written U+XXXX, with at least four hex digits.
 const CODE_POINT_DIGIT_COUNT_MIN = 4;
@@ -112,16 +113,21 @@ export function checkLine(line: string) {
             isAscii = false;
         }
     }
-    // An ASCII line is valid UTF-16 and already in NFC, so only non-ASCII lines pay for these checks.
-    if (!isAscii) {
+    // An ASCII line is valid UTF-16 and already in NFC, and holds no control character by here, so
+    // a space is the only whitespace it can hold; only non-ASCII lines pay for the full checks.
+    let hasEdgeWhitespace: boolean;
+    if (isAscii) {
+        hasEdgeWhitespace = line.startsWith(SPACE) || line.endsWith(SPACE);
+    } else {
         if (!line.isWellFormed()) {
             return malformedLine(definitionRules.utf8Encoding, "The line contains a lone surrogate.");
         }
         if (line !== line.normalize(NFC)) {
             return malformedLine(definitionRules.nfcNormalization, "The line is not in normalization form NFC.");
         }
+        hasEdgeWhitespace = EDGE_WHITESPACE_PATTERN.test(line);
     }
-    if (EDGE_WHITESPACE_PATTERN.test(line)) {
+    if (hasEdgeWhitespace) {
         return malformedLine(definitionRules.noWhitespace, "The line starts or ends with whitespace.");
     }
     const valid: LineCheck = { kind: LineCheckKind.valid };
