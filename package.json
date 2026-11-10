@@ -20,7 +20,8 @@
         "lint": "oxlint",
         "test": "vitest run",
         "typecheck": "tsc --noEmit && tsc --noEmit --project tsconfig.bench.json",
-        "extract-fixtures": "node scripts/extract-spec-playlists.ts"
+        "extract-fixtures": "node scripts/extract-spec-playlists.ts",
+        "profile": "node scripts/profile.ts"
     },
     "dependencies": {
         "zod": "^4.6.7"
