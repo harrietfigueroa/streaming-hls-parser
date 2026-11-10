@@ -4,7 +4,7 @@ This repository is a full rebuild of `github.com/harrietfigueroa/streaming-hls-p
 
 ## Where things stand
 
-The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 855 tests pass, `tsc --noEmit` is clean, and `npm run lint` (oxlint) is clean. `style-lint` is clean on every committed file except three kinds of finding, and no disable comment names a rule, since the repository does not run `style-lint`:
+The work is on the branch `rebuild`, created from `origin/main`, and is open as a pull request into `main` that the user merges (decision 45). All 931 tests pass, `tsc --noEmit` is clean, and `npm run lint` (oxlint) is clean. `style-lint` is clean on every committed file except three kinds of finding, and no disable comment names a rule, since the repository does not run `style-lint`:
 
 - `style/no-schema-parse` on the `HLS.parse(...)` calls in `tests/index.test.ts` and `tests/stream.test.ts`, which it reads as zod's `.parse`. The user chose to leave these open.
 - `style/positional-parameters-max` on the `(text, reviver, options)` and `(chunks, reviver, options)` overloads of `safeParse` and `parse` in `create-hls.ts`. Decision 15, which the user decided, declares this shape an exception. Claude left these open without asking, and the commit hook reports them on each commit touching `create-hls.ts`.
@@ -43,11 +43,17 @@ The work is on the branch `rebuild`, created from `origin/main`, and is open as 
 | `c9d8b11`, `28d6f75` | A test that a consumer stopping early closes the stream's source. |
 | `78c9c23` | The spec's example playlists under `tests/fixtures/spec/`, their extraction script, and their outcomes (decision 77). |
 | `cd9ac5f` | Output objects' source text in private fields in place of WeakMaps (decision 78). |
+| `355e1cf` | `bench/parsers.bench.ts` against hls.js, m3u8-parser, and hls-parser (decision 79). |
+| `db77cc0` | February 29 of year 0000 accepted, and characterization cases for the date-time pattern. |
+| `c65963e`, `02f7d49` | `npm run bench` under native imports through `bench/vitest.config.ts` and `bench/resolve-ts-extensions.ts` (decision 80). |
+| `2e550ce` | A line's bytes counted only where a bound needs them, and an ASCII line's edges tested without a regex. |
+| `2364749` | The streaming parse awaiting once per chunk, with `readLines` yielding each chunk's lines as a batch, and `isWithinUtf8Bytes` (decision 81). |
+| `048ab5a` | `isDateTime` scanning characters in place of a regex (decision 82). |
 
 ## Where to look
 
 - `spec/draft-pantos-hls-rfc8216bis-22.txt` is the pinned spec (decision 1). Code mirrors its section numbering.
-- `work/decisions/decisions.jsonl` holds 80 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
+- `work/decisions/decisions.jsonl` holds 82 decisions. It is append-only: a correction is a new line with an `amends` field (decision 9).
 - `work/backlog/backlog.jsonl` is append-only too. The latest line for an `id` gives that item's current state.
 - `lint/` holds the oxlint plugin (`plugin.ts`) and its rules under `lint/rules/`. `.oxlintrc.json` enables them, and `tests/lint/` tests them through oxlint's `RuleTester`.
 - `src/<n>-<heading>/<n.n>-<heading>/…` holds one file per spec section (decision 33). A section that is a directory keeps its section-wide rules in a file named after it inside the directory (decision 54). `src/library/` holds code that belongs to no section.
@@ -80,10 +86,10 @@ A streaming parse runs the same layers per unit, in `parse-stream.ts` (decisions
    - `using` syntax and `DisposableStack` are absent from Node 22 and Safari, so shipped code keeps to `try/finally`.
    - `toStream()` has no `cancel()`. Claude left it out: its chunk generator is synchronous over an in-memory string and holds no outside resource, so closing it changes nothing a caller can observe, and a canceled `ReadableStream` already stops pulling.
    - The streaming overloads accept the `kind` option for its runtime check but keep their wide part types; narrowing a stream's parts by kind is open.
-   - The streaming parse has no benchmark. `bench/entries.bench.ts` is where one belongs, and backlog item 50 asks that it compare with other popular HLS parsers.
+   - The streaming parse is benchmarked in `bench/parsers.bench.ts` against m3u8-parser, the one other parser taking chunks, and since decision 81 costs about what a static parse does.
 3. Add section barrels (decision 33) when a module outside a section first imports through a public surface. None exist yet.
 4. Packaging: `package.json` has no `exports` map, `main`, or build script, so neither entry is importable from the published package yet. Decision 46's esbuild bundles and the `./precompiled` export path are unbuilt.
-5. Backlog items 7 and 50. The user asked on 2026-11-07 that the performance work web-search for other popular HLS parsers and benchmark this library against them, which adds each parser as a dev dependency to justify. The GC tails are fixed (decision 78), and `npm run bench -- bench/entries.bench.ts --reporter=verbose` runs the entry benchmark under native imports (decision 80), which a bare `npx vitest bench` skips. `--trace-gc` reaches the test process as `npx vitest run <file> --pool=forks --execArgv=--trace-gc`, since Node refuses it in `NODE_OPTIONS`.
+5. Backlog items 7 and 50. The user asked on 2026-11-07 that the performance work web-search for other popular HLS parsers and benchmark this library against them, which adds each parser as a dev dependency to justify. The GC tails are fixed (decision 78), and `npm run bench -- bench/entries.bench.ts --reporter=verbose` runs the entry benchmark under native imports (decision 80), which a bare `npx vitest bench` skips. `--trace-gc` reaches the test process as `npx vitest run <file> --pool=forks --execArgv=--trace-gc`, since Node refuses it in `NODE_OPTIONS`. Measured on 2026-11-10 under plain Node, fastest median of six alternating rounds on a loaded machine, `2e550ce` against `048ab5a`: the large fixture parses in 33.5 → 29.2 ms through the default entry, 30.6 → 26.2 ms through the precompiled entry, and 42.9 → 29.9 ms streamed in 64 KiB chunks. Set aside after measuring, and recorded here rather than as decisions: zod's `.validate()`, moving off zod (its own work is about 6–9 ms of a parse), a Rust WASM scanner (about 0.3–1 ms over the same single-pass algorithm in JS), worker threads and shared memory (copying a large result back costs about 12 ms), byte-level scanning (about 0.3 ms), and dropping `.readonly()` at the unit and playlist levels (about 0.5 ms; decision 17 stands).
 
 Backlog items 2, 4 to 25, 30 to 39, and 45 to 50 remain open. Items 7 (performance checks) and 10 (lenient policy) most affect the build order. Items 11 to 14 are section 4 rules waiting on something else: section 8's version table, the raw `EXTINF` text, the line order between `EXT-X-KEY` and `EXT-X-MAP`, and Date Range Following Range resolution. Three groups came from background research on 2026-11-06:
 
@@ -93,6 +99,7 @@ Backlog items 2, 4 to 25, 30 to 39, and 45 to 50 remain open. Items 7 (performan
 
 ## Open questions for the user
 
+- **The streaming parse's end part returns its `variables` Map and `violations` array unfrozen**, where every other output is frozen. Found while measuring `.readonly()` on 2026-11-10; it predates that work, and whether to freeze them is open.
 - **Decision 76 settled `HLS.parse`'s type argument on Claude's recommendation, without gating.** A `kind` option pre-settles the scanner's kind, so a mismatch breaks the spec's existing out-of-kind rules and is malformed, with no new rule and no third outcome. `HLS.parse(text, { kind: PlaylistKind.media })` returns `MediaPlaylist`, and `HLS.parse<MediaPlaylist>(text)` compiles only beside that option. A playlist with no tag of either kind settles as the asserted kind. Each of these readings is open to correction.
 - **Decision 27 and the spec disagree on date-time offsets (decision 59).** Decision 27 requires an offset on every date-time, but section 4.4.4.6 says a date-time only SHOULD indicate a time zone. An `EXT-X-PROGRAM-DATE-TIME` without an offset is valid per the spec and malformed here.
 - **Decisions 54, 59, 60, 61, and 58 record readings Claude made without gating, each open to correction.** They cover:
