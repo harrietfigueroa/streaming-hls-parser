@@ -1,7 +1,7 @@
 // Profiles the parser's workloads and prints where their time and allocations go:
 // npm run profile
-// It runs bench/profile/cpu.profile.ts under Node's --cpu-prof, passed through
-// Vitest's --execArgv, and bench/profile/heap.profile.ts, which samples each
+// It runs the CPU workload file under Node's --cpu-prof, passed through
+// Vitest's --execArgv, and the heap workload file, which samples each
 // workload's allocations itself, then summarizes both into .profiles/report.txt.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
