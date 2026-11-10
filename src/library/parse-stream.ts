@@ -600,21 +600,24 @@ export async function* parseStream(options: {
     const { chunks, context } = options;
     const { limits } = context.scannerOptions;
     const session = createStreamSession(context);
-    // The source sets the line count; readLines bounds each line, and the scanner the unit count.
-    for await (const read of readLines({ chunks, lineBytesMax: limits.lineBytesMax })) {
-        if (read.kind === LineReadKind.malformed) {
-            yield malformedPart([read.issue]);
-            return;
-        }
-        if (read.kind === LineReadKind.limitExceeded) {
-            yield limitExceededPart(Limit.lineBytesMax, limits.lineBytesMax);
-            return;
-        }
-        const parts = session.scanLine(read);
-        for (const part of parts) {
-            yield part;
-            if (isFinal(part)) {
+    // The source sets the batch count; each batch holds the lines one chunk completes, readLines
+    // bounds each line, and the scanner the unit count.
+    for await (const batch of readLines({ chunks, lineBytesMax: limits.lineBytesMax })) {
+        for (const read of batch) {
+            if (read.kind === LineReadKind.malformed) {
+                yield malformedPart([read.issue]);
                 return;
+            }
+            if (read.kind === LineReadKind.limitExceeded) {
+                yield limitExceededPart(Limit.lineBytesMax, limits.lineBytesMax);
+                return;
+            }
+            const parts = session.scanLine(read);
+            for (const part of parts) {
+                yield part;
+                if (isFinal(part)) {
+                    return;
+                }
             }
         }
     }

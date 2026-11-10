@@ -1,6 +1,7 @@
 // These tests pin readLines against splitLines: every way of cutting one text
-// into chunks, as strings or as UTF-8 bytes, reads the same lines, and the two
-// failures, invalid UTF-8 and a line past its bound, end the read.
+// into chunks, as strings or as UTF-8 bytes, reads the same lines, each chunk's
+// complete lines arrive as one batch, and the two failures, invalid UTF-8 and a
+// line past its bound, end the read.
 import { describe, expect, test } from "vitest";
 
 import { definitionRules } from "../../src/4-playlists/4.1-definition-of-a-playlist.js";
@@ -30,10 +31,21 @@ function longLine() {
     return source;
 }
 
-async function collect(reads: AsyncIterable<LineRead>) {
+/** Every read, in order, with the batches flattened. */
+async function collect(batches: AsyncIterable<readonly LineRead[]>) {
     const collected: LineRead[] = [];
-    for await (const read of reads) {
-        collected.push(read);
+    for await (const batch of batches) {
+        for (const read of batch) {
+            collected.push(read);
+        }
+    }
+    return collected;
+}
+
+async function collectBatches(batches: AsyncIterable<readonly LineRead[]>) {
+    const collected: (readonly LineRead[])[] = [];
+    for await (const batch of batches) {
+        collected.push(batch);
     }
     return collected;
 }
@@ -131,5 +143,22 @@ describe("readLines", () => {
         const reads = await collect(readLines({ chunks: source.chunks, lineBytesMax: LINE_BYTES_MAX }));
         expect(reads).toStrictEqual([{ kind: LineReadKind.limitExceeded }]);
         expect(source.readCount).toBe(LINE_BYTES_MAX + 1);
+    });
+
+    test("reads each chunk's complete lines as one batch, and none from a chunk that ends no line", async () => {
+        const chunks = fromChunks(["a\nb\nc", "d", "e\nf"]);
+        const batches = await collectBatches(readLines({ chunks, lineBytesMax: LINE_BYTES_MAX }));
+        expect(batches).toStrictEqual([
+            [line({ text: "a", terminator: "\n" }), line({ text: "b", terminator: "\n" })],
+            [line({ text: "cde", terminator: "\n" })],
+            [line({ text: "f", terminator: "" })],
+        ]);
+    });
+
+    test("ends a batch with the failure, after the chunk's lines before the long one", async () => {
+        const longText = "a".repeat(LINE_BYTES_MAX + 1);
+        const chunks = fromChunks([`first\n${longText}\nlast\n`]);
+        const batches = await collectBatches(readLines({ chunks, lineBytesMax: LINE_BYTES_MAX }));
+        expect(batches).toStrictEqual([[line({ text: "first", terminator: "\n" }), { kind: LineReadKind.limitExceeded }]]);
     });
 });

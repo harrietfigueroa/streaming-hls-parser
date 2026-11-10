@@ -37,7 +37,7 @@ import { Limit, type Limits } from "./options.js";
 import type { Policy } from "./policy.js";
 import { type Check, CheckKind, type Issue, type Rule, Severity } from "./rule.js";
 import { type EntriesByKind, OccurrenceKind, PlaylistKind, type TagEntry, ValueForm } from "./tag-table.js";
-import { utf8ByteLength } from "./utf8.js";
+import { isWithinUtf8Bytes, utf8ByteLength } from "./utf8.js";
 
 export const IgnoredKind = {
     comment: "comment",
@@ -163,9 +163,6 @@ type SubstitutionContext = {
 const QUOTE = '"';
 const CARRIAGE_RETURN_LINE_FEED = "\r\n";
 const LINE_FEED = "\n";
-// A UTF-16 code unit encodes to at most 3 UTF-8 bytes: a surrogate pair's two encode to 4, and a
-// lone surrogate to U+FFFD's 3.
-const UTF8_BYTES_PER_CODE_UNIT_MAX = 3;
 // Section 4.3 substitutes into quoted-string and hexadecimal-sequence values, which are told apart from
 // the other value types by their first characters.
 const HEXADECIMAL_PREFIX_PATTERN = /^0[xX]/;
@@ -675,13 +672,9 @@ export function createScanner(options: ScannerOptions) {
         lineCount += 1;
         const lineEnd = nextLineStart + rawLine.length + terminatorLength;
         nextLineStart = lineEnd;
-        const lineBytesBound = rawLine.length * UTF8_BYTES_PER_CODE_UNIT_MAX;
-        const mayExceedLineBytes = lineBytesBound > limits.lineBytesMax;
-        if (mayExceedLineBytes) {
-            const lineBytes = utf8ByteLength(rawLine);
-            if (lineBytes > limits.lineBytesMax) {
-                return exceed(Limit.lineBytesMax);
-            }
+        const isLineWithinBytes = isWithinUtf8Bytes(rawLine, limits.lineBytesMax);
+        if (!isLineWithinBytes) {
+            return exceed(Limit.lineBytesMax);
         }
         const lineCheck = checkRawLine(rawLine, lineIndex);
         if (lineCheck.kind === LineCheckKind.malformed) {

@@ -5,7 +5,7 @@
 import { definitionRules } from "../4-playlists/4.1-definition-of-a-playlist.js";
 import { assertCondition } from "./assert.js";
 import type { Issue } from "./rule.js";
-import { utf8ByteLength } from "./utf8.js";
+import { isWithinUtf8Bytes, utf8ByteLength } from "./utf8.js";
 
 export const LineReadKind = { line: "line", malformed: "malformed", limitExceeded: "limitExceeded" } as const;
 export type LineReadKind = (typeof LineReadKind)[keyof typeof LineReadKind];
@@ -102,10 +102,12 @@ function unterminatedLineBytes(unterminated: string) {
 }
 
 /**
- * Reads `chunks` as lines. Byte chunks are decoded as UTF-8 with a Byte Order Mark kept, so the line
- * rules can report it; string chunks are taken as decoded, and a stream holds chunks of one type.
- * A line of more than `lineBytesMax` UTF-8 bytes, terminated or not, ends the read as
- * `limitExceeded`, and invalid UTF-8 ends it as `malformed`.
+ * Reads `chunks` as lines, yielding the lines each chunk completes as one batch, so a reader awaits
+ * once per chunk rather than once per line; a chunk that completes no line yields no batch. Byte
+ * chunks are decoded as UTF-8 with a Byte Order Mark kept, so the line rules can report it; string
+ * chunks are taken as decoded, and a stream holds chunks of one type. A line of more than
+ * `lineBytesMax` UTF-8 bytes, terminated or not, ends the read as `limitExceeded`, and invalid UTF-8
+ * ends it as `malformed`; either failure is the last read of the last batch.
  */
 export async function* readLines(options: {
     readonly chunks: AsyncIterable<string> | AsyncIterable<Uint8Array>;
@@ -131,19 +133,21 @@ export async function* readLines(options: {
         } else {
             const decoded = decode({ decoder, bytes: chunk, isFinal: false });
             if (decoded.kind === DecodeKind.malformed) {
-                yield malformedRead;
+                yield [malformedRead];
                 return;
             }
             text = decoded.text;
         }
         const split = splitTerminated(pending + text);
+        const batch: LineRead[] = [];
         for (const read of split.lines) {
-            const lineBytes = utf8ByteLength(read.text);
-            if (lineBytes > lineBytesMax) {
-                yield limitExceededRead;
+            const isLineWithinBytes = isWithinUtf8Bytes(read.text, lineBytesMax);
+            if (!isLineWithinBytes) {
+                batch.push(limitExceededRead);
+                yield batch;
                 return;
             }
-            yield read;
+            batch.push(read);
         }
         pending = split.rest;
         if (split.lines.length > 0) {
@@ -151,29 +155,33 @@ export async function* readLines(options: {
         } else {
             pendingBytesMax += utf8ByteLength(text);
         }
-        if (pendingBytesMax <= lineBytesMax) {
-            continue;
+        const isPendingWithinBound = pendingBytesMax <= lineBytesMax;
+        if (!isPendingWithinBound) {
+            pendingBytesMax = unterminatedLineBytes(pending);
         }
-        pendingBytesMax = unterminatedLineBytes(pending);
         if (pendingBytesMax > lineBytesMax) {
-            yield limitExceededRead;
+            batch.push(limitExceededRead);
+            yield batch;
             return;
+        }
+        if (batch.length > 0) {
+            yield batch;
         }
     }
     const flushed = decode({ decoder, bytes: NO_BYTES, isFinal: true });
     if (flushed.kind === DecodeKind.malformed) {
-        yield malformedRead;
+        yield [malformedRead];
         return;
     }
     pending += flushed.text;
     if (pending.length === 0) {
         return;
     }
-    const lastBytes = utf8ByteLength(pending);
-    if (lastBytes > lineBytesMax) {
-        yield limitExceededRead;
+    const isLastWithinBytes = isWithinUtf8Bytes(pending, lineBytesMax);
+    if (!isLastWithinBytes) {
+        yield [limitExceededRead];
         return;
     }
     const last: LineRead = { kind: LineReadKind.line, text: pending, terminator: "" };
-    yield last;
+    yield [last];
 }

@@ -8,6 +8,9 @@ const LOW_SURROGATE_LAST = 0xdfff;
 const TWO_BYTES = 2;
 const THREE_BYTES = 3;
 const FOUR_BYTES = 4;
+// A UTF-16 code unit encodes to at most 3 UTF-8 bytes: a surrogate pair's two encode to 4, and a
+// lone surrogate to U+FFFD's 3.
+const UTF8_BYTES_PER_CODE_UNIT_MAX = 3;
 
 function isHighSurrogate(code: number) {
     return code >= HIGH_SURROGATE_FIRST && code <= HIGH_SURROGATE_LAST;
@@ -40,4 +43,14 @@ export function utf8ByteLength(text: string) {
         byteCount += THREE_BYTES;
     }
     return byteCount;
+}
+
+/** Whether `text` encodes to at most `bytesMax` UTF-8 bytes, counting them only when its length allows more. */
+export function isWithinUtf8Bytes(text: string, bytesMax: number) {
+    const bytesBound = text.length * UTF8_BYTES_PER_CODE_UNIT_MAX;
+    if (bytesBound <= bytesMax) {
+        return true;
+    }
+    const byteCount = utf8ByteLength(text);
+    return byteCount <= bytesMax;
 }
