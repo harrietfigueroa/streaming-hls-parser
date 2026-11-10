@@ -1,50 +1,10 @@
 {
     "name": "streaming-hls-parser",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "An HLS Parser that supports both streaming and string input, compatible with browsers and Node.js",
     "type": "module",
-    "main": "dist/index.js",
-    "browser": "dist/index.browser.js",
-    "types": "dist/index.d.ts",
-    "exports": {
-        ".": {
-            "types": "./dist/index.d.ts",
-            "browser": "./dist/index.browser.js",
-            "import": "./dist/index.js",
-            "default": "./dist/index.js"
-        }
-    },
-    "files": [
-        "dist",
-        "README.md",
-        "LICENSE"
-    ],
-    "scripts": {
-        "test": "vitest run",
-        "test:watch": "vitest watch",
-        "test:typecheck": "vitest run --typecheck",
-        "compile": "tsc",
-        "build": "npm run build:types && npm run build:browser",
-        "build:types": "tsc",
-        "build:browser": "esbuild src/index.ts --bundle --format=esm --outfile=dist/index.browser.js --sourcemap",
-        "prepublishOnly": "npm run build",
-        "serve": "python3 -m http.server 8080"
-    },
-    "keywords": [
-        "hls",
-        "m3u8",
-        "playlist",
-        "parser",
-        "streaming",
-        "http-live-streaming",
-        "web-streams",
-        "browser",
-        "node",
-        "deno",
-        "bun"
-    ],
-    "author": "harriet.f.figueroa@gmail.com",
     "license": "ISC",
+    "author": "harriet.f.figueroa@gmail.com",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/harrietfigueroa/streaming-hls-parser.git"
@@ -53,32 +13,27 @@
         "url": "https://github.com/harrietfigueroa/streaming-hls-parser/issues"
     },
     "engines": {
-        "node": ">=20.0.0"
+        "node": ">=22.12.0"
     },
-    "devDependencies": {
-        "@types/debug": "^4.1.12",
-        "@types/node": "^22.14.1",
-        "@typescript-eslint/eslint-plugin": "^6.9.0",
-        "@typescript-eslint/parser": "^6.9.0",
-        "esbuild": "^0.27.3",
-        "eslint": "^8.52.0",
-        "eslint-config-prettier": "^9.0.0",
-        "install": "^0.13.0",
-        "npm": "^11.3.0",
-        "prettier": "^3.0.3",
-        "ts-node": "^10.9.1",
-        "typescript": "^5.9.2",
-        "vitest": "^3.1.1"
+    "scripts": {
+        "bench": "vitest bench --run --config bench/vitest.config.ts",
+        "lint": "oxlint",
+        "test": "vitest run",
+        "typecheck": "tsc --noEmit && tsc --noEmit --project tsconfig.bench.json",
+        "extract-fixtures": "node scripts/extract-spec-playlists.ts",
+        "profile": "node scripts/profile.ts"
     },
     "dependencies": {
-        "zod": "^4.1.5"
+        "zod": "^4.6.7"
     },
-    "peerDependencies": {
-        "debug": "^4.0.0"
-    },
-    "peerDependenciesMeta": {
-        "debug": {
-            "optional": true
-        }
+    "devDependencies": {
+        "@types/m3u8-parser": "^7.2.6",
+        "@types/node": "~22.20.5",
+        "hls-parser": "^0.16.1",
+        "hls.js": "^1.7.4",
+        "m3u8-parser": "^7.2.1",
+        "oxlint": "^1.92.0",
+        "typescript": "^7.0.2",
+        "vitest": "^5.1.0"
     }
 }

@@ -1,0 +1,18 @@
+{
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "jsPlugins": ["./lint/plugin.ts"],
+    "ignorePatterns": ["node_modules", "spec", "work"],
+    "rules": {
+        "hls/no-design-log-reference": "error"
+    },
+    "overrides": [
+        {
+            "files": ["src/[0-9]*/**/*.ts"],
+            "rules": { "hls/schema-spec-link": "error" }
+        },
+        {
+            "files": ["tests/lint/no-design-log-reference.test.ts"],
+            "rules": { "hls/no-design-log-reference": "off" }
+        }
+    ]
+}
