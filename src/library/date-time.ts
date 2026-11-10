@@ -10,9 +10,26 @@ declare const dateTimeBrand: unique symbol;
 /** An ISO 8601 date-time with an offset, as written in the playlist. */
 export type DateTime = string & { readonly [dateTimeBrand]: true };
 
-// One token per field, so each field's range is checked below rather than by the pattern.
-const DATE_TIME_PATTERN =
-    /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})(?:\.\d+)?(?:Z|[+-](?<offsetHour>\d{2}):?(?<offsetMinute>\d{2}))$/;
+// The fixed-width head every date-time begins with: each DIGIT_PLACEHOLDER is a
+// digit, and every other character stands for itself.
+const HEAD_LAYOUT = "dddd-dd-ddTdd:dd:dd";
+const DIGIT_PLACEHOLDER = "d";
+const YEAR_INDEX = 0;
+const MONTH_INDEX = 5;
+const DAY_INDEX = 8;
+const HOUR_INDEX = 11;
+const MINUTE_INDEX = 14;
+const SECOND_INDEX = 17;
+const FRACTION_SEPARATOR = ".";
+const UTC_DESIGNATOR = "Z";
+const OFFSET_PLUS = "+";
+const OFFSET_MINUS = "-";
+const OFFSET_SEPARATOR = ":";
+const FIELD_LENGTH = 2;
+const YEAR_LENGTH = 4;
+const ZERO_CODE = 0x30;
+const NINE_CODE = 0x39;
+const DECIMAL_BASE = 10;
 const MONTH_FIRST = 1;
 const MONTH_LAST = 12;
 const DAY_FIRST = 1;
@@ -20,56 +37,175 @@ const HOUR_LAST = 23;
 const MINUTE_LAST = 59;
 const SECOND_LAST = 59;
 const OFFSET_HOUR_LAST = 23;
-
-function daysInMonth(date: { readonly year: number; readonly month: number }) {
-    // Day 0 of the next month is the last day of this one, and months count from 0.
-    // setUTCFullYear takes the year as written, where Date.UTC reads 0 to 99 as 1900 to 1999.
-    const lastDay = new Date(0);
-    lastDay.setUTCFullYear(date.year, date.month, 0);
-    return lastDay.getUTCDate();
-}
-
-type FieldRange = { readonly text: string | undefined; readonly first: number; readonly last: number };
-
-/** Whether a field is in its range; a field the text leaves out, an offset after 'Z', has none to break. */
-function isWithin(range: FieldRange) {
-    if (range.text === undefined) {
-        return true;
-    }
-    const value = Number(range.text);
-    const isAboveFirst = value >= range.first;
-    return isAboveFirst && value <= range.last;
-}
+const FEBRUARY = 2;
+const FEBRUARY_COMMON_DAYS = 28;
+const FEBRUARY_LEAP_DAYS = 29;
+const SHORT_MONTH_DAYS = 30;
+const LONG_MONTH_DAYS = 31;
+const LEAP_YEAR_INTERVAL = 4;
+const CENTURY_YEARS = 100;
+const QUADRICENTENNIAL_YEARS = 400;
+// Days in each month of a common year, January first.
+const commonYearMonthDays = [
+    LONG_MONTH_DAYS,
+    FEBRUARY_COMMON_DAYS,
+    LONG_MONTH_DAYS,
+    SHORT_MONTH_DAYS,
+    LONG_MONTH_DAYS,
+    SHORT_MONTH_DAYS,
+    LONG_MONTH_DAYS,
+    LONG_MONTH_DAYS,
+    SHORT_MONTH_DAYS,
+    LONG_MONTH_DAYS,
+    SHORT_MONTH_DAYS,
+    LONG_MONTH_DAYS,
+] as const;
 
 /** Whether `value` is an ISO 8601 date-time with an offset, each field in its range. */
 export function isDateTime(value: string): value is DateTime {
-    const match = DATE_TIME_PATTERN.exec(value);
-    if (match === null) {
+    const hasHead = matchesHead(value);
+    if (!hasHead) {
         return false;
     }
-    const fields = match.groups;
-    assertCondition(fields !== undefined, "The date-time pattern has named groups.");
-    const year = Number(fields["year"]);
-    const month = Number(fields["month"]);
-    const isMonthValid = isWithin({ text: fields["month"], first: MONTH_FIRST, last: MONTH_LAST });
+    const month = readDigits(value, { start: MONTH_INDEX, length: FIELD_LENGTH });
+    const isMonthValid = month >= MONTH_FIRST && month <= MONTH_LAST;
     if (!isMonthValid) {
         return false;
     }
+    const year = readDigits(value, { start: YEAR_INDEX, length: YEAR_LENGTH });
+    const day = readDigits(value, { start: DAY_INDEX, length: FIELD_LENGTH });
     const dayLast = daysInMonth({ year, month });
-    const ranges: readonly FieldRange[] = [
-        { text: fields["day"], first: DAY_FIRST, last: dayLast },
-        { text: fields["hour"], first: 0, last: HOUR_LAST },
-        { text: fields["minute"], first: 0, last: MINUTE_LAST },
-        { text: fields["second"], first: 0, last: SECOND_LAST },
-        { text: fields["offsetHour"], first: 0, last: OFFSET_HOUR_LAST },
-        { text: fields["offsetMinute"], first: 0, last: MINUTE_LAST },
-    ];
-    for (const range of ranges) {
-        if (!isWithin(range)) {
+    const isDayValid = day >= DAY_FIRST && day <= dayLast;
+    if (!isDayValid) {
+        return false;
+    }
+    const hour = readDigits(value, { start: HOUR_INDEX, length: FIELD_LENGTH });
+    const minute = readDigits(value, { start: MINUTE_INDEX, length: FIELD_LENGTH });
+    const second = readDigits(value, { start: SECOND_INDEX, length: FIELD_LENGTH });
+    const isHourValid = hour <= HOUR_LAST;
+    const isMinuteValid = minute <= MINUTE_LAST;
+    const isSecondValid = second <= SECOND_LAST;
+    const isHourMinuteValid = isHourValid && isMinuteValid;
+    const isTimeValid = isHourMinuteValid && isSecondValid;
+    if (!isTimeValid) {
+        return false;
+    }
+    const zoneIndex = findZoneIndex(value);
+    return isZoneAt(value, zoneIndex);
+}
+
+function isDigitAt(value: string, index: number) {
+    // Past the end, charCodeAt returns NaN, which fails both comparisons.
+    const code = value.charCodeAt(index);
+    return code >= ZERO_CODE && code <= NINE_CODE;
+}
+
+/** Reads a run of digits the caller has checked as a decimal number. */
+function readDigits(value: string, run: { readonly start: number; readonly length: number }) {
+    let number = 0;
+    const end = run.start + run.length;
+    for (let index = run.start; index < end; index += 1) {
+        const digit = value.charCodeAt(index) - ZERO_CODE;
+        number = number * DECIMAL_BASE + digit;
+    }
+    return number;
+}
+
+function matchesHead(value: string) {
+    const isLongEnough = value.length >= HEAD_LAYOUT.length;
+    if (!isLongEnough) {
+        return false;
+    }
+    for (let index = 0; index < HEAD_LAYOUT.length; index += 1) {
+        const expected = HEAD_LAYOUT[index];
+        if (expected === DIGIT_PLACEHOLDER) {
+            const isDigit = isDigitAt(value, index);
+            if (!isDigit) {
+                return false;
+            }
+            continue;
+        }
+        const isLiteral = value[index] === expected;
+        if (!isLiteral) {
             return false;
         }
     }
     return true;
+}
+
+/** The index the zone begins at, past the head and any fraction of a second. */
+function findZoneIndex(value: string) {
+    const fractionIndex = HEAD_LAYOUT.length;
+    const hasFraction = value[fractionIndex] === FRACTION_SEPARATOR;
+    if (!hasFraction) {
+        return fractionIndex;
+    }
+    const digitsIndex = fractionIndex + 1;
+    let index = digitsIndex;
+    for (; index < value.length; index += 1) {
+        const isDigit = isDigitAt(value, index);
+        if (!isDigit) {
+            break;
+        }
+    }
+    // A separator with no digits after it is not a fraction, and no zone begins with one.
+    if (index === digitsIndex) {
+        return fractionIndex;
+    }
+    return index;
+}
+
+/** Whether the rest of `value` from `index` is exactly 'Z' or an offset of hours and minutes in range. */
+function isZoneAt(value: string, index: number) {
+    const sign = value[index];
+    if (sign === UTC_DESIGNATOR) {
+        return value.length === index + 1;
+    }
+    const isSign = sign === OFFSET_PLUS || sign === OFFSET_MINUS;
+    if (!isSign) {
+        return false;
+    }
+    const hourIndex = index + 1;
+    const separatorIndex = hourIndex + FIELD_LENGTH;
+    let minuteIndex = separatorIndex;
+    if (value[separatorIndex] === OFFSET_SEPARATOR) {
+        minuteIndex += 1;
+    }
+    const zoneEnd = minuteIndex + FIELD_LENGTH;
+    const isZoneLength = value.length === zoneEnd;
+    if (!isZoneLength) {
+        return false;
+    }
+    const areHourDigits = isDigitAt(value, hourIndex) && isDigitAt(value, hourIndex + 1);
+    const areMinuteDigits = isDigitAt(value, minuteIndex) && isDigitAt(value, minuteIndex + 1);
+    const areDigits = areHourDigits && areMinuteDigits;
+    if (!areDigits) {
+        return false;
+    }
+    const offsetHour = readDigits(value, { start: hourIndex, length: FIELD_LENGTH });
+    const offsetMinute = readDigits(value, { start: minuteIndex, length: FIELD_LENGTH });
+    const isOffsetHourValid = offsetHour <= OFFSET_HOUR_LAST;
+    return isOffsetHourValid && offsetMinute <= MINUTE_LAST;
+}
+
+/** Whether `year` is a leap year of the proleptic Gregorian calendar, year 0000 included. */
+function isLeapYear(year: number) {
+    const isQuadrennial = year % LEAP_YEAR_INTERVAL === 0;
+    const isCentury = year % CENTURY_YEARS === 0;
+    const isQuadricentennial = year % QUADRICENTENNIAL_YEARS === 0;
+    const passesCenturyRule = !isCentury || isQuadricentennial;
+    return isQuadrennial && passesCenturyRule;
+}
+
+function daysInMonth(date: { readonly year: number; readonly month: number }) {
+    const isFebruary = date.month === FEBRUARY;
+    const isLeapFebruary = isFebruary && isLeapYear(date.year);
+    if (isLeapFebruary) {
+        return FEBRUARY_LEAP_DAYS;
+    }
+    const days = commonYearMonthDays[date.month - 1];
+    assertCondition(days !== undefined, `Month ${date.month} has no day count.`);
+    return days;
 }
 
 function toDateTime(value: string, context: z.core.$RefinementCtx<string>) {
