@@ -43,7 +43,7 @@ The work is on the branch `rebuild`, created from `origin/main`, and is open as 
 | `c9d8b11`, `28d6f75` | A test that a consumer stopping early closes the stream's source. |
 | `78c9c23` | The spec's example playlists under `tests/fixtures/spec/`, their extraction script, and their outcomes (decision 77). |
 | `cd9ac5f` | Output objects' source text in private fields in place of WeakMaps (decision 78). |
-| `355e1cf` | `bench/parsers.bench.ts` against hls.js, m3u8-parser, and hls-parser (decision 79). |
+| `355e1cf` | `bench/parsers.bench.ts` against `hls.js`, `m3u8-parser`, and `hls-parser` (decision 79). |
 | `db77cc0` | February 29 of year 0000 accepted, and characterization cases for the date-time pattern. |
 | `c65963e`, `02f7d49` | `npm run bench` under native imports through `bench/vitest.config.ts` and `bench/resolve-ts-extensions.ts` (decision 80). |
 | `2e550ce` | A line's bytes counted only where a bound needs them, and an ASCII line's edges tested without a regex. |
